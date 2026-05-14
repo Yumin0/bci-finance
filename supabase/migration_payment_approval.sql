@@ -1,0 +1,21 @@
+-- 執行位置：Supabase Dashboard > SQL Editor
+
+ALTER TABLE funds_payment
+  ADD COLUMN IF NOT EXISTS status          TEXT NOT NULL DEFAULT '草稿',
+  ADD COLUMN IF NOT EXISTS updated_at      TIMESTAMPTZ DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS step1_decision  TEXT,
+  ADD COLUMN IF NOT EXISTS step1_comment   TEXT,
+  ADD COLUMN IF NOT EXISTS step1_reviewer  UUID,
+  ADD COLUMN IF NOT EXISTS step1_at        TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS step2_decision  TEXT,
+  ADD COLUMN IF NOT EXISTS step2_comment   TEXT,
+  ADD COLUMN IF NOT EXISTS step2_reviewer  UUID,
+  ADD COLUMN IF NOT EXISTS step2_at        TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS step3_decision  TEXT,
+  ADD COLUMN IF NOT EXISTS step3_comment   TEXT,
+  ADD COLUMN IF NOT EXISTS step3_reviewer  UUID,
+  ADD COLUMN IF NOT EXISTS step3_at        TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS step4_decision  TEXT,
+  ADD COLUMN IF NOT EXISTS step4_comment   TEXT,
+  ADD COLUMN IF NOT EXISTS step4_reviewer  UUID,
+  ADD COLUMN IF NOT EXISTS step4_at        TIMESTAMPTZ;
