@@ -98,6 +98,18 @@ export default async function RootLayout({
                 </li>
               ))}
             </ul>
+            <p style={{ padding: '16px 24px 8px', fontSize: 12, fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>回報問題</p>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              {[
+                { href: '/report-issue', label: '提交問題回報' },
+              ].map(({ href, label }) => (
+                <li key={href}>
+                  <Link href={href} style={{ display: 'block', padding: '10px 24px', textDecoration: 'none', color: '#374151', fontSize: 14 }}>
+                    {label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </nav>
           <main style={{ marginLeft: 220, flex: 1, padding: 32 }}>
             {children}
