@@ -45,6 +45,14 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
     ],
   },
   {
+    id: 'finance',
+    label: '財務管理',
+    entries: [
+      { kind: 'item', id: 'finance-funds', label: '資金管理', href: '/finance/funds' },
+      { kind: 'item', id: 'finance-payment', label: '付款憑單管理', href: '/finance/payment' },
+    ],
+  },
+  {
     id: 'system-settings',
     label: '系統設定',
     entries: [
