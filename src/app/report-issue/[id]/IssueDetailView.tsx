@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { DevTracker, IssueStatus, IssueType, AppUser } from '@/lib/types'
 import { saveHtml, updateIssueStatus, updateIssueType, assignIssue } from '@/app/actions/dev-tracker'
+import { formatDate } from '@/lib/dateUtils'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -126,7 +127,7 @@ export default function IssueDetailView({
           <span style={{ ...chip, background: '#f3f4f6', color: '#6b7280' }}>{issue.module}</span>
         )}
         <span style={{ fontSize: 12, color: '#9ca3af' }}>
-          建立者：{issue.created_by ? (userMap[issue.created_by] ?? '-') : '-'}　{issue.created_at?.slice(0, 10)}
+          建立者：{issue.created_by ? (userMap[issue.created_by] ?? '-') : '-'}　{formatDate(issue.created_at)}
         </span>
         <span style={{ fontSize: 12, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 4 }}>
           承接：

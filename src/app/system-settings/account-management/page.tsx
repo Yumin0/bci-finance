@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { formatDate } from '@/lib/dateUtils'
 
 type AppUser = {
   id: number
@@ -7,13 +8,6 @@ type AppUser = {
   name: string
   created_at: string
   updated_at: string | null
-}
-
-function formatDate(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('zh-TW', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  })
 }
 
 export default async function AccountManagementPage() {

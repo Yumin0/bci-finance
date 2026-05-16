@@ -4,6 +4,7 @@ import { useState, useRef, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { DevTracker, IssueStatus, AppUser } from '@/lib/types'
 import { submitIssue, updateIssueStatus, assignIssue, IssueFormState } from '@/app/actions/dev-tracker'
+import { formatDate } from '@/lib/dateUtils'
 
 const TYPE_LABEL: Record<string, string> = { feature: '新功能許願', bug: 'Bug回報', performance: '技術效能優化' }
 const PRIORITY_LABEL: Record<string, string> = { low: '低', medium: '中', high: '高', critical: '緊急' }
@@ -412,7 +413,7 @@ export default function IssueListView({
                   {issue.created_by ? (userMap[issue.created_by] ?? '-') : '-'}
                 </td>
                 <td style={{ ...td, whiteSpace: 'nowrap', color: '#6b7280' }}>
-                  {issue.created_at ? issue.created_at.slice(0, 10) : '-'}
+                  {formatDate(issue.created_at)}
                 </td>
                 <td style={td}>
                   <select
@@ -427,7 +428,7 @@ export default function IssueListView({
                   </select>
                 </td>
                 <td style={{ ...td, whiteSpace: 'nowrap', color: '#6b7280' }}>
-                  {issue.completed_at ? issue.completed_at.slice(0, 10) : '-'}
+                  {formatDate(issue.completed_at)}
                 </td>
                 <td style={td}>
                   <Link
