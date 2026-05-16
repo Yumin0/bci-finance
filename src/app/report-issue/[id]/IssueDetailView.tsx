@@ -43,6 +43,7 @@ function buildInitialHtml(
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const TYPE_COLOR: Record<string, React.CSSProperties> = {
+  improvement: { background: '#ede9fe', color: '#7c3aed' },
   feature: { background: '#dbeafe', color: '#2563eb' },
   bug: { background: '#fee2e2', color: '#dc2626' },
   performance: { background: '#d1fae5', color: '#065f46' },
@@ -105,6 +106,7 @@ export default function IssueDetailView({
           }}
           style={{ ...chip, ...TYPE_COLOR[currentType], border: 'none', cursor: 'pointer', fontWeight: 500 }}
         >
+          <option value="improvement">小優化許願</option>
           <option value="feature">新功能許願</option>
           <option value="bug">Bug回報</option>
           <option value="performance">技術效能優化</option>

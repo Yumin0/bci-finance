@@ -108,7 +108,7 @@ export type Block =
   | { id: string; type: 'text'; content: string }
   | { id: string; type: 'image'; url: string }
 
-export type IssueType = 'feature' | 'bug' | 'performance'
+export type IssueType = 'improvement' | 'feature' | 'bug' | 'performance'
 export type IssuePriority = 'low' | 'medium' | 'high' | 'critical'
 export type IssueStatus = 'pending' | 'in_progress' | 'completed' | 'rejected' | 'on_hold'
 

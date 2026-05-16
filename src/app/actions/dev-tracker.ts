@@ -20,7 +20,7 @@ export async function submitIssue(
   const module = (formData.get('module') as string)?.trim() || null
   const beforeDescription = (formData.get('before_description') as string)?.trim() || null
 
-  if (!type || !['feature', 'bug', 'performance'].includes(type)) return { error: '請選擇問題類型' }
+  if (!type || !['improvement', 'feature', 'bug', 'performance'].includes(type)) return { error: '請選擇問題類型' }
   if (!title) return { error: '請填寫標題' }
 
   // Strip HTML tags to generate plain-text preview for the list view
@@ -48,7 +48,7 @@ export async function submitIssue(
 }
 
 export async function updateIssueType(id: number, type: string): Promise<{ error?: string }> {
-  if (!['feature', 'bug', 'performance'].includes(type)) return { error: '無效類型' }
+  if (!['improvement', 'feature', 'bug', 'performance'].includes(type)) return { error: '無效類型' }
   const { error } = await supabase
     .from('dev_tracker')
     .update({ type, updated_at: new Date().toISOString() })
