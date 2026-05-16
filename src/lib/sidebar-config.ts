@@ -54,11 +54,10 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
         label: '管理權限設定',
         items: [
           { kind: 'item', id: 'account-management', label: '帳號管理', href: '/system-settings/account-management' },
-          { kind: 'item', id: 'org-structure', label: '組織架構設定', href: '/system-settings/org-structure' },
+          { kind: 'item', id: 'org-structure', label: '組織架構與職位設定', href: '/system-settings/org-structure' },
         ],
       },
       { kind: 'item', id: 'expense-fields', label: '支出欄位設定', href: '/system-settings/expense-fields' },
-      { kind: 'item', id: 'position-settings', label: '職位設定', href: '/system-settings/position-settings' },
       { kind: 'item', id: 'sidebar-customization', label: '側邊欄自定義設定', href: '/system-settings/sidebar-customization' },
     ],
   },
