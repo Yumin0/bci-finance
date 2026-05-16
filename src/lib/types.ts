@@ -135,6 +135,15 @@ export type DevTracker = {
   updated_at: string
 }
 
+export type SystemRole = {
+  id: number
+  name: string
+  is_admin: boolean
+  allowed_item_ids: string[]
+  sort_order: number
+  created_at: string
+}
+
 export type ExpenseItem = {
   id: number
   label: string

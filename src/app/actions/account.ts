@@ -33,7 +33,10 @@ export async function updateAccount(userId: number, _state: UpdateState, formDat
     return { errors: { email: ['此 Email 已被其他帳號使用'] } }
   }
 
-  const updates: Record<string, unknown> = { name, email, updated_at: new Date().toISOString() }
+  const systemRoleIdRaw = formData.get('system_role_id') as string
+  const systemRoleId = systemRoleIdRaw ? Number(systemRoleIdRaw) : null
+
+  const updates: Record<string, unknown> = { name, email, system_role_id: systemRoleId, updated_at: new Date().toISOString() }
   if (password) {
     updates.password_hash = await bcrypt.hash(password, 10)
   }

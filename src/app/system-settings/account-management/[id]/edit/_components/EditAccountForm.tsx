@@ -2,10 +2,11 @@
 import { useActionState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateAccount } from '@/app/actions/account'
+import type { SystemRole } from '@/lib/types'
 
-type User = { id: number; email: string; name: string }
+type User = { id: number; email: string; name: string; system_role_id: number | null }
 
-export default function EditAccountForm({ user }: { user: User }) {
+export default function EditAccountForm({ user, systemRoles }: { user: User; systemRoles: SystemRole[] }) {
   const router = useRouter()
   const [state, action, pending] = useActionState(updateAccount.bind(null, user.id), undefined)
 
@@ -28,6 +29,18 @@ export default function EditAccountForm({ user }: { user: User }) {
           <label style={labelStyle}>新密碼（留空則不更改）</label>
           <input name="password" type="password" placeholder="留空則不更改" style={inputStyle} />
           {state?.errors?.password && <p style={errorStyle}>{state.errors.password[0]}</p>}
+        </div>
+        <div>
+          <label style={labelStyle}>系統角色（直接指派）</label>
+          <select name="system_role_id" defaultValue={user.system_role_id ?? ''} style={inputStyle}>
+            <option value="">依組織職位決定</option>
+            {systemRoles.map(r => (
+              <option key={r.id} value={r.id}>
+                {r.name}{r.is_admin ? '（系統管理員）' : ''}
+              </option>
+            ))}
+          </select>
+          <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>留空則依此人在組織架構中的職位自動判斷權限</p>
         </div>
 
         {state?.message && <p style={errorStyle}>{state.message}</p>}

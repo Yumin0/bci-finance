@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { logout } from "@/app/actions/auth";
 import SidebarNav from "@/app/_components/SidebarNav";
-import { getSidebarConfig } from "@/app/actions/sidebar-config";
+import { getSidebarConfigForUser } from "@/app/actions/sidebar-config";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,7 +27,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [session, sidebarConfig] = await Promise.all([getSession(), getSidebarConfig()])
+  const session = await getSession()
+  const sidebarConfig = session ? await getSidebarConfigForUser(session.userId) : []
 
   return (
     <html
