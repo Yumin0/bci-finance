@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { supabase } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
+import { Block } from '@/lib/types'
 
 export type IssueFormState = { error?: string; success?: boolean } | undefined
 
@@ -58,6 +59,72 @@ export async function assignIssue(id: number, assignedTo: number | null): Promis
 
   if (error) return { error: '更新失敗' }
 
+  revalidatePath('/report-issue')
+  return {}
+}
+
+export async function saveHtml(
+  id: number,
+  side: 'before' | 'after',
+  html: string,
+): Promise<{ error?: string }> {
+  const patch = side === 'before'
+    ? { before_description: html }
+    : { after_description: html }
+
+  const { error } = await supabase
+    .from('dev_tracker')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) return { error: '儲存失敗' }
+
+  revalidatePath(`/report-issue/${id}`)
+  revalidatePath('/report-issue')
+  return {}
+}
+
+export async function saveBlocks(
+  id: number,
+  side: 'before' | 'after',
+  blocks: Block[],
+): Promise<{ error?: string }> {
+  const patch = side === 'before' ? { before_blocks: blocks } : { after_blocks: blocks }
+
+  const { error } = await supabase
+    .from('dev_tracker')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) return { error: '儲存失敗，請稍後再試' }
+
+  revalidatePath(`/report-issue/${id}`)
+  revalidatePath('/report-issue')
+  return {}
+}
+
+export async function updateBeforeAfter(
+  id: number,
+  side: 'before' | 'after',
+  description: string | null,
+  images: string[],
+): Promise<{ error?: string }> {
+  const patch =
+    side === 'before'
+      ? { before_description: description, before_images: images }
+      : { after_description: description, after_images: images }
+
+  const completedPatch =
+    side === 'after' ? { completed_at: description ? new Date().toISOString() : null } : {}
+
+  const { error } = await supabase
+    .from('dev_tracker')
+    .update({ ...patch, ...completedPatch, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) return { error: '儲存失敗，請稍後再試' }
+
+  revalidatePath(`/report-issue/${id}`)
   revalidatePath('/report-issue')
   return {}
 }

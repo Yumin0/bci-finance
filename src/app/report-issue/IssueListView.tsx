@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useActionState, useTransition, useEffect } from 'react'
+import Link from 'next/link'
 import { DevTracker, IssueStatus, AppUser } from '@/lib/types'
 import { submitIssue, updateIssueStatus, assignIssue, IssueFormState } from '@/app/actions/dev-tracker'
 
@@ -184,7 +185,7 @@ export default function IssueListView({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              {['類型', '標題', '優先級', '狀態', '模組', '建立者', '建立日期', '承接開發者', '完成日期'].map((col) => (
+              {['類型', '標題', '優先級', '狀態', '模組', '建立者', '建立日期', '承接開發者', '完成日期', ''].map((col) => (
                 <th key={col} style={th}>{col}</th>
               ))}
             </tr>
@@ -260,6 +261,14 @@ export default function IssueListView({
                 </td>
                 <td style={{ ...td, whiteSpace: 'nowrap', color: '#6b7280' }}>
                   {issue.completed_at ? issue.completed_at.slice(0, 10) : '-'}
+                </td>
+                <td style={td}>
+                  <Link
+                    href={`/report-issue/${issue.id}`}
+                    style={{ fontSize: 12, color: '#374151', border: '1px solid #d1d5db', borderRadius: 4, padding: '3px 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                  >
+                    檢視
+                  </Link>
                 </td>
               </tr>
             ))}

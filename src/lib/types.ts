@@ -104,6 +104,10 @@ export type DropdownOption = {
   created_at: string
 }
 
+export type Block =
+  | { id: string; type: 'text'; content: string }
+  | { id: string; type: 'image'; url: string }
+
 export type IssueType = 'bug' | 'feature'
 export type IssuePriority = 'low' | 'medium' | 'high' | 'critical'
 export type IssueStatus = 'pending' | 'in_progress' | 'completed' | 'rejected' | 'on_hold'
@@ -121,6 +125,12 @@ export type DevTracker = {
   assigned_to: number | null
   estimated_at: string | null
   completed_at: string | null
+  before_description: string | null
+  before_images: string[]
+  after_description: string | null
+  after_images: string[]
+  before_blocks: Block[] | null
+  after_blocks: Block[] | null
   created_at: string
   updated_at: string
 }
