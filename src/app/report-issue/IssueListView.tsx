@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useActionState, useTransition, useEffect } from 'react'
+import { useState, useRef, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { DevTracker, IssueStatus, AppUser } from '@/lib/types'
 import { submitIssue, updateIssueStatus, assignIssue, IssueFormState } from '@/app/actions/dev-tracker'
@@ -55,14 +55,111 @@ export default function IssueListView({
   currentUserId: number | null
 }) {
   const [showForm, setShowForm] = useState(false)
-  const [state, action, pending] = useActionState<IssueFormState, FormData>(submitIssue, undefined)
+  const [state, setState] = useState<IssueFormState>(undefined)
+  const [isPending, startFormTransition] = useTransition()
   const [, startStatusTransition] = useTransition()
+  const [uploading, setUploading] = useState(false)
+  const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const tempId = useRef(`new-${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
   const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]))
 
   useEffect(() => {
-    if (state?.success) setShowForm(false)
+    if (state?.success) {
+      setShowForm(false)
+      setSelectedImg(null)
+      if (editorRef.current) editorRef.current.innerHTML = ''
+      tempId.current = `new-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    }
   }, [state])
+
+  // Clear selection on any scroll so the fixed overlay doesn't drift
+  useEffect(() => {
+    const onScroll = () => setSelectedImg(null)
+    window.addEventListener('scroll', onScroll, true)
+    return () => window.removeEventListener('scroll', onScroll, true)
+  }, [])
+
+  function handleEditorClick(e: React.MouseEvent) {
+    const target = e.target as HTMLElement
+    if (target.tagName === 'IMG') {
+      setSelectedImg(target as HTMLImageElement)
+    } else {
+      setSelectedImg(null)
+    }
+  }
+
+  function handleResizeMouseDown(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!selectedImg) return
+
+    const startX = e.clientX
+    const startW = selectedImg.getBoundingClientRect().width
+
+    function onMove(ev: MouseEvent) {
+      const newW = Math.max(40, startW + (ev.clientX - startX))
+      selectedImg!.style.width = `${newW}px`
+      selectedImg!.style.maxWidth = '100%'
+      if (overlayRef.current) {
+        const r = selectedImg!.getBoundingClientRect()
+        overlayRef.current.style.left = `${r.left}px`
+        overlayRef.current.style.top = `${r.top}px`
+        overlayRef.current.style.width = `${r.width}px`
+        overlayRef.current.style.height = `${r.height}px`
+      }
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  async function uploadAndInsert(file: File) {
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('issueId', tempId.current)
+    const res = await fetch('/api/upload-image', { method: 'POST', body: fd })
+    const json = await res.json()
+    setUploading(false)
+    if (json.url) {
+      editorRef.current?.focus()
+      document.execCommand(
+        'insertHTML',
+        false,
+        `<img src="${json.url}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;" /><br>`,
+      )
+    } else {
+      alert('上傳失敗：' + (json.error ?? '未知錯誤'))
+    }
+  }
+
+  function handleEditorPaste(e: React.ClipboardEvent) {
+    const imageItem = Array.from(e.clipboardData.items).find((item) => item.type.startsWith('image/'))
+    if (imageItem) {
+      e.preventDefault()
+      const file = imageItem.getAsFile()
+      if (file) uploadAndInsert(file)
+    }
+  }
+
+  function handleFormSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    fd.set('before_description', editorRef.current?.innerHTML ?? '')
+    startFormTransition(async () => {
+      const result = await submitIssue(undefined, fd)
+      setState(result)
+    })
+  }
 
   function handleStatusChange(id: number, status: string) {
     startStatusTransition(async () => {
@@ -106,7 +203,7 @@ export default function IssueListView({
           background: '#f9fafb',
         }}>
           <h2 style={{ fontSize: 15, fontWeight: 600, marginTop: 0, marginBottom: 20 }}>新增回報</h2>
-          <form action={action} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
               <div>
                 <label style={labelStyle}>類型 *</label>
@@ -148,11 +245,56 @@ export default function IssueListView({
             </div>
             <div>
               <label style={labelStyle}>詳細描述</label>
-              <textarea
-                name="description"
-                rows={4}
-                placeholder="請描述問題的發生情況、操作步驟、預期結果，或是新功能的使用情境"
-                style={{ ...inputStyle, resize: 'vertical' }}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  style={{ fontSize: 12, border: '1px solid #d1d5db', borderRadius: 4, padding: '4px 10px', background: '#fff', cursor: uploading ? 'not-allowed' : 'pointer', color: '#374151' }}
+                >
+                  {uploading ? '上傳中...' : '📷 插入截圖'}
+                </button>
+                <span style={{ fontSize: 11, color: '#9ca3af' }}>或直接貼上圖片（Cmd+V）／拖曳</span>
+              </div>
+              <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                onPaste={handleEditorPaste}
+                onClick={handleEditorClick}
+                onInput={() => {
+                  if (selectedImg && !selectedImg.isConnected) setSelectedImg(null)
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  Array.from(e.dataTransfer.files)
+                    .filter((f) => f.type.startsWith('image/'))
+                    .forEach((f) => uploadAndInsert(f))
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                style={{
+                  minHeight: 120,
+                  border: '1px solid #d1d5db',
+                  borderRadius: 6,
+                  padding: '8px 10px',
+                  fontSize: 13,
+                  lineHeight: 1.8,
+                  color: '#111827',
+                  outline: 'none',
+                  wordBreak: 'break-word',
+                  background: '#fff',
+                }}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  Array.from(e.target.files ?? []).forEach((f) => uploadAndInsert(f))
+                  e.target.value = ''
+                }}
               />
             </div>
             {state?.error && (
@@ -164,19 +306,19 @@ export default function IssueListView({
             <div>
               <button
                 type="submit"
-                disabled={pending}
+                disabled={isPending}
                 style={{
-                  background: pending ? '#93c5fd' : '#2563eb',
+                  background: isPending ? '#93c5fd' : '#2563eb',
                   color: '#fff',
                   border: 'none',
                   borderRadius: 6,
                   padding: '9px 24px',
                   fontSize: 14,
                   fontWeight: 500,
-                  cursor: pending ? 'not-allowed' : 'pointer',
+                  cursor: isPending ? 'not-allowed' : 'pointer',
                 }}
               >
-                {pending ? '提交中...' : '送出回報'}
+                {isPending ? '提交中...' : '送出回報'}
               </button>
             </div>
           </form>
@@ -277,6 +419,23 @@ export default function IssueListView({
           </tbody>
         </table>
       </div>
+
+      {/* Drag-resize overlay — position:fixed so it floats above the editor */}
+      {selectedImg && selectedImg.isConnected && (() => {
+        const r = selectedImg.getBoundingClientRect()
+        return (
+          <div
+            ref={overlayRef}
+            style={{ position: 'fixed', left: r.left, top: r.top, width: r.width, height: r.height, outline: '2px solid #2563eb', borderRadius: 4, pointerEvents: 'none', zIndex: 1000, boxSizing: 'border-box' }}
+          >
+            <div
+              onMouseDown={handleResizeMouseDown}
+              title="拖曳調整大小"
+              style={{ position: 'absolute', right: -5, bottom: -5, width: 12, height: 12, background: '#2563eb', border: '2px solid #fff', borderRadius: '50%', cursor: 'se-resize', pointerEvents: 'all' }}
+            />
+          </div>
+        )
+      })()}
     </div>
   )
 }

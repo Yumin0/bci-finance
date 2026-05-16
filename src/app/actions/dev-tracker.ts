@@ -16,22 +16,30 @@ export async function submitIssue(
 
   const type = formData.get('type') as string
   const title = (formData.get('title') as string)?.trim()
-  const description = (formData.get('description') as string)?.trim() || null
   const priority = formData.get('priority') as string
   const module = (formData.get('module') as string)?.trim() || null
+  const beforeDescription = (formData.get('before_description') as string)?.trim() || null
 
   if (!type || !['feature', 'bug', 'performance'].includes(type)) return { error: '請選擇問題類型' }
   if (!title) return { error: '請填寫標題' }
 
-  const { error } = await supabase.from('dev_tracker').insert({
-    type,
-    title,
-    description,
-    priority,
-    module,
-    created_by: session.userId,
-    status: 'pending',
-  })
+  // Strip HTML tags to generate plain-text preview for the list view
+  const plainText = beforeDescription
+    ? beforeDescription.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || null
+    : null
+
+  const { error } = await supabase
+    .from('dev_tracker')
+    .insert({
+      type,
+      title,
+      description: plainText,
+      before_description: beforeDescription,
+      priority,
+      module,
+      created_by: session.userId,
+      status: 'pending',
+    })
 
   if (error) return { error: '提交失敗，請稍後再試' }
 
