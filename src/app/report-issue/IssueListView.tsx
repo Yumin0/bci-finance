@@ -54,6 +54,7 @@ export default function IssueListView({
   users: Pick<AppUser, 'id' | 'name'>[]
   currentUserId: number | null
 }) {
+  const [activeTab, setActiveTab] = useState<'feature' | 'bug' | 'performance'>('feature')
   const [showForm, setShowForm] = useState(false)
   const [state, setState] = useState<IssueFormState>(undefined)
   const [isPending, startFormTransition] = useTransition()
@@ -325,6 +326,28 @@ export default function IssueListView({
         </div>
       )}
 
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e5e7eb' }}>
+        {(['feature', 'bug', 'performance'] as const).map((type) => (
+          <button
+            key={type}
+            onClick={() => setActiveTab(type)}
+            style={{
+              padding: '8px 20px',
+              fontSize: 13,
+              fontWeight: 500,
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              color: activeTab === type ? '#2563eb' : '#6b7280',
+              borderBottom: activeTab === type ? '2px solid #2563eb' : '2px solid transparent',
+              marginBottom: -2,
+            }}
+          >
+            {TYPE_LABEL[type]}
+          </button>
+        ))}
+      </div>
+
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
@@ -335,14 +358,14 @@ export default function IssueListView({
             </tr>
           </thead>
           <tbody>
-            {issues.length === 0 && (
+            {issues.filter((issue) => issue.type === activeTab).length === 0 && (
               <tr>
                 <td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', color: '#9ca3af' }}>
                   尚無任何回報紀錄
                 </td>
               </tr>
             )}
-            {issues.map((issue) => (
+            {issues.filter((issue) => issue.type === activeTab).map((issue) => (
               <tr key={issue.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                 <td style={td}>
                   <span style={{ ...badge, ...TYPE_COLOR[issue.type] }}>
