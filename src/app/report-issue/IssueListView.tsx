@@ -30,25 +30,16 @@ const STATUS_COLOR: Record<IssueStatus, React.CSSProperties> = {
   on_hold: { background: '#fef3c7', color: '#d97706' },
 }
 
-const MODULE_OPTIONS = [
-  '資金分配申請',
-  '付款憑單',
-  '單據審核',
-  '系統設定',
-  '權限管理',
-  '側邊欄設定',
-  '問題回報',
-  '其他',
-]
-
 export default function IssueListView({
   issues,
   users,
   currentUserId,
+  moduleOptions,
 }: {
   issues: DevTracker[]
   users: Pick<AppUser, 'id' | 'name'>[]
   currentUserId: number | null
+  moduleOptions: string[]
 }) {
   const [activeTab, setActiveTab] = useState<'improvement' | 'feature' | 'bug' | 'performance'>('improvement')
   const [showForm, setShowForm] = useState(false)
@@ -225,7 +216,7 @@ export default function IssueListView({
                 <label style={labelStyle}>影響模組</label>
                 <select name="module" style={inputStyle}>
                   <option value="">請選擇（選填）</option>
-                  {MODULE_OPTIONS.map((m) => (
+                  {moduleOptions.map((m) => (
                     <option key={m} value={m}>{m}</option>
                   ))}
                 </select>

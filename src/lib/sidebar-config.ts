@@ -75,6 +75,7 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
     label: '回報問題',
     entries: [
       { kind: 'item', id: 'report-issue', label: '提交問題回報', href: '/report-issue' },
+      { kind: 'item', id: 'issue-module-settings', label: '影響模組自定義', href: '/report-issue/module-settings' },
     ],
   },
 ]
