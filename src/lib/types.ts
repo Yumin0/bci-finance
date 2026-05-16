@@ -104,6 +104,27 @@ export type DropdownOption = {
   created_at: string
 }
 
+export type IssueType = 'bug' | 'feature'
+export type IssuePriority = 'low' | 'medium' | 'high' | 'critical'
+export type IssueStatus = 'pending' | 'in_progress' | 'completed' | 'rejected' | 'on_hold'
+
+export type DevTracker = {
+  id: number
+  type: IssueType
+  title: string
+  description: string | null
+  priority: IssuePriority
+  status: IssueStatus
+  module: string | null
+  workaround: string | null
+  created_by: number | null
+  assigned_to: number | null
+  estimated_at: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type ExpenseItem = {
   id: number
   label: string
