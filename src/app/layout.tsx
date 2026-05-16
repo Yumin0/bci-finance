@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { logout } from "@/app/actions/auth";
 import SidebarNav from "@/app/_components/SidebarNav";
+import { getSidebarConfig } from "@/app/actions/sidebar-config";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,7 +27,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getSession()
+  const [session, sidebarConfig] = await Promise.all([getSession(), getSidebarConfig()])
 
   return (
     <html
@@ -51,7 +52,7 @@ export default async function RootLayout({
         </header>
         <div style={{ display: 'flex', marginTop: 52, minHeight: 'calc(100vh - 52px)' }}>
           <nav style={{ position: 'fixed', top: 52, left: 0, bottom: 0, width: 220, background: '#f9fafb', borderRight: '1px solid #e5e7eb', padding: '24px 0', overflowY: 'auto' }}>
-            <SidebarNav />
+            <SidebarNav config={sidebarConfig} />
           </nav>
           <main style={{ marginLeft: 220, flex: 1, padding: 32 }}>
             {children}

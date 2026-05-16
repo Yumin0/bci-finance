@@ -1,26 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { DEFAULT_SIDEBAR_CONFIG, SIDEBAR_STORAGE_KEY, type SidebarCategory, type SidebarGroup } from '@/lib/sidebar-config'
+import { useState } from 'react'
+import { type SidebarCategory, type SidebarGroup } from '@/lib/sidebar-config'
 
-export default function SidebarNav() {
-  const [config, setConfig] = useState<SidebarCategory[]>(DEFAULT_SIDEBAR_CONFIG)
+export default function SidebarNav({ config }: { config: SidebarCategory[] }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    function load() {
-      try {
-        const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
-        setConfig(stored ? JSON.parse(stored) : DEFAULT_SIDEBAR_CONFIG)
-      } catch {
-        // ignore
-      }
-    }
-    load()
-    window.addEventListener('storage', load)
-    return () => window.removeEventListener('storage', load)
-  }, [])
 
   function toggleGroup(id: string) {
     setCollapsed(prev => {
