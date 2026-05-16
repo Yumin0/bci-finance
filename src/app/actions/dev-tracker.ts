@@ -60,9 +60,10 @@ export async function updateIssueType(id: number, type: string): Promise<{ error
 }
 
 export async function updateIssueStatus(id: number, status: string): Promise<{ error?: string }> {
+  const completed_at = status === 'completed' ? new Date().toISOString() : null
   const { error } = await supabase
     .from('dev_tracker')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status, completed_at, updated_at: new Date().toISOString() })
     .eq('id', id)
 
   if (error) return { error: '更新失敗' }
