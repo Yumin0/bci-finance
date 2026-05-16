@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { DevTracker, IssueStatus, AppUser } from '@/lib/types'
 import { submitIssue, updateIssueStatus, assignIssue, IssueFormState } from '@/app/actions/dev-tracker'
 
-const TYPE_LABEL: Record<string, string> = { bug: 'Bug', feature: '新功能' }
+const TYPE_LABEL: Record<string, string> = { feature: '新功能許願', bug: 'Bug回報', performance: '技術效能優化' }
 const PRIORITY_LABEL: Record<string, string> = { low: '低', medium: '中', high: '高', critical: '緊急' }
 const STATUS_LABEL: Record<IssueStatus, string> = {
   pending: '待處理',
@@ -16,8 +16,9 @@ const STATUS_LABEL: Record<IssueStatus, string> = {
 }
 
 const TYPE_COLOR: Record<string, React.CSSProperties> = {
-  bug: { background: '#fee2e2', color: '#dc2626' },
   feature: { background: '#dbeafe', color: '#2563eb' },
+  bug: { background: '#fee2e2', color: '#dc2626' },
+  performance: { background: '#d1fae5', color: '#065f46' },
 }
 const PRIORITY_COLOR: Record<string, React.CSSProperties> = {
   low: { background: '#f3f4f6', color: '#6b7280' },
@@ -111,8 +112,9 @@ export default function IssueListView({
                 <label style={labelStyle}>類型 *</label>
                 <select name="type" required style={inputStyle}>
                   <option value="">請選擇</option>
-                  <option value="bug">Bug 修復</option>
-                  <option value="feature">新功能需求</option>
+                  <option value="feature">新功能許願</option>
+                  <option value="bug">Bug回報</option>
+                  <option value="performance">技術效能優化</option>
                 </select>
               </div>
               <div>

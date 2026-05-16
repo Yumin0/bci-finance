@@ -20,7 +20,7 @@ export async function submitIssue(
   const priority = formData.get('priority') as string
   const module = (formData.get('module') as string)?.trim() || null
 
-  if (!type || !['bug', 'feature'].includes(type)) return { error: '請選擇問題類型' }
+  if (!type || !['feature', 'bug', 'performance'].includes(type)) return { error: '請選擇問題類型' }
   if (!title) return { error: '請填寫標題' }
 
   const { error } = await supabase.from('dev_tracker').insert({
@@ -37,6 +37,18 @@ export async function submitIssue(
 
   revalidatePath('/report-issue')
   return { success: true }
+}
+
+export async function updateIssueType(id: number, type: string): Promise<{ error?: string }> {
+  if (!['feature', 'bug', 'performance'].includes(type)) return { error: '無效類型' }
+  const { error } = await supabase
+    .from('dev_tracker')
+    .update({ type, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) return { error: '更新失敗' }
+  revalidatePath(`/report-issue/${id}`)
+  revalidatePath('/report-issue')
+  return {}
 }
 
 export async function updateIssueStatus(id: number, status: string): Promise<{ error?: string }> {

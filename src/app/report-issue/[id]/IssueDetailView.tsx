@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect, useTransition } from 'react'
 import Link from 'next/link'
-import { DevTracker, IssueStatus, AppUser } from '@/lib/types'
-import { saveHtml, updateIssueStatus, assignIssue } from '@/app/actions/dev-tracker'
+import { DevTracker, IssueStatus, IssueType, AppUser } from '@/lib/types'
+import { saveHtml, updateIssueStatus, updateIssueType, assignIssue } from '@/app/actions/dev-tracker'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -42,8 +42,9 @@ function buildInitialHtml(
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const TYPE_COLOR: Record<string, React.CSSProperties> = {
-  bug: { background: '#fee2e2', color: '#dc2626' },
   feature: { background: '#dbeafe', color: '#2563eb' },
+  bug: { background: '#fee2e2', color: '#dc2626' },
+  performance: { background: '#d1fae5', color: '#065f46' },
 }
 const PRIORITY_COLOR: Record<string, React.CSSProperties> = {
   low: { background: '#f3f4f6', color: '#6b7280' },
@@ -71,6 +72,7 @@ export default function IssueDetailView({
 }) {
   const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]))
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [currentType, setCurrentType] = useState(issue.type)
   const [, startTransition] = useTransition()
 
   const beforeHtml = buildInitialHtml(
@@ -93,9 +95,19 @@ export default function IssueDetailView({
 
       {/* metadata */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-        <span style={{ ...chip, ...TYPE_COLOR[issue.type] }}>
-          {issue.type === 'bug' ? 'Bug' : '新功能'}
-        </span>
+        <select
+          value={currentType}
+          onChange={(e) => {
+            const val = e.target.value as IssueType
+            setCurrentType(val)
+            startTransition(async () => { await updateIssueType(issue.id, val) })
+          }}
+          style={{ ...chip, ...TYPE_COLOR[currentType], border: 'none', cursor: 'pointer', fontWeight: 500 }}
+        >
+          <option value="feature">新功能許願</option>
+          <option value="bug">Bug回報</option>
+          <option value="performance">技術效能優化</option>
+        </select>
         <span style={{ ...chip, ...PRIORITY_COLOR[issue.priority] }}>
           {{ low: '低', medium: '中', high: '高', critical: '緊急' }[issue.priority]}
         </span>
