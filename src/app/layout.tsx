@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { logout } from "@/app/actions/auth";
+import SidebarNav from "@/app/_components/SidebarNav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -50,66 +51,7 @@ export default async function RootLayout({
         </header>
         <div style={{ display: 'flex', marginTop: 52, minHeight: 'calc(100vh - 52px)' }}>
           <nav style={{ position: 'fixed', top: 52, left: 0, bottom: 0, width: 220, background: '#f9fafb', borderRight: '1px solid #e5e7eb', padding: '24px 0', overflowY: 'auto' }}>
-            <p style={{ padding: '0 24px 8px', fontSize: 12, fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>資金分配申請</p>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {[
-                { href: '/funds-allocation/my-funds', label: '我的申請紀錄' },
-                { href: '/funds-allocation/step1', label: '課級單據管理' },
-                { href: '/funds-allocation/step2', label: '處級單據管理' },
-                { href: '/funds-allocation/step3', label: '諮詢議會' },
-                { href: '/funds-allocation/step4', label: '主管議會' },
-                { href: '/funds-allocation/step5', label: '財務長' },
-              ].map(({ href, label }) => (
-                <li key={href}>
-                  <Link href={href} style={{ display: 'block', padding: '10px 24px', textDecoration: 'none', color: '#374151', fontSize: 14 }}>
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <p style={{ padding: '16px 24px 8px', fontSize: 12, fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>付款憑單</p>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {[
-                { href: '/funds-payment/my-payment', label: '我的付款憑單' },
-                { href: '/funds-payment/step1', label: '課級單據管理' },
-                { href: '/funds-payment/step2', label: '處級單據管理' },
-                { href: '/funds-payment/step3', label: '第三處支出課' },
-                { href: '/funds-payment/step4', label: '第三處 處長' },
-              ].map(({ href, label }) => (
-                <li key={href}>
-                  <Link href={href} style={{ display: 'block', padding: '10px 24px', textDecoration: 'none', color: '#374151', fontSize: 14 }}>
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <p style={{ padding: '16px 24px 8px', fontSize: 12, fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>系統設定</p>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {[
-                { href: '/system-settings/expense-fields', label: '支出欄位設定' },
-                { href: '/system-settings/org-structure', label: '組織架構設定' },
-                { href: '/system-settings/position-settings', label: '職位設定' },
-                { href: '/system-settings/account-management', label: '帳號管理' },
-              ].map(({ href, label }) => (
-                <li key={href}>
-                  <Link href={href} style={{ display: 'block', padding: '10px 24px', textDecoration: 'none', color: '#374151', fontSize: 14 }}>
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <p style={{ padding: '16px 24px 8px', fontSize: 12, fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>回報問題</p>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {[
-                { href: '/report-issue', label: '提交問題回報' },
-              ].map(({ href, label }) => (
-                <li key={href}>
-                  <Link href={href} style={{ display: 'block', padding: '10px 24px', textDecoration: 'none', color: '#374151', fontSize: 14 }}>
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <SidebarNav />
           </nav>
           <main style={{ marginLeft: 220, flex: 1, padding: 32 }}>
             {children}
