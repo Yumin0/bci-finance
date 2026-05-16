@@ -1,8 +1,26 @@
-export default function Home() {
+import { supabase } from '@/lib/supabase'
+import { MOCK_USER_ID } from '@/lib/constants'
+import { FundsAllocation, FundsPayment } from '@/lib/types'
+import HomeTabView from './_components/HomeTabView'
+
+export default async function Home() {
+  const [fundsResult, paymentResult] = await Promise.all([
+    supabase
+      .from('funds_allocation')
+      .select('*')
+      .eq('created_by', MOCK_USER_ID)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('funds_payment')
+      .select('*')
+      .eq('created_by', MOCK_USER_ID)
+      .order('created_at', { ascending: false }),
+  ])
+
+  const fundsRecords = (fundsResult.data as FundsAllocation[]) ?? []
+  const paymentRecords = (paymentResult.data as FundsPayment[]) ?? []
+
   return (
-    <div>
-      <h1>歡迎使用 BCI 財務系統</h1>
-      <p style={{ color: '#6b7280', marginTop: 8 }}>請從左側選單選擇功能。</p>
-    </div>
+    <HomeTabView fundsRecords={fundsRecords} paymentRecords={paymentRecords} />
   )
 }
