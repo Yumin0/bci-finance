@@ -68,6 +68,7 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
       { kind: 'item', id: 'expense-fields', label: '支出欄位設定', href: '/system-settings/expense-fields' },
       { kind: 'item', id: 'sidebar-customization', label: '側邊欄自定義設定', href: '/system-settings/sidebar-customization' },
       { kind: 'item', id: 'role-permissions', label: '角色功能權限設定', href: '/system-settings/role-permissions' },
+      { kind: 'item', id: 'form-settings', label: '表單設定', href: '/system-settings/form-settings' },
     ],
   },
   {

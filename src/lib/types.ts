@@ -144,6 +144,33 @@ export type SystemRole = {
   created_at: string
 }
 
+export type FormFieldType = 'text' | 'date' | 'select' | 'number' | 'textarea' | 'readonly' | 'radio'
+export type FormColCount = 1 | 2 | 3
+export type FormType = 'funds_allocation' | 'payment_voucher'
+export type FormDataSourceDef = {
+  id: number
+  label: string
+  source_key: string
+  applicable_types: string[]
+  is_static_options: boolean
+  sort_order: number
+}
+
+export type FormSlot = {
+  fieldId: string
+  label: string
+  required: boolean
+  type: FormFieldType
+  dataSource: string
+  staticOptions?: string[]
+} | null
+
+export type FormSchemaRow = {
+  id: string
+  cols: FormColCount
+  slots: FormSlot[]
+}
+
 export type ExpenseItem = {
   id: number
   label: string
