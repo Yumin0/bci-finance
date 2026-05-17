@@ -58,42 +58,82 @@ export default function ApprovalPanel({
           <div
             key={num}
             style={{
-              display: 'grid',
-              gridTemplateColumns: '130px 200px 1fr 120px 90px',
-              gap: 12,
-              alignItems: 'flex-start',
               padding: '16px 0',
               borderBottom: '1px solid #f3f4f6',
               opacity: isActive ? 1 : 0.45,
             }}
           >
-            <strong style={{ paddingTop: 6, fontSize: 14 }}>{label}</strong>
+            {/* 上排：標籤、核准選項、金額、按鈕 */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '130px 1fr 120px 90px',
+              gap: 12,
+              alignItems: 'center',
+              marginBottom: 8,
+            }}>
+              <strong style={{ fontSize: 14 }}>{label}</strong>
 
-            <div style={{ display: 'flex', gap: 20, paddingTop: 6 }}>
-              {(['rejected', 'approved'] as const).map((val) => (
-                <label
-                  key={val}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontSize: 14,
-                    cursor: disabled ? 'default' : 'pointer',
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name={`step${num}_decision`}
-                    value={val}
-                    disabled={disabled}
-                    checked={rowDecision === val}
-                    onChange={() => onDecisionChange(val)}
-                  />
-                  {val === 'rejected' ? '不核准' : '核准'}
-                </label>
-              ))}
+              <div style={{ display: 'flex', gap: 20 }}>
+                {(['rejected', 'approved'] as const).map((val) => (
+                  <label
+                    key={val}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      fontSize: 14,
+                      cursor: disabled ? 'default' : 'pointer',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name={`step${num}_decision`}
+                      value={val}
+                      disabled={disabled}
+                      checked={rowDecision === val}
+                      onChange={() => onDecisionChange(val)}
+                    />
+                    {val === 'rejected' ? '不核准' : '核准'}
+                  </label>
+                ))}
+              </div>
+
+              <input
+                type="number"
+                value={record.amount}
+                readOnly
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 6,
+                  backgroundColor: '#f3f4f6',
+                  fontSize: 14,
+                  boxSizing: 'border-box',
+                }}
+              />
+
+              <button
+                onClick={buttonActive ? onSubmit : undefined}
+                disabled={!buttonActive}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                  border: 'none',
+                  backgroundColor: buttonActive ? '#22c55e' : '#e5e7eb',
+                  color: buttonActive ? '#fff' : '#9ca3af',
+                  cursor: buttonActive ? 'pointer' : 'default',
+                  fontWeight: 500,
+                  fontSize: 14,
+                  whiteSpace: 'nowrap',
+                  height: 36,
+                }}
+              >
+                {isActive && submitting ? '送出中...' : '確定送出'}
+              </button>
             </div>
 
+            {/* 下排：評論區佔滿全寬 */}
             <textarea
               placeholder={isActive ? '評論' : ''}
               rows={3}
@@ -111,40 +151,6 @@ export default function ApprovalPanel({
                 boxSizing: 'border-box',
               }}
             />
-
-            <input
-              type="number"
-              value={record.amount}
-              readOnly
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                border: '1px solid #d1d5db',
-                borderRadius: 6,
-                backgroundColor: '#f3f4f6',
-                fontSize: 14,
-                boxSizing: 'border-box',
-              }}
-            />
-
-            <button
-              onClick={buttonActive ? onSubmit : undefined}
-              disabled={!buttonActive}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 6,
-                border: 'none',
-                backgroundColor: buttonActive ? '#22c55e' : '#e5e7eb',
-                color: buttonActive ? '#fff' : '#9ca3af',
-                cursor: buttonActive ? 'pointer' : 'default',
-                fontWeight: 500,
-                fontSize: 14,
-                whiteSpace: 'nowrap',
-                height: 36,
-              }}
-            >
-              {isActive && submitting ? '送出中...' : '確定送出'}
-            </button>
           </div>
         )
       })}

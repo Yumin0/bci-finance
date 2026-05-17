@@ -3,14 +3,15 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation } from '@/lib/types'
+import { createPayment } from '@/app/actions/payment'
 
 const PAYMENT_METHODS = ['匯款', '支票', '現金', '其他']
 
 export default function AddPaymentPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const [record, setRecord] = useState<FundsAllocation | null>(null)
+  const [allocationId, setAllocationId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -19,10 +20,12 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     async function load() {
       const { id } = await params
+      const numId = Number(id)
+      setAllocationId(numId)
       const { data, error: fetchError } = await supabase
         .from('funds_allocation')
         .select('*')
-        .eq('id', Number(id))
+        .eq('id', numId)
         .single()
       if (fetchError) { setError(fetchError.message); setLoading(false); return }
       setRecord(data as FundsAllocation)
@@ -33,29 +36,12 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!record) return
+    if (!allocationId) return
     setSubmitting(true)
     setError(null)
 
-    const { error: insertError } = await supabase.from('funds_payment').insert({
-      funds_allocation_id: record.id,
-      name: record.name,
-      amount: record.amount,
-      date: record.date,
-      institution: record.institution,
-      payment_account: record.payment_account,
-      expense_item: record.expense_item,
-      category: record.category,
-      note: record.note,
-      apply_division: record.apply_division,
-      apply_section: record.apply_section,
-      applicant: record.applicant,
-      apply_role: record.apply_role,
-      payment_method: paymentMethod || null,
-      created_by: MOCK_USER_ID,
-    })
-
-    if (insertError) { setError(insertError.message); setSubmitting(false); return }
+    const { error: insertError } = await createPayment(allocationId, paymentMethod)
+    if (insertError) { setError(insertError); setSubmitting(false); return }
     router.push('/funds-payment/my-payment')
   }
 

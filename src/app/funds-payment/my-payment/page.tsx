@@ -1,13 +1,14 @@
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { MOCK_USER_ID } from '@/lib/constants'
+import { getSession } from '@/lib/session'
 import { FundsPayment } from '@/lib/types'
 
 export default async function MyPaymentPage() {
+  const session = await getSession()
   const { data, error } = await supabase
     .from('funds_payment')
     .select('*')
-    .eq('created_by', MOCK_USER_ID)
+    .eq('created_by', String(session?.userId ?? ''))
     .order('created_at', { ascending: false })
 
   const records = (data as FundsPayment[]) ?? []

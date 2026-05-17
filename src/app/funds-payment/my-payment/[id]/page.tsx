@@ -3,10 +3,10 @@
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { FundsPayment, StepDecision } from '@/lib/types'
 import { PAYMENT_STATUS, PaymentStatus } from '@/lib/constants'
 import PaymentApprovalPanel from '@/app/funds-payment/_components/PaymentApprovalPanel'
+import { getMyPayment, submitMyPayment } from '@/app/actions/payment'
 
 function getCurrentStep(status: PaymentStatus): 1 | 2 | 3 | 4 {
   if (status === PAYMENT_STATUS.PENDING_STEP2 || status === PAYMENT_STATUS.REJECTED_STEP2) return 2
@@ -21,17 +21,17 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
     async function load() {
       const { id } = await params
-      const { data, error: fetchError } = await supabase
-        .from('funds_payment')
-        .select('*')
-        .eq('id', Number(id))
-        .single()
-      if (fetchError) setError(fetchError.message)
-      else setRecord(data as FundsPayment)
+      const { data, error: fetchError } = await getMyPayment(Number(id))
+      if (fetchError || !data) {
+        setNotFound(true)
+      } else {
+        setRecord(data)
+      }
       setLoading(false)
     }
     load()
@@ -41,34 +41,36 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     if (!record) return
     setSubmitting(true)
     setError(null)
-    const { error: updateError } = await supabase
-      .from('funds_payment')
-      .update({ status: PAYMENT_STATUS.PENDING_STEP1, updated_at: new Date().toISOString() })
-      .eq('id', record.id)
-    if (updateError) { setError(updateError.message); setSubmitting(false); return }
+    const { error: updateError } = await submitMyPayment(record.id)
+    if (updateError) { setError(updateError); setSubmitting(false); return }
     router.push('/funds-payment/my-payment')
   }
 
   if (loading) return <p>載入中...</p>
-  if (!record) return <p style={{ color: 'red' }}>找不到此付款憑單{error ? `：${error}` : ''}</p>
+  if (notFound) return (
+    <div>
+      <p style={{ color: '#dc2626' }}>找不到此付款憑單，或你沒有權限檢視。</p>
+      <Link href="/funds-payment/my-payment" style={{ fontSize: 14, color: '#2563eb' }}>返回列表</Link>
+    </div>
+  )
 
   const fields: { label: string; value: string | number | null }[] = [
-    { label: '日期', value: record.date },
-    { label: '申請處別', value: record.apply_division },
-    { label: '申請課別', value: record.apply_section },
-    { label: '申請人', value: record.applicant },
-    { label: '職稱', value: record.apply_role },
-    { label: '機構', value: record.institution },
-    { label: '出款帳戶', value: record.payment_account },
-    { label: '費用項目', value: record.expense_item },
-    { label: '項目', value: record.name },
-    { label: '金額', value: record.amount },
-    { label: '類別', value: record.category },
-    { label: '備註', value: record.note },
-    { label: '付款方式', value: record.payment_method },
+    { label: '日期', value: record!.date },
+    { label: '申請處別', value: record!.apply_division },
+    { label: '申請課別', value: record!.apply_section },
+    { label: '申請人', value: record!.applicant },
+    { label: '職稱', value: record!.apply_role },
+    { label: '機構', value: record!.institution },
+    { label: '出款帳戶', value: record!.payment_account },
+    { label: '費用項目', value: record!.expense_item },
+    { label: '項目', value: record!.name },
+    { label: '金額', value: record!.amount },
+    { label: '類別', value: record!.category },
+    { label: '備註', value: record!.note },
+    { label: '付款方式', value: record!.payment_method },
   ]
 
-  const isDraft = !record.status || record.status === PAYMENT_STATUS.DRAFT
+  const isDraft = !record!.status || record!.status === PAYMENT_STATUS.DRAFT
   const showPanel = !isDraft
 
   return (
@@ -77,8 +79,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>付款憑單</h1>
         <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 24 }}>
           資金分配申請單 #
-          <Link href={`/funds-allocation/my-funds/edit/${record.funds_allocation_id}`} style={{ color: '#2563eb' }}>
-            {record.funds_allocation_id}
+          <Link href={`/funds-allocation/my-funds/edit/${record!.funds_allocation_id}`} style={{ color: '#2563eb' }}>
+            {record!.funds_allocation_id}
           </Link>
         </p>
 
@@ -124,8 +126,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       {showPanel && (
         <div style={{ marginTop: 40 }}>
           <PaymentApprovalPanel
-            record={record}
-            currentStep={getCurrentStep(record.status)}
+            record={record!}
+            currentStep={getCurrentStep(record!.status)}
             canReview={false}
             decision={null as StepDecision}
             comment=""
