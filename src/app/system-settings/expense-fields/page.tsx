@@ -29,14 +29,14 @@ function OptionSection({
       <h2 style={{ fontSize: 16, marginBottom: 12 }}>{title}</h2>
       <table border={1} cellPadding={8} style={{ marginBottom: 12, borderCollapse: 'collapse', minWidth: 320 }}>
         <thead>
-          <tr style={{ background: '#f3f4f6' }}>
+          <tr style={{ background: 'var(--bg-page)' }}>
             <th style={{ textAlign: 'left' }}>選項名稱</th>
             <th style={{ width: 80 }}>操作</th>
           </tr>
         </thead>
         <tbody>
           {items.length === 0 ? (
-            <tr><td colSpan={2} style={{ color: '#9ca3af' }}>尚無選項</td></tr>
+            <tr><td colSpan={2} style={{ color: 'var(--text-subtle)' }}>尚無選項</td></tr>
           ) : items.map(item => (
             <tr key={item.id}>
               <td>{item.label}</td>
@@ -134,7 +134,7 @@ export default function ExpenseFieldsPage() {
   return (
     <div>
       <h1>支出欄位設定</h1>
-      <p style={{ color: '#6b7280', marginBottom: 24 }}>管理資金分配申請單中各下拉選單的選項。</p>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>管理資金分配申請單中各下拉選單的選項。</p>
 
       {error && <p style={{ color: 'red', marginBottom: 16 }}>錯誤：{error}</p>}
 

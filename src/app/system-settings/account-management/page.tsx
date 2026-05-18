@@ -33,9 +33,9 @@ export default async function AccountManagementPage() {
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
-            <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+            <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
               {['編號', '帳號', '姓名', '建立日期', '更新日期', ''].map((col, i) => (
-                <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>
+                <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-body)', whiteSpace: 'nowrap' }}>
                   {col}
                 </th>
               ))}
@@ -43,7 +43,7 @@ export default async function AccountManagementPage() {
           </thead>
           <tbody>
             {(users as AppUser[] | null)?.map(user => (
-              <tr key={user.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+              <tr key={user.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={td}>{user.id}</td>
                 <td style={td}>{user.email}</td>
                 <td style={td}>{user.name}</td>
@@ -52,7 +52,7 @@ export default async function AccountManagementPage() {
                 <td style={td}>
                   <Link
                     href={`/system-settings/account-management/${user.id}/edit`}
-                    style={{ fontSize: 13, color: '#374151', border: '1px solid #d1d5db', borderRadius: 4, padding: '4px 12px', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                    style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none', whiteSpace: 'nowrap' }}
                   >
                     編輯
                   </Link>
@@ -61,7 +61,7 @@ export default async function AccountManagementPage() {
             ))}
             {!users?.length && (
               <tr>
-                <td colSpan={6} style={{ padding: '24px 16px', textAlign: 'center', color: '#9ca3af' }}>
+                <td colSpan={6} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
                   尚無帳號資料
                 </td>
               </tr>
@@ -73,4 +73,4 @@ export default async function AccountManagementPage() {
   )
 }
 
-const td: React.CSSProperties = { padding: '10px 16px', color: '#111827' }
+const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }

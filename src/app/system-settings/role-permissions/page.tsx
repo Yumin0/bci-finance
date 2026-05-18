@@ -128,11 +128,11 @@ function RoleForm({
 
       <div>
         <p style={labelStyle}>對應組織職稱</p>
-        <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>
+        <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginBottom: 8 }}>
           擔任以下職稱的人員，會自動套用此角色的功能權限
         </p>
         {roleTypes.length === 0 ? (
-          <p style={{ fontSize: 13, color: '#9ca3af' }}>尚無職稱，請先至「組織架構與職位設定」新增</p>
+          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>尚無職稱，請先至「組織架構與職位設定」新增</p>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {roleTypes.map(rt => (
@@ -153,21 +153,21 @@ function RoleForm({
       {!isAdmin && (
         <div>
           <p style={labelStyle}>可操作功能</p>
-          <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden' }}>
             {categories.map((cat, ci) => {
               const items = ALL_ITEM_IDS.filter(i => i.categoryLabel === cat)
               const checkedCount = items.filter(i => allowedItemIds.has(i.id)).length
               const allChecked = checkedCount === items.length
               return (
-                <div key={cat} style={{ borderTop: ci === 0 ? 'none' : '1px solid #e5e7eb' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: '#f9fafb', cursor: 'pointer' }} onClick={() => toggleCategory(cat)}>
+                <div key={cat} style={{ borderTop: ci === 0 ? 'none' : '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'var(--bg-sidebar)', cursor: 'pointer' }} onClick={() => toggleCategory(cat)}>
                     <input type="checkbox" checked={allChecked} onChange={() => toggleCategory(cat)} onClick={e => e.stopPropagation()} readOnly />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{cat}</span>
-                    <span style={{ fontSize: 12, color: '#9ca3af' }}>{checkedCount}/{items.length}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-body)' }}>{cat}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-subtle)' }}>{checkedCount}/{items.length}</span>
                   </div>
                   <div style={{ padding: '4px 14px 10px 32px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {items.map(item => (
-                      <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+                      <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-body)', cursor: 'pointer' }}>
                         <input
                           type="checkbox"
                           checked={allowedItemIds.has(item.id)}
@@ -244,7 +244,7 @@ export default function RolePermissionsPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>角色功能權限設定</h1>
-        <p style={{ color: '#6b7280', fontSize: 14 }}>新增系統角色，設定各角色可操作的側邊欄功能，並綁定組織架構中的職稱。</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>新增系統角色，設定各角色可操作的側邊欄功能，並綁定組織架構中的職稱。</p>
       </div>
 
       {error && <p style={{ color: '#dc2626', fontSize: 14, marginBottom: 16 }}>{error}</p>}
@@ -252,9 +252,9 @@ export default function RolePermissionsPage() {
       <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
         {/* 左側：角色列表 */}
         <div style={{ width: 220, flexShrink: 0 }}>
-          <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden' }}>
             {roles.length === 0 && (
-              <p style={{ padding: '12px 16px', fontSize: 13, color: '#9ca3af' }}>尚無角色</p>
+              <p style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-subtle)' }}>尚無角色</p>
             )}
             {roles.map((role, i) => (
               <div
@@ -263,16 +263,16 @@ export default function RolePermissionsPage() {
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 14px',
-                  borderTop: i === 0 ? 'none' : '1px solid #f3f4f6',
+                  borderTop: i === 0 ? 'none' : '1px solid var(--border-color)',
                   background: selected !== 'new' && selected?.id === role.id ? '#eff6ff' : '#fff',
                   cursor: 'pointer',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{role.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-title)' }}>{role.name}</div>
                   {role.is_admin && <div style={{ fontSize: 11, color: '#2563eb' }}>系統管理員</div>}
                   {!role.is_admin && (
-                    <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-subtle)' }}>
                       {role.allowed_item_ids.length} 項功能
                     </div>
                   )}
@@ -288,16 +288,16 @@ export default function RolePermissionsPage() {
           </div>
           <button
             onClick={() => setSelected('new')}
-            style={{ marginTop: 10, width: '100%', padding: '8px 0', fontSize: 13, cursor: 'pointer', background: 'none', border: '1px dashed #9ca3af', borderRadius: 6, color: '#6b7280' }}
+            style={{ marginTop: 10, width: '100%', padding: '8px 0', fontSize: 13, cursor: 'pointer', background: 'none', border: '1px dashed #9ca3af', borderRadius: 6, color: 'var(--text-muted)' }}
           >
             ＋ 新增角色
           </button>
         </div>
 
         {/* 右側：設定面板 */}
-        <div style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 8, padding: 24, minHeight: 200 }}>
+        <div style={{ flex: 1, border: '1px solid var(--border-color)', borderRadius: 8, padding: 24, minHeight: 200 }}>
           {selected === null && (
-            <p style={{ fontSize: 14, color: '#9ca3af' }}>← 點選左側角色進行設定，或新增角色</p>
+            <p style={{ fontSize: 14, color: 'var(--text-subtle)' }}>← 點選左側角色進行設定，或新增角色</p>
           )}
           {selected === 'new' && (
             <>
@@ -328,7 +328,7 @@ export default function RolePermissionsPage() {
   )
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }
-const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
+const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
 const btnStyle: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
+const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }

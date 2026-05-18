@@ -59,7 +59,7 @@ export default function ApprovalPanel({
             key={num}
             style={{
               padding: '16px 0',
-              borderBottom: '1px solid #f3f4f6',
+              borderBottom: '1px solid var(--border-color)',
               opacity: isActive ? 1 : 0.45,
             }}
           >
@@ -105,7 +105,7 @@ export default function ApprovalPanel({
                 style={{
                   width: '100%',
                   padding: '8px 10px',
-                  border: '1px solid #d1d5db',
+                  border: '1px solid var(--btn-border)',
                   borderRadius: 6,
                   backgroundColor: '#f3f4f6',
                   fontSize: 14,
@@ -143,7 +143,7 @@ export default function ApprovalPanel({
               style={{
                 width: '100%',
                 padding: '8px 10px',
-                border: '1px solid #d1d5db',
+                border: '1px solid var(--btn-border)',
                 borderRadius: 6,
                 resize: 'vertical',
                 backgroundColor: disabled ? '#f3f4f6' : '#fff',

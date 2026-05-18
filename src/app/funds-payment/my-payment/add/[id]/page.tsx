@@ -51,7 +51,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   return (
     <div style={{ maxWidth: 480 }}>
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>建立付款憑單</h1>
-      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 24 }}>資金分配申請單 #{record.id}</p>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>資金分配申請單 #{record.id}</p>
 
       {error && <p style={errorStyle}>錯誤：{error}</p>}
 
@@ -98,10 +98,10 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
         </div>
         <div>
           <label style={labelStyle}>備註</label>
-          <textarea value={record.note ?? ''} readOnly rows={3} style={{ ...textareaStyle, background: '#f3f4f6', cursor: 'not-allowed' }} />
+          <textarea value={record.note ?? ''} readOnly rows={3} style={{ ...textareaStyle, background: 'var(--bg-page)', cursor: 'not-allowed' }} />
         </div>
 
-        <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '4px 0' }} />
+        <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
 
         <div>
           <label style={labelStyle}>付款方式 *</label>
@@ -129,10 +129,10 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   )
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }
-const readonlyStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: '#f3f4f6', cursor: 'not-allowed' }
-const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
-const textareaStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', resize: 'vertical' }
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
+const readonlyStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'var(--bg-page)', cursor: 'not-allowed' }
+const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
+const textareaStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', resize: 'vertical' }
 const btnStyle: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
+const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 8 }

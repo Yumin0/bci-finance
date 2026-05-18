@@ -17,13 +17,13 @@ const STATUS_LABEL: Record<IssueStatus, string> = {
 }
 
 const PRIORITY_COLOR: Record<string, React.CSSProperties> = {
-  low: { background: '#f3f4f6', color: '#6b7280' },
+  low: { background: 'var(--bg-page)', color: 'var(--text-muted)' },
   medium: { background: '#fef3c7', color: '#d97706' },
   high: { background: '#fed7aa', color: '#ea580c' },
   critical: { background: '#fee2e2', color: '#dc2626' },
 }
 const STATUS_COLOR: Record<IssueStatus, React.CSSProperties> = {
-  pending: { background: '#f3f4f6', color: '#6b7280' },
+  pending: { background: 'var(--bg-page)', color: 'var(--text-muted)' },
   in_progress: { background: '#dbeafe', color: '#2563eb' },
   completed: { background: '#dcfce7', color: '#16a34a' },
   rejected: { background: '#fee2e2', color: '#dc2626' },
@@ -184,11 +184,11 @@ export default function IssueListView({
 
       {showForm && (
         <div style={{
-          border: '1px solid #e5e7eb',
+          border: '1px solid var(--border-color)',
           borderRadius: 8,
           padding: 24,
           marginBottom: 28,
-          background: '#f9fafb',
+          background: 'var(--bg-sidebar)',
         }}>
           <h2 style={{ fontSize: 15, fontWeight: 600, marginTop: 0, marginBottom: 20 }}>新增回報</h2>
           <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -239,11 +239,11 @@ export default function IssueListView({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  style={{ fontSize: 12, border: '1px solid #d1d5db', borderRadius: 4, padding: '4px 10px', background: '#fff', cursor: uploading ? 'not-allowed' : 'pointer', color: '#374151' }}
+                  style={{ fontSize: 12, border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 10px', background: 'var(--bg-card)', cursor: uploading ? 'not-allowed' : 'pointer', color: 'var(--text-body)' }}
                 >
                   {uploading ? '上傳中...' : '📷 插入截圖'}
                 </button>
-                <span style={{ fontSize: 11, color: '#9ca3af' }}>或直接貼上圖片（Cmd+V）／拖曳</span>
+                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>或直接貼上圖片（Cmd+V）／拖曳</span>
               </div>
               <div
                 ref={editorRef}
@@ -263,15 +263,15 @@ export default function IssueListView({
                 onDragOver={(e) => e.preventDefault()}
                 style={{
                   minHeight: 120,
-                  border: '1px solid #d1d5db',
+                  border: '1px solid var(--btn-border)',
                   borderRadius: 6,
                   padding: '8px 10px',
                   fontSize: 13,
                   lineHeight: 1.8,
-                  color: '#111827',
+                  color: 'var(--text-title)',
                   outline: 'none',
                   wordBreak: 'break-word',
-                  background: '#fff',
+                  background: 'var(--bg-card)',
                 }}
               />
               <input
@@ -339,7 +339,7 @@ export default function IssueListView({
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+            <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
               {['影響模組', '標題', '優先級', '狀態', '建立者', '建立日期', '承接開發者', '完成日期', ''].map((col) => (
                 <th key={col} style={th}>{col}</th>
               ))}
@@ -348,18 +348,18 @@ export default function IssueListView({
           <tbody>
             {issues.filter((issue) => issue.type === activeTab).length === 0 && (
               <tr>
-                <td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', color: '#9ca3af' }}>
+                <td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
                   尚無任何回報紀錄
                 </td>
               </tr>
             )}
             {issues.filter((issue) => issue.type === activeTab).map((issue) => (
-              <tr key={issue.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td style={{ ...td, color: '#6b7280' }}>{issue.module ?? '-'}</td>
+              <tr key={issue.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                <td style={{ ...td, color: 'var(--text-muted)' }}>{issue.module ?? '-'}</td>
                 <td style={{ ...td, maxWidth: 260, fontWeight: 500 }}>
                   {issue.title}
                   {issue.description && (
-                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2, fontWeight: 400 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2, fontWeight: 400 }}>
                       {issue.description.slice(0, 60)}{issue.description.length > 60 ? '…' : ''}
                     </div>
                   )}
@@ -394,14 +394,14 @@ export default function IssueListView({
                 <td style={{ ...td, whiteSpace: 'nowrap' }}>
                   {issue.created_by ? (userMap[issue.created_by] ?? '-') : '-'}
                 </td>
-                <td style={{ ...td, whiteSpace: 'nowrap', color: '#6b7280' }}>
+                <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
                   {formatDate(issue.created_at)}
                 </td>
                 <td style={td}>
                   <select
                     defaultValue={issue.assigned_to ?? ''}
                     onChange={(e) => handleAssignChange(issue.id, e.target.value)}
-                    style={{ fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 6px', color: '#374151' }}
+                    style={{ fontSize: 12, border: '1px solid var(--border-color)', borderRadius: 4, padding: '2px 6px', color: 'var(--text-body)' }}
                   >
                     <option value="">未指派</option>
                     {users.map((u) => (
@@ -409,13 +409,13 @@ export default function IssueListView({
                     ))}
                   </select>
                 </td>
-                <td style={{ ...td, whiteSpace: 'nowrap', color: '#6b7280' }}>
+                <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
                   {formatDate(issue.completed_at)}
                 </td>
                 <td style={td}>
                   <Link
                     href={`/report-issue/${issue.id}`}
-                    style={{ fontSize: 12, color: '#374151', border: '1px solid #d1d5db', borderRadius: 4, padding: '3px 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                    style={{ fontSize: 12, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '3px 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}
                   >
                     檢視
                   </Link>
@@ -450,18 +450,18 @@ const labelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: 13,
   fontWeight: 500,
-  color: '#374151',
+  color: 'var(--text-body)',
   marginBottom: 5,
 }
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  border: '1px solid #d1d5db',
+  border: '1px solid var(--btn-border)',
   borderRadius: 6,
   padding: '7px 10px',
   fontSize: 13,
-  color: '#111827',
-  background: '#fff',
+  color: 'var(--text-title)',
+  background: 'var(--bg-card)',
   boxSizing: 'border-box',
 }
 
@@ -469,14 +469,14 @@ const th: React.CSSProperties = {
   padding: '10px 14px',
   textAlign: 'left',
   fontWeight: 600,
-  color: '#374151',
+  color: 'var(--text-body)',
   whiteSpace: 'nowrap',
   fontSize: 13,
 }
 
 const td: React.CSSProperties = {
   padding: '10px 14px',
-  color: '#111827',
+  color: 'var(--text-title)',
   verticalAlign: 'top',
 }
 

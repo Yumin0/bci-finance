@@ -107,18 +107,18 @@ export default function SidebarCustomizationClient({ initialConfig }: { initialC
           </button>
         </div>
       </div>
-      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 28 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 28 }}>
         可自訂義類別、群組與項目的顯示名稱，並調整排列順序。群組可展開收合，支援兩層結構。
       </p>
 
       {config.map((category, ci) => {
         const groups = category.entries.filter(e => e.kind === 'group') as SidebarGroup[]
         return (
-          <div key={category.id} style={{ marginBottom: 20, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f1f5f9', padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
+          <div key={category.id} style={{ marginBottom: 20, border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-sidebar)', padding: '12px 16px', borderBottom: '1px solid var(--border-color)' }}>
               <Arrows onUp={() => moveCategory(ci, -1)} onDown={() => moveCategory(ci, 1)} upOff={ci === 0} downOff={ci === config.length - 1} />
               <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 4px' }}>類別名稱</p>
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 4px' }}>類別名稱</p>
                 <input value={category.label} onChange={e => update(c => { c[ci].label = e.target.value })} style={inp} />
               </div>
             </div>
@@ -126,14 +126,14 @@ export default function SidebarCustomizationClient({ initialConfig }: { initialC
             {category.entries.map((entry, ei) => {
               if (entry.kind === 'item') {
                 return (
-                  <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#fff', borderBottom: '1px solid #f3f4f6' }}>
+                  <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-color)' }}>
                     <Arrows onUp={() => moveEntry(ci, ei, -1)} onDown={() => moveEntry(ci, ei, 1)} upOff={ei === 0} downOff={ei === category.entries.length - 1} />
                     <div style={{ flex: 1 }}>
                       <input value={entry.label} onChange={e => update(c => { (c[ci].entries[ei] as SidebarItem).label = e.target.value })} style={{ ...inp, fontSize: 13 }} />
                     </div>
                     <span style={{ fontSize: 12, color: '#d1d5db', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{entry.href}</span>
                     {groups.length > 0 && (
-                      <select value="" onChange={e => { if (e.target.value) moveItemIntoGroup(ci, ei, e.target.value) }} style={{ fontSize: 12, padding: '4px 6px', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151', cursor: 'pointer', flexShrink: 0 }}>
+                      <select value="" onChange={e => { if (e.target.value) moveItemIntoGroup(ci, ei, e.target.value) }} style={{ fontSize: 12, padding: '4px 6px', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)', cursor: 'pointer', flexShrink: 0 }}>
                         <option value="">加入群組...</option>
                         {groups.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
                       </select>
@@ -145,14 +145,14 @@ export default function SidebarCustomizationClient({ initialConfig }: { initialC
               const group = entry as SidebarGroup
               const open = expandedGroups.has(group.id)
               return (
-                <div key={group.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: '#fafafa' }}>
+                <div key={group.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'var(--bg-card)' }}>
                     <Arrows onUp={() => moveEntry(ci, ei, -1)} onDown={() => moveEntry(ci, ei, 1)} upOff={ei === 0} downOff={ei === category.entries.length - 1} />
-                    <button onClick={() => toggleGroup(group.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#9ca3af', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>
+                    <button onClick={() => toggleGroup(group.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text-subtle)', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>
                       {open ? '▾' : '▸'}
                     </button>
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 4px' }}>群組名稱</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 4px' }}>群組名稱</p>
                       <input value={group.label} onChange={e => update(c => { (c[ci].entries[ei] as SidebarGroup).label = e.target.value })} style={{ ...inp, fontSize: 13 }} />
                     </div>
                     <button onClick={() => dissolveGroup(ci, ei)} style={{ fontSize: 12, color: '#dc2626', background: 'none', border: '1px solid #fca5a5', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -162,19 +162,19 @@ export default function SidebarCustomizationClient({ initialConfig }: { initialC
                   {open && (
                     <>
                       {group.items.map((item, ii) => (
-                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px 9px 52px', background: '#fff', borderTop: '1px solid #f3f4f6' }}>
+                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px 9px 52px', background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}>
                           <Arrows onUp={() => moveGroupItem(ci, ei, ii, -1)} onDown={() => moveGroupItem(ci, ei, ii, 1)} upOff={ii === 0} downOff={ii === group.items.length - 1} />
                           <div style={{ flex: 1 }}>
                             <input value={item.label} onChange={e => update(c => { (c[ci].entries[ei] as SidebarGroup).items[ii].label = e.target.value })} style={{ ...inp, fontSize: 13 }} />
                           </div>
                           <span style={{ fontSize: 12, color: '#d1d5db', fontFamily: 'monospace', whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.href}</span>
-                          <button onClick={() => moveItemOutOfGroup(ci, ei, ii)} style={{ fontSize: 12, color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                          <button onClick={() => moveItemOutOfGroup(ci, ei, ii)} style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border-color)', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                             移出群組
                           </button>
                         </div>
                       ))}
                       {group.items.length === 0 && (
-                        <div style={{ padding: '10px 52px', fontSize: 13, color: '#9ca3af', borderTop: '1px solid #f3f4f6' }}>尚無項目，可從平層項目選擇「加入群組」</div>
+                        <div style={{ padding: '10px 52px', fontSize: 13, color: 'var(--text-subtle)', borderTop: '1px solid var(--border-color)' }}>尚無項目，可從平層項目選擇「加入群組」</div>
                       )}
                     </>
                   )}
@@ -182,8 +182,8 @@ export default function SidebarCustomizationClient({ initialConfig }: { initialC
               )
             })}
 
-            <div style={{ padding: '10px 16px', background: '#fff' }}>
-              <button onClick={() => addGroup(ci)} style={{ fontSize: 13, color: '#374151', background: 'none', border: '1px dashed #d1d5db', borderRadius: 6, padding: '6px 14px', cursor: 'pointer' }}>
+            <div style={{ padding: '10px 16px', background: 'var(--bg-card)' }}>
+              <button onClick={() => addGroup(ci)} style={{ fontSize: 13, color: 'var(--text-body)', background: 'none', border: '1px dashed #d1d5db', borderRadius: 6, padding: '6px 14px', cursor: 'pointer' }}>
                 ＋ 新增群組
               </button>
             </div>
@@ -206,9 +206,9 @@ function Arrows({ onUp, onDown, upOff, downOff }: { onUp: () => void; onDown: ()
   )
 }
 
-const inp: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 14, color: '#111827', outline: 'none', boxSizing: 'border-box' }
+const inp: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid var(--btn-border)', borderRadius: 5, fontSize: 14, color: 'var(--text-title)', outline: 'none', boxSizing: 'border-box' }
 const solidBtn: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const outlineBtn: React.CSSProperties = { padding: '8px 16px', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
+const outlineBtn: React.CSSProperties = { padding: '8px 16px', background: 'var(--bg-card)', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
 function arrowBtn(disabled: boolean): React.CSSProperties {
-  return { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18, fontSize: 9, lineHeight: 1, padding: 0, background: disabled ? '#f9fafb' : '#fff', border: '1px solid #e5e7eb', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer', color: disabled ? '#d1d5db' : '#374151' }
+  return { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18, fontSize: 9, lineHeight: 1, padding: 0, background: disabled ? '#f9fafb' : '#fff', border: '1px solid var(--border-color)', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer', color: disabled ? '#d1d5db' : '#374151' }
 }

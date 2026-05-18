@@ -87,11 +87,11 @@ export default function FundsPage() {
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
-            <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+            <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
               {['項次', '出款帳戶', '可分配總額', '預算提供'].map((col, i) => (
                 <th
                   key={i}
-                  style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}
+                  style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-body)', whiteSpace: 'nowrap' }}
                 >
                   {col}
                 </th>
@@ -101,19 +101,19 @@ export default function FundsPage() {
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={4} style={{ padding: '24px 16px', textAlign: 'center', color: '#9ca3af' }}>
+                <td colSpan={4} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
                   尚無出款帳戶，請先至「支出欄位設定」新增。
                 </td>
               </tr>
             )}
             {rows.map((row, idx) => (
-              <tr key={row.account} style={{ borderBottom: '1px solid #f3f4f6' }}>
+              <tr key={row.account} style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={td}>{idx + 1}</td>
                 <td style={td}>{row.account}</td>
                 <td style={td}>
                   {row.budget != null
                     ? row.budget.toLocaleString()
-                    : <span style={{ color: '#9ca3af' }}>—</span>}
+                    : <span style={{ color: 'var(--text-subtle)' }}>—</span>}
                 </td>
                 <td style={td}>
                   <button
@@ -121,11 +121,11 @@ export default function FundsPage() {
                     style={{
                       padding: '5px 14px',
                       fontSize: 13,
-                      border: '1px solid #d1d5db',
+                      border: '1px solid var(--btn-border)',
                       borderRadius: 4,
-                      background: '#fff',
+                      background: 'var(--bg-card)',
                       cursor: 'pointer',
-                      color: '#374151',
+                      color: 'var(--text-body)',
                     }}
                   >
                     輸入金額
@@ -147,18 +147,18 @@ export default function FundsPage() {
           onClick={e => { if (e.target === e.currentTarget) closeModal() }}
         >
           <div style={{
-            background: '#fff', borderRadius: 12, width: 480, maxWidth: '90vw',
+            background: 'var(--bg-card)', borderRadius: 12, width: 480, maxWidth: '90vw',
             boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
           }}>
             {/* Header */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '20px 24px 16px', borderBottom: '1px solid #e5e7eb',
+              padding: '20px 24px 16px', borderBottom: '1px solid var(--border-color)',
             }}>
               <span style={{ fontSize: 16, fontWeight: 600 }}>請輸入本周預算</span>
               <button
                 onClick={closeModal}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#6b7280', lineHeight: 1 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}
               >
                 ×
               </button>
@@ -175,7 +175,7 @@ export default function FundsPage() {
                 autoFocus
                 style={{
                   width: '100%', padding: '10px 14px', fontSize: 15,
-                  border: '1px solid #d1d5db', borderRadius: 8,
+                  border: '1px solid var(--btn-border)', borderRadius: 8,
                   boxSizing: 'border-box', outline: 'none',
                 }}
               />
@@ -184,7 +184,7 @@ export default function FundsPage() {
             {/* Footer */}
             <div style={{
               display: 'flex', justifyContent: 'flex-end',
-              padding: '12px 24px 20px', borderTop: '1px solid #e5e7eb',
+              padding: '12px 24px 20px', borderTop: '1px solid var(--border-color)',
             }}>
               <button
                 onClick={handleConfirm}
@@ -205,4 +205,4 @@ export default function FundsPage() {
   )
 }
 
-const td: React.CSSProperties = { padding: '10px 16px', color: '#111827' }
+const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }

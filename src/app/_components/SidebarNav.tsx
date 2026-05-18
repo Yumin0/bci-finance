@@ -20,7 +20,7 @@ export default function SidebarNav({ config }: { config: SidebarCategory[] }) {
     <>
       {config.map((category, ci) => (
         <div key={category.id}>
-          <p style={{ padding: ci === 0 ? '0 24px 8px' : '16px 24px 8px', fontSize: 12, fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>
+          <p style={{ padding: ci === 0 ? '0 24px 8px' : '16px 24px 8px', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
             {category.label}
           </p>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -28,7 +28,7 @@ export default function SidebarNav({ config }: { config: SidebarCategory[] }) {
               if (entry.kind === 'item') {
                 return (
                   <li key={entry.id}>
-                    <Link href={entry.href} style={{ display: 'block', padding: '10px 24px', textDecoration: 'none', color: '#374151', fontSize: 14 }}>
+                    <Link href={entry.href} style={{ display: 'block', padding: '10px 24px', textDecoration: 'none', color: 'var(--text-body)', fontSize: 14 }}>
                       {entry.label}
                     </Link>
                   </li>
@@ -41,16 +41,16 @@ export default function SidebarNav({ config }: { config: SidebarCategory[] }) {
                 <li key={group.id}>
                   <button
                     onClick={() => toggleGroup(group.id)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 24px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#374151', textAlign: 'left' }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 24px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text-body)', textAlign: 'left' }}
                   >
                     <span>{group.label}</span>
-                    <span style={{ fontSize: 10, color: '#9ca3af' }}>{isCollapsed ? '▸' : '▾'}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-subtle)' }}>{isCollapsed ? '▸' : '▾'}</span>
                   </button>
                   {!isCollapsed && (
                     <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                       {group.items.map(item => (
                         <li key={item.id}>
-                          <Link href={item.href} style={{ display: 'block', padding: '8px 24px 8px 36px', textDecoration: 'none', color: '#6b7280', fontSize: 13 }}>
+                          <Link href={item.href} style={{ display: 'block', padding: '8px 24px 8px 36px', textDecoration: 'none', color: 'var(--text-muted)', fontSize: 13 }}>
                             · {item.label}
                           </Link>
                         </li>

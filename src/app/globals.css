@@ -3,6 +3,37 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --bg-page: #f3f4f6;
+  --bg-header: #ffffff;
+  --bg-sidebar: #f9fafb;
+  --bg-card: #ffffff;
+  --border-color: #e5e7eb;
+  --text-title: #111827;
+  --text-body: #374151;
+  --text-muted: #6b7280;
+  --text-subtle: #9ca3af;
+  --btn-border: #d1d5db;
+  --toggle-active-bg: #e0e7ff;
+  --toggle-active-text: #3730a3;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  --bg-page: #0f172a;
+  --bg-header: #1e293b;
+  --bg-sidebar: #1e293b;
+  --bg-card: #1e293b;
+  --border-color: #334155;
+  --text-title: #f1f5f9;
+  --text-body: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --btn-border: #475569;
+  --toggle-active-bg: #334155;
+  --toggle-active-text: #e2e8f0;
 }
 
 @theme inline {
@@ -12,15 +43,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-page);
+  color: var(--text-body);
   font-family: Arial, Helvetica, sans-serif;
 }

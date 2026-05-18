@@ -87,7 +87,7 @@ export default function IssueModuleSettingsPage() {
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>影響模組自定義</h1>
         <button onClick={openAdd} style={solidBtn}>＋ 新增</button>
       </div>
-      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 24 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>
         管理「回報問題」表單中「影響模組」下拉選單的選項，可自訂排序與名稱。
       </p>
 
@@ -96,9 +96,9 @@ export default function IssueModuleSettingsPage() {
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
-            <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+            <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
               {['項次', '模組名稱', '排序', '操作'].map((col) => (
-                <th key={col} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>
+                <th key={col} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-body)', whiteSpace: 'nowrap' }}>
                   {col}
                 </th>
               ))}
@@ -107,13 +107,13 @@ export default function IssueModuleSettingsPage() {
           <tbody>
             {options.length === 0 && (
               <tr>
-                <td colSpan={4} style={{ padding: '24px 16px', textAlign: 'center', color: '#9ca3af' }}>
+                <td colSpan={4} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
                   尚無模組選項，點擊「新增」加入第一項。
                 </td>
               </tr>
             )}
             {options.map((opt, idx) => (
-              <tr key={opt.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+              <tr key={opt.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={td}>{idx + 1}</td>
                 <td style={{ ...td, fontWeight: 500 }}>{opt.label}</td>
                 <td style={td}>
@@ -139,15 +139,15 @@ export default function IssueModuleSettingsPage() {
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
           onClick={e => { if (e.target === e.currentTarget) closeModal() }}
         >
-          <div style={{ background: '#fff', borderRadius: 12, width: 480, maxWidth: '90vw', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid #e5e7eb' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 12, width: 480, maxWidth: '90vw', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--border-color)' }}>
               <span style={{ fontSize: 16, fontWeight: 600 }}>
                 {modal.kind === 'add' ? '新增模組選項' : '編輯模組名稱'}
               </span>
-              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#6b7280', lineHeight: 1 }}>×</button>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text-muted)', lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: '28px 24px' }}>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 8 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 8 }}>
                 模組名稱
               </label>
               <input
@@ -156,10 +156,10 @@ export default function IssueModuleSettingsPage() {
                 onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
                 placeholder="請輸入模組名稱"
                 autoFocus
-                style={{ width: '100%', padding: '10px 14px', fontSize: 15, border: '1px solid #d1d5db', borderRadius: 8, boxSizing: 'border-box', outline: 'none' }}
+                style={{ width: '100%', padding: '10px 14px', fontSize: 15, border: '1px solid var(--btn-border)', borderRadius: 8, boxSizing: 'border-box', outline: 'none' }}
               />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 24px 20px', borderTop: '1px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 24px 20px', borderTop: '1px solid var(--border-color)' }}>
               <button
                 onClick={handleSave}
                 disabled={saving}
@@ -175,9 +175,9 @@ export default function IssueModuleSettingsPage() {
   )
 }
 
-const td: React.CSSProperties = { padding: '10px 16px', color: '#111827', verticalAlign: 'middle' }
+const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)', verticalAlign: 'middle' }
 const solidBtn: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const actionBtn: React.CSSProperties = { padding: '5px 14px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 4, background: '#fff', cursor: 'pointer', color: '#374151' }
+const actionBtn: React.CSSProperties = { padding: '5px 14px', fontSize: 13, border: '1px solid var(--btn-border)', borderRadius: 4, background: 'var(--bg-card)', cursor: 'pointer', color: 'var(--text-body)' }
 function arrowBtn(disabled: boolean): React.CSSProperties {
-  return { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18, fontSize: 9, lineHeight: 1, padding: 0, background: disabled ? '#f9fafb' : '#fff', border: '1px solid #e5e7eb', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer', color: disabled ? '#d1d5db' : '#374151' }
+  return { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18, fontSize: 9, lineHeight: 1, padding: 0, background: disabled ? '#f9fafb' : '#fff', border: '1px solid var(--border-color)', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer', color: disabled ? '#d1d5db' : '#374151' }
 }

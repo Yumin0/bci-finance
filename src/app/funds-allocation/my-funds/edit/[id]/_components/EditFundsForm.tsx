@@ -216,7 +216,7 @@ export default function EditFundsForm({
         <textarea value={fieldValues[fieldId] ?? ''} disabled={disabled}
           onChange={e => setField(fieldId, e.target.value)}
           required={required} rows={4}
-          style={disabled ? { ...textareaStyle, background: '#f3f4f6', cursor: 'not-allowed' } : textareaStyle} />
+          style={disabled ? { ...textareaStyle, background: 'var(--bg-page)', cursor: 'not-allowed' } : textareaStyle} />
       )
     }
 
@@ -286,7 +286,7 @@ export default function EditFundsForm({
   return (
     <div>
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>資金分配申請單</h1>
-      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 24 }}>狀態：<strong>{record.status}</strong></p>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>狀態：<strong>{record.status}</strong></p>
       {error && <p style={errorStyle}>錯誤：{error}</p>}
 
       <form onSubmit={handleSubmit}>
@@ -308,7 +308,7 @@ export default function EditFundsForm({
           </div>
         ))}
 
-        {!canEdit && <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>此申請單已進入審核程序，無法編輯。</p>}
+        {!canEdit && <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>此申請單已進入審核程序，無法編輯。</p>}
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
           {canEdit && <button type="submit" disabled={submitting} style={btnStyle}>{submitting ? '儲存中...' : '儲存變更'}</button>}
@@ -341,13 +341,13 @@ export default function EditFundsForm({
   )
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }
-const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
-const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
-const readonlyStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: '#f3f4f6', cursor: 'not-allowed' }
-const textareaStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', resize: 'vertical' }
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
+const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
+const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
+const readonlyStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'var(--bg-page)', cursor: 'not-allowed' }
+const textareaStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', resize: 'vertical' }
 const btnStyle: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
+const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
 const deleteStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
 const paymentBtnStyle: React.CSSProperties = { padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 12 }

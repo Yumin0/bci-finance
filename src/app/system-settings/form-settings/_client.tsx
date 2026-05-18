@@ -227,7 +227,7 @@ export default function FormSettingsClient({
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: 20 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: 20 }}>
         {(['funds_allocation', 'payment_voucher'] as FormType[]).map(ft => (
           <button key={ft} onClick={() => { setFormType(ft); setSelection(null) }}
             style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
@@ -249,8 +249,8 @@ export default function FormSettingsClient({
                 {/* Row header */}
                 <div onClick={() => setSelection({ kind: 'row', rowId: row.id })}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 12px',
-                    background: isRowSel ? '#eff6ff' : '#f9fafb', borderBottom: '1px solid #e5e7eb', cursor: 'pointer' }}>
-                  <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>第 {rowIdx + 1} 列</span>
+                    background: isRowSel ? '#eff6ff' : '#f9fafb', borderBottom: '1px solid var(--border-color)', cursor: 'pointer' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>第 {rowIdx + 1} 列</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {([1, 2, 3] as FormColCount[]).map(c => (
                       <button key={c} onClick={e => { e.stopPropagation(); setRowCols(row.id, c) }}
@@ -262,7 +262,7 @@ export default function FormSettingsClient({
                       </button>
                     ))}
                     <button onClick={e => { e.stopPropagation(); deleteRow(row.id) }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16, lineHeight: 1, padding: '0 2px' }}>×</button>
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', fontSize: 16, lineHeight: 1, padding: '0 2px' }}>×</button>
                   </div>
                 </div>
                 {/* Slots */}
@@ -271,15 +271,15 @@ export default function FormSettingsClient({
                     const isSlotSel = selection?.kind === 'slot' && selection.rowId === row.id && selection.slotIdx === slotIdx
                     return (
                       <div key={slotIdx} onClick={() => setSelection({ kind: 'slot', rowId: row.id, slotIdx })}
-                        style={{ padding: 14, borderRight: slotIdx < row.cols - 1 ? '1px solid #e5e7eb' : 'none',
+                        style={{ padding: 14, borderRight: slotIdx < row.cols - 1 ? '1px solid var(--border-color)' : 'none',
                           background: isSlotSel ? '#eff6ff' : 'white', cursor: 'pointer', minHeight: 72 }}>
                         {slot ? (
                           <>
-                            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 5 }}>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 5 }}>
                               {slot.label}{slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
                             </div>
-                            <div style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6,
-                              fontSize: 13, color: '#9ca3af', background: slot.type === 'readonly' ? '#f3f4f6' : 'white' }}>
+                            <div style={{ padding: '6px 10px', border: '1px solid var(--btn-border)', borderRadius: 6,
+                              fontSize: 13, color: 'var(--text-subtle)', background: slot.type === 'readonly' ? '#f3f4f6' : 'white' }}>
                               {slot.type === 'radio' && slot.staticOptions?.length
                                 ? slot.staticOptions.map(o => `○ ${o}`).join('  ')
                                 : fieldPlaceholder(slot.type)}
@@ -302,16 +302,16 @@ export default function FormSettingsClient({
           })}
           <button onClick={addRow}
             style={{ width: '100%', padding: 10, border: '1.5px dashed #d1d5db', borderRadius: 8,
-              background: 'none', color: '#6b7280', fontSize: 14, cursor: 'pointer' }}>
+              background: 'none', color: 'var(--text-muted)', fontSize: 14, cursor: 'pointer' }}>
             ＋ 新增列
           </button>
         </div>
 
         {/* Right panel */}
-        <div style={{ width: 260, flexShrink: 0, borderLeft: '1px solid #e5e7eb', paddingLeft: 20, overflowY: 'auto' }}>
+        <div style={{ width: 260, flexShrink: 0, borderLeft: '1px solid var(--border-color)', paddingLeft: 20, overflowY: 'auto' }}>
 
           {selection === null && (
-            <div style={{ paddingTop: 60, textAlign: 'center', color: '#9ca3af', fontSize: 13, lineHeight: 1.8 }}>
+            <div style={{ paddingTop: 60, textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13, lineHeight: 1.8 }}>
               點選欄位或列<br />可在此編輯設定
             </div>
           )}
@@ -346,15 +346,15 @@ export default function FormSettingsClient({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 16 }}>
                     {availableFields.map(f => (
                       <button key={f.id} onClick={() => placeField(selection.rowId, selection.slotIdx, f)}
-                        style={{ padding: '7px 12px', textAlign: 'left', border: '1px solid #e5e7eb',
-                          borderRadius: 6, background: 'white', fontSize: 13, cursor: 'pointer', color: '#374151' }}>
+                        style={{ padding: '7px 12px', textAlign: 'left', border: '1px solid var(--border-color)',
+                          borderRadius: 6, background: 'white', fontSize: 13, cursor: 'pointer', color: 'var(--text-body)' }}>
                         {f.label}
                       </button>
                     ))}
                   </div>
                 </>
               )}
-              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 14 }}>
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 14 }}>
                 <p style={panelLabel}>新增自訂欄位</p>
                 <input value={customLabel} onChange={e => setCustomLabel(e.target.value)}
                   placeholder="欄位名稱" style={{ ...panelInput, marginBottom: 8 }} />
@@ -390,7 +390,7 @@ export default function FormSettingsClient({
                 )}
                 <button onClick={() => placeCustomField(selection.rowId, selection.slotIdx)}
                   disabled={!customLabel.trim()}
-                  style={{ width: '100%', padding: '7px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 6,
+                  style={{ width: '100%', padding: '7px', fontSize: 13, border: '1px solid var(--btn-border)', borderRadius: 6,
                     background: customLabel.trim() ? '#111827' : '#f3f4f6',
                     color: customLabel.trim() ? 'white' : '#9ca3af',
                     cursor: customLabel.trim() ? 'pointer' : 'not-allowed' }}>
@@ -425,7 +425,7 @@ export default function FormSettingsClient({
 
               {/* Data source section */}
               {selectedSlot.type !== 'textarea' && (
-                <div style={{ marginBottom: 14, padding: 10, background: '#f9fafb', borderRadius: 6, border: '1px solid #e5e7eb' }}>
+                <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
                   <p style={{ ...panelLabel, marginBottom: 4 }}>資料來源</p>
                   {isCustomField ? (
                     <>
@@ -458,7 +458,7 @@ export default function FormSettingsClient({
                     </>
                   ) : (
                     <>
-                      <p style={{ fontSize: 13, color: '#374151', margin: 0 }}>
+                      <p style={{ fontSize: 13, color: 'var(--text-body)', margin: 0 }}>
                         {selectedCatalogDef?.dataSourceLabel ?? '—'}
                       </p>
                       {dataSources.find(ds => ds.source_key === selectedSlot.dataSource)?.is_static_options && selectedSlot.staticOptions && (
@@ -486,7 +486,7 @@ export default function FormSettingsClient({
                   return (
                     <button key={label} onClick={() => swapSlots(selectedRow.id, selection.slotIdx, target)}
                       disabled={disabled}
-                      style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 6,
+                      style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid var(--btn-border)', borderRadius: 6,
                         background: disabled ? '#f9fafb' : 'white',
                         color: disabled ? '#d1d5db' : '#374151',
                         cursor: disabled ? 'not-allowed' : 'pointer' }}>
@@ -504,7 +504,7 @@ export default function FormSettingsClient({
                     {[{ label: '↑ 移至上列', dir: 'up' as const, ok: canUp }, { label: '↓ 移至下列', dir: 'down' as const, ok: canDown }].map(({ label, dir, ok }) => (
                       <button key={label} onClick={() => moveFieldToRow(selectedRow.id, selection.slotIdx, dir)}
                         disabled={!ok}
-                        style={{ flex: 1, padding: '7px 0', fontSize: 12, border: '1px solid #d1d5db', borderRadius: 6,
+                        style={{ flex: 1, padding: '7px 0', fontSize: 12, border: '1px solid var(--btn-border)', borderRadius: 6,
                           background: !ok ? '#f9fafb' : 'white',
                           color: !ok ? '#d1d5db' : '#374151',
                           cursor: !ok ? 'not-allowed' : 'pointer' }}>
@@ -526,8 +526,8 @@ export default function FormSettingsClient({
   )
 }
 
-const panelTitle: React.CSSProperties = { fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 14, marginTop: 0 }
-const panelLabel: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 6, marginTop: 0 }
-const panelInput: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }
+const panelTitle: React.CSSProperties = { fontSize: 14, fontWeight: 600, color: 'var(--text-title)', marginBottom: 14, marginTop: 0 }
+const panelLabel: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6, marginTop: 0 }
+const panelInput: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }
 const btnPrimary: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: 'white', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
 const btnDanger: React.CSSProperties = { width: '100%', padding: '8px 12px', background: 'white', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 13, cursor: 'pointer' }

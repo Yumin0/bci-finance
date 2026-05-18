@@ -77,7 +77,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     <div>
       <div style={{ maxWidth: 480 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>付款憑單</h1>
-        <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 24 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>
           資金分配申請單 #
           <Link href={`/funds-allocation/my-funds/edit/${record!.funds_allocation_id}`} style={{ color: '#2563eb' }}>
             {record!.funds_allocation_id}
@@ -98,7 +98,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         <div style={{ marginTop: 32, display: 'flex', gap: 8 }}>
           <Link
             href="/funds-payment/my-payment"
-            style={{ padding: '8px 20px', background: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, textDecoration: 'none' }}
+            style={{ padding: '8px 20px', background: 'none', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, textDecoration: 'none' }}
           >
             返回列表
           </Link>
@@ -142,5 +142,5 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   )
 }
 
-const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 2 }
-const valueStyle: React.CSSProperties = { fontSize: 14, color: '#111827', padding: '8px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6 }
+const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 2 }
+const valueStyle: React.CSSProperties = { fontSize: 14, color: 'var(--text-title)', padding: '8px 12px', background: 'var(--bg-sidebar)', border: '1px solid var(--border-color)', borderRadius: 6 }

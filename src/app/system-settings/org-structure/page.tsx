@@ -66,7 +66,7 @@ function RoleRow({
       <td style={{
         paddingLeft: indent + 28,
         paddingTop: 5, paddingBottom: 5, paddingRight: 12,
-        fontSize: 13, color: '#374151', whiteSpace: 'nowrap',
+        fontSize: 13, color: 'var(--text-body)', whiteSpace: 'nowrap',
         verticalAlign: 'middle', width: 1,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -107,7 +107,7 @@ function RoleRow({
                 value={selectedUserId}
                 onChange={e => setSelectedUserId(e.target.value)}
                 autoFocus
-                style={{ fontSize: 13, padding: '3px 6px', borderRadius: 4, border: '1px solid #d1d5db' }}
+                style={{ fontSize: 13, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--btn-border)' }}
               >
                 <option value="">選擇使用者</option>
                 {availableUsers.map(u => (
@@ -128,7 +128,7 @@ function RoleRow({
                 onClick={() => { setAdding(false); setSelectedUserId('') }}
                 style={{
                   fontSize: 12, padding: '3px 10px', cursor: 'pointer',
-                  background: 'none', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151',
+                  background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)',
                 }}
               >取消</button>
             </span>
@@ -138,7 +138,7 @@ function RoleRow({
               style={{
                 fontSize: 12, padding: '3px 10px', cursor: 'pointer',
                 background: 'none', border: '1px dashed #9ca3af',
-                borderRadius: 4, color: '#6b7280',
+                borderRadius: 4, color: 'var(--text-muted)',
               }}
             >＋ 新增</button>
           ) : assignedPositions.length === 0 ? (
@@ -260,41 +260,41 @@ function OrgNodeRows({
             paddingBottom: 6,
             paddingLeft: indent + 12,
             paddingRight: 16,
-            borderTop: unit.level === '處' ? '1px solid #e5e7eb' : '1px solid #f3f4f6',
+            borderTop: unit.level === '處' ? '1px solid var(--border-color)' : '1px solid var(--border-color)',
             background: unit.level === '處' ? '#fafafa' : 'transparent',
           }}
         >
           {isEditing ? (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, color: '#9ca3af' }}>{unit.level}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{unit.level}</span>
               <input
                 value={editCode}
                 onChange={e => setEditCode(e.target.value)}
                 placeholder="編號（選填）"
-                style={{ width: 100, fontSize: 13, padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 4 }}
+                style={{ width: 100, fontSize: 13, padding: '3px 6px', border: '1px solid var(--btn-border)', borderRadius: 4 }}
               />
               <input
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
                 placeholder="名稱"
-                style={{ width: 160, fontSize: 13, padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 4 }}
+                style={{ width: 160, fontSize: 13, padding: '3px 6px', border: '1px solid var(--btn-border)', borderRadius: 4 }}
                 onKeyDown={e => { if (e.key === 'Enter') handleEditSave() }}
                 autoFocus
               />
               <button onClick={handleEditSave} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: '#111827', color: '#fff', border: 'none', borderRadius: 4 }}>保存</button>
-              <button onClick={() => { setIsEditing(false); setEditCode(unit.code ?? ''); setEditName(unit.name) }} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151' }}>取消</button>
+              <button onClick={() => { setIsEditing(false); setEditCode(unit.code ?? ''); setEditName(unit.name) }} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)' }}>取消</button>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontWeight: LEVEL_WEIGHT[unit.level], fontSize: LEVEL_FONT_SIZE[unit.level], color: '#111827' }}>
-                <span style={{ fontSize: 11, color: '#9ca3af', marginRight: 6, fontWeight: 400 }}>{unit.level}</span>
+              <span style={{ fontWeight: LEVEL_WEIGHT[unit.level], fontSize: LEVEL_FONT_SIZE[unit.level], color: 'var(--text-title)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-subtle)', marginRight: 6, fontWeight: 400 }}>{unit.level}</span>
                 {[unit.code, unit.name].filter(Boolean).join(' ')}
               </span>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 {childLevel && !isAddingChild && (
-                  <button onClick={() => setIsAddingChild(true)} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px dashed #9ca3af', borderRadius: 4, color: '#6b7280' }}>+ 新增{childLevel}</button>
+                  <button onClick={() => setIsAddingChild(true)} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px dashed #9ca3af', borderRadius: 4, color: 'var(--text-muted)' }}>+ 新增{childLevel}</button>
                 )}
-                <button onClick={() => setIsEditing(true)} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151' }}>編輯</button>
+                <button onClick={() => setIsEditing(true)} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)' }}>編輯</button>
                 <button onClick={handleDelete} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: 'none', color: '#dc2626' }}>刪除</button>
               </div>
             </div>
@@ -326,7 +326,7 @@ function OrgNodeRows({
                   value={selectedRoleTypeId}
                   onChange={e => setSelectedRoleTypeId(e.target.value)}
                   autoFocus
-                  style={{ fontSize: 13, padding: '3px 6px', borderRadius: 4, border: '1px solid #d1d5db' }}
+                  style={{ fontSize: 13, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--btn-border)' }}
                 >
                   <option value="">選擇職稱</option>
                   {availableRoleTypes.map(rt => (
@@ -334,10 +334,10 @@ function OrgNodeRows({
                   ))}
                 </select>
                 <button onClick={handleAddRole} disabled={!selectedRoleTypeId} style={{ fontSize: 12, padding: '3px 10px', cursor: selectedRoleTypeId ? 'pointer' : 'not-allowed', background: selectedRoleTypeId ? '#111827' : '#9ca3af', color: '#fff', border: 'none', borderRadius: 4 }}>新增</button>
-                <button onClick={() => { setIsAddingRole(false); setSelectedRoleTypeId('') }} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151' }}>取消</button>
+                <button onClick={() => { setIsAddingRole(false); setSelectedRoleTypeId('') }} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)' }}>取消</button>
               </div>
             ) : availableRoleTypes.length > 0 ? (
-              <button onClick={() => setIsAddingRole(true)} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px dashed #9ca3af', borderRadius: 4, color: '#6b7280' }}>+ 新增職位</button>
+              <button onClick={() => setIsAddingRole(true)} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px dashed #9ca3af', borderRadius: 4, color: 'var(--text-muted)' }}>+ 新增職位</button>
             ) : null}
           </td>
           <td />
@@ -361,11 +361,11 @@ function OrgNodeRows({
         <tr>
           <td colSpan={2} style={{ paddingLeft: LEVEL_INDENT[childLevel] + 12, paddingTop: 6, paddingBottom: 8, paddingRight: 16, borderTop: '1px dashed #e5e7eb' }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, color: '#9ca3af' }}>{childLevel}</span>
-              <input value={childCode} onChange={e => setChildCode(e.target.value)} placeholder="編號（如第8課）" style={{ width: 120, fontSize: 13, padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 4 }} />
-              <input value={childName} onChange={e => setChildName(e.target.value)} placeholder="名稱（如支出課）" style={{ width: 160, fontSize: 13, padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 4 }} onKeyDown={e => { if (e.key === 'Enter') handleAddChild() }} autoFocus />
+              <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{childLevel}</span>
+              <input value={childCode} onChange={e => setChildCode(e.target.value)} placeholder="編號（如第8課）" style={{ width: 120, fontSize: 13, padding: '3px 6px', border: '1px solid var(--btn-border)', borderRadius: 4 }} />
+              <input value={childName} onChange={e => setChildName(e.target.value)} placeholder="名稱（如支出課）" style={{ width: 160, fontSize: 13, padding: '3px 6px', border: '1px solid var(--btn-border)', borderRadius: 4 }} onKeyDown={e => { if (e.key === 'Enter') handleAddChild() }} autoFocus />
               <button onClick={handleAddChild} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: '#111827', color: '#fff', border: 'none', borderRadius: 4 }}>新增</button>
-              <button onClick={() => { setIsAddingChild(false); setChildCode(''); setChildName('') }} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151' }}>取消</button>
+              <button onClick={() => { setIsAddingChild(false); setChildCode(''); setChildName('') }} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)' }}>取消</button>
             </div>
           </td>
         </tr>
@@ -457,7 +457,7 @@ function DeptBlock({
         marginBottom: 8,
         border: `2px solid ${isDragOver ? '#3b82f6' : '#e5e7eb'}`,
         borderRadius: 8,
-        background: '#fff',
+        background: 'var(--bg-card)',
         opacity: isDragging ? 0.45 : 1,
         transition: 'border-color 0.12s, opacity 0.12s',
       }}
@@ -468,9 +468,9 @@ function DeptBlock({
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '12px 16px',
-          background: '#f9fafb',
+          background: 'var(--bg-sidebar)',
           borderRadius: headerRadius,
-          borderBottom: isCollapsed ? 'none' : '1px solid #e5e7eb',
+          borderBottom: isCollapsed ? 'none' : '1px solid var(--border-color)',
           cursor: isEditing ? 'default' : 'pointer',
           userSelect: 'none',
         }}
@@ -481,21 +481,21 @@ function DeptBlock({
               value={editName}
               onChange={e => setEditName(e.target.value)}
               placeholder="部門名稱"
-              style={{ width: 180, fontSize: 14, padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 4 }}
+              style={{ width: 180, fontSize: 14, padding: '3px 6px', border: '1px solid var(--btn-border)', borderRadius: 4 }}
               onKeyDown={e => { if (e.key === 'Enter') handleEditSave() }}
               autoFocus
             />
             <button onClick={handleEditSave} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: '#111827', color: '#fff', border: 'none', borderRadius: 4 }}>保存</button>
-            <button onClick={() => { setIsEditing(false); setEditName(unit.name) }} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151' }}>取消</button>
+            <button onClick={() => { setIsEditing(false); setEditName(unit.name) }} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)' }}>取消</button>
             {error && <span style={{ color: '#dc2626', fontSize: 12 }}>{error}</span>}
           </div>
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ color: '#d1d5db', fontSize: 16, cursor: 'grab', lineHeight: 1 }} title="拖曳排序">⠿</span>
-              <span style={{ fontSize: 11, color: '#9ca3af' }}>{isCollapsed ? '▸' : '▾'}</span>
-              <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>
-                <span style={{ fontSize: 11, color: '#9ca3af', marginRight: 6, fontWeight: 400 }}>部門</span>
+              <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{isCollapsed ? '▸' : '▾'}</span>
+              <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-title)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-subtle)', marginRight: 6, fontWeight: 400 }}>部門</span>
                 {unit.name}
               </span>
             </div>
@@ -503,10 +503,10 @@ function DeptBlock({
               {!isAddingChild && (
                 <button
                   onClick={() => { if (isCollapsed) onToggle(); setIsAddingChild(true) }}
-                  style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px dashed #9ca3af', borderRadius: 4, color: '#6b7280' }}
+                  style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px dashed #9ca3af', borderRadius: 4, color: 'var(--text-muted)' }}
                 >+ 新增處</button>
               )}
-              <button onClick={() => setIsEditing(true)} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151' }}>編輯</button>
+              <button onClick={() => setIsEditing(true)} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)' }}>編輯</button>
               <button onClick={handleDelete} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: 'none', color: '#dc2626' }}>刪除</button>
             </div>
           </>
@@ -535,11 +535,11 @@ function DeptBlock({
                   <tr>
                     <td colSpan={2} style={{ paddingLeft: 12, paddingTop: 8, paddingBottom: 10, paddingRight: 16, borderTop: '1px dashed #e5e7eb' }}>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: '#9ca3af' }}>處</span>
-                        <input value={childCode} onChange={e => setChildCode(e.target.value)} placeholder="編號（選填）" style={{ width: 120, fontSize: 13, padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 4 }} />
-                        <input value={childName} onChange={e => setChildName(e.target.value)} placeholder="名稱（如行政處）" style={{ width: 160, fontSize: 13, padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 4 }} onKeyDown={e => { if (e.key === 'Enter') handleAddChild() }} autoFocus />
+                        <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>處</span>
+                        <input value={childCode} onChange={e => setChildCode(e.target.value)} placeholder="編號（選填）" style={{ width: 120, fontSize: 13, padding: '3px 6px', border: '1px solid var(--btn-border)', borderRadius: 4 }} />
+                        <input value={childName} onChange={e => setChildName(e.target.value)} placeholder="名稱（如行政處）" style={{ width: 160, fontSize: 13, padding: '3px 6px', border: '1px solid var(--btn-border)', borderRadius: 4 }} onKeyDown={e => { if (e.key === 'Enter') handleAddChild() }} autoFocus />
                         <button onClick={handleAddChild} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: '#111827', color: '#fff', border: 'none', borderRadius: 4 }}>新增</button>
-                        <button onClick={() => { setIsAddingChild(false); setChildCode(''); setChildName('') }} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151' }}>取消</button>
+                        <button onClick={() => { setIsAddingChild(false); setChildCode(''); setChildName('') }} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer', background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)' }}>取消</button>
                         {error && <span style={{ color: '#dc2626', fontSize: 12 }}>{error}</span>}
                       </div>
                     </td>
@@ -548,7 +548,7 @@ function DeptBlock({
               </tbody>
             </table>
           ) : (
-            <div style={{ padding: '10px 16px', color: '#9ca3af', fontSize: 13 }}>
+            <div style={{ padding: '10px 16px', color: 'var(--text-subtle)', fontSize: 13 }}>
               尚無子處，點上方「+ 新增處」新增。
             </div>
           )}
@@ -600,29 +600,29 @@ function RoleTypeRow({
 
   if (isEditing) {
     return (
-      <tr style={{ borderTop: '1px solid #f3f4f6', background: '#fafafa' }}>
+      <tr style={{ borderTop: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
         <td style={{ padding: '6px 8px' }}>
-          <select value={editLevel} onChange={e => setEditLevel(e.target.value as RoleLevel)} style={{ fontSize: 13, padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 4 }}>
+          <select value={editLevel} onChange={e => setEditLevel(e.target.value as RoleLevel)} style={{ fontSize: 13, padding: '3px 6px', border: '1px solid var(--btn-border)', borderRadius: 4 }}>
             {ROLE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </td>
         <td style={{ padding: '6px 8px' }}>
-          <input value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSave() }} style={{ fontSize: 13, padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 4, width: 140 }} autoFocus />
+          <input value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSave() }} style={{ fontSize: 13, padding: '3px 6px', border: '1px solid var(--btn-border)', borderRadius: 4, width: 140 }} autoFocus />
         </td>
         <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
           <button onClick={handleSave} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: '#111827', color: '#fff', border: 'none', borderRadius: 4, marginRight: 4 }}>保存</button>
-          <button onClick={() => { setIsEditing(false); setEditLevel(r.level); setEditName(r.name) }} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151' }}>取消</button>
+          <button onClick={() => { setIsEditing(false); setEditLevel(r.level); setEditName(r.name) }} style={{ fontSize: 12, padding: '2px 8px', cursor: 'pointer', background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)' }}>取消</button>
         </td>
       </tr>
     )
   }
 
   return (
-    <tr style={{ borderTop: '1px solid #f3f4f6' }}>
+    <tr style={{ borderTop: '1px solid var(--border-color)' }}>
       <td style={{ padding: '6px 12px', fontSize: 13 }}>{r.level}</td>
       <td style={{ padding: '6px 12px', fontSize: 13 }}>{r.name}</td>
       <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
-        <button onClick={() => setIsEditing(true)} style={{ color: '#374151', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, marginRight: 8 }}>編輯</button>
+        <button onClick={() => setIsEditing(true)} style={{ color: 'var(--text-body)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, marginRight: 8 }}>編輯</button>
         <button onClick={handleDelete} style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>刪除</button>
       </td>
     </tr>
@@ -646,15 +646,15 @@ function RoleTypesPanel({ roleTypes, onRefresh }: { roleTypes: RoleType[]; onRef
   }
 
   return (
-    <div style={{ marginTop: 32, borderTop: '1px solid #e5e7eb', paddingTop: 16 }}>
+    <div style={{ marginTop: 32, borderTop: '1px solid var(--border-color)', paddingTop: 16 }}>
       <button
         onClick={() => setExpanded(v => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#374151', padding: 0 }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: 'var(--text-body)', padding: 0 }}
       >
         <span style={{ fontSize: 11 }}>{expanded ? '▾' : '▸'}</span>
         職稱管理
       </button>
-      <p style={{ fontSize: 13, color: '#9ca3af', margin: '4px 0 0 18px' }}>
+      <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: '4px 0 0 18px' }}>
         管理各層級可用的職稱（如課長、處長），新增後才能在上方樹狀圖中選用。
       </p>
 
@@ -663,7 +663,7 @@ function RoleTypesPanel({ roleTypes, onRefresh }: { roleTypes: RoleType[]; onRef
           {error && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 8 }}>{error}</p>}
           <table style={{ borderCollapse: 'collapse', minWidth: 320, marginBottom: 12 }}>
             <thead>
-              <tr style={{ background: '#f3f4f6' }}>
+              <tr style={{ background: 'var(--bg-page)' }}>
                 <th style={{ textAlign: 'left', padding: '6px 12px', fontSize: 13, fontWeight: 600 }}>適用層級</th>
                 <th style={{ textAlign: 'left', padding: '6px 12px', fontSize: 13, fontWeight: 600 }}>職稱名稱</th>
                 <th style={{ width: 100 }}></th>
@@ -671,17 +671,17 @@ function RoleTypesPanel({ roleTypes, onRefresh }: { roleTypes: RoleType[]; onRef
             </thead>
             <tbody>
               {roleTypes.length === 0 ? (
-                <tr><td colSpan={3} style={{ padding: '8px 12px', color: '#9ca3af', fontSize: 13 }}>尚無職稱</td></tr>
+                <tr><td colSpan={3} style={{ padding: '8px 12px', color: 'var(--text-subtle)', fontSize: 13 }}>尚無職稱</td></tr>
               ) : roleTypes.map(r => (
                 <RoleTypeRow key={r.id} r={r} onRefresh={onRefresh} onError={setError} />
               ))}
             </tbody>
           </table>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <select value={level} onChange={e => setLevel(e.target.value as RoleLevel)} style={{ fontSize: 13, padding: '4px 6px', border: '1px solid #d1d5db', borderRadius: 4 }}>
+            <select value={level} onChange={e => setLevel(e.target.value as RoleLevel)} style={{ fontSize: 13, padding: '4px 6px', border: '1px solid var(--btn-border)', borderRadius: 4 }}>
               {ROLE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
-            <input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd() } }} placeholder="職稱名稱（如課長）" style={{ width: 180, fontSize: 13, padding: '4px 6px', border: '1px solid #d1d5db', borderRadius: 4 }} />
+            <input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd() } }} placeholder="職稱名稱（如課長）" style={{ width: 180, fontSize: 13, padding: '4px 6px', border: '1px solid var(--btn-border)', borderRadius: 4 }} />
             <button onClick={handleAdd} style={{ fontSize: 13, padding: '4px 12px', cursor: 'pointer', background: '#111827', color: '#fff', border: 'none', borderRadius: 4 }}>新增</button>
           </div>
         </div>
@@ -783,7 +783,7 @@ export default function OrgStructurePage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>組織架構與職位設定</h1>
-          <p style={{ color: '#6b7280', fontSize: 14 }}>管理部門、處、課等組織節點，設定各職位，並指派對應的使用者。</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>管理部門、處、課等組織節點，設定各職位，並指派對應的使用者。</p>
         </div>
         {!isAddingDept && (
           <button
@@ -794,11 +794,11 @@ export default function OrgStructurePage() {
       </div>
 
       {isAddingDept && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, padding: '10px 14px', background: '#f9fafb', border: '1px dashed #d1d5db', borderRadius: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, color: '#6b7280' }}>新增部門：</span>
-          <input value={deptName} onChange={e => setDeptName(e.target.value)} placeholder="如：第三部門" style={{ width: 200, fontSize: 13, padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 4 }} onKeyDown={e => { if (e.key === 'Enter') handleAddDept() }} autoFocus />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, padding: '10px 14px', background: 'var(--bg-sidebar)', border: '1px dashed #d1d5db', borderRadius: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>新增部門：</span>
+          <input value={deptName} onChange={e => setDeptName(e.target.value)} placeholder="如：第三部門" style={{ width: 200, fontSize: 13, padding: '4px 8px', border: '1px solid var(--btn-border)', borderRadius: 4 }} onKeyDown={e => { if (e.key === 'Enter') handleAddDept() }} autoFocus />
           <button onClick={handleAddDept} style={{ fontSize: 13, padding: '4px 12px', cursor: 'pointer', background: '#111827', color: '#fff', border: 'none', borderRadius: 4 }}>新增</button>
-          <button onClick={() => { setIsAddingDept(false); setDeptName('') }} style={{ fontSize: 13, padding: '4px 12px', cursor: 'pointer', background: 'none', border: '1px solid #d1d5db', borderRadius: 4, color: '#374151' }}>取消</button>
+          <button onClick={() => { setIsAddingDept(false); setDeptName('') }} style={{ fontSize: 13, padding: '4px 12px', cursor: 'pointer', background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, color: 'var(--text-body)' }}>取消</button>
           {addDeptError && <span style={{ color: '#dc2626', fontSize: 12 }}>{addDeptError}</span>}
         </div>
       )}
@@ -806,7 +806,7 @@ export default function OrgStructurePage() {
       {error && <p style={{ color: '#dc2626', marginBottom: 16, fontSize: 14 }}>錯誤：{error}</p>}
 
       {!hasDepts ? (
-        <p style={{ color: '#9ca3af', fontSize: 14 }}>尚無組織架構資料，請點右上角「新增部門」開始建立。</p>
+        <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>尚無組織架構資料，請點右上角「新增部門」開始建立。</p>
       ) : (
         <div>
           {topUnits.map(unit => (

@@ -49,13 +49,13 @@ const TYPE_COLOR: Record<string, React.CSSProperties> = {
   performance: { background: '#d1fae5', color: '#065f46' },
 }
 const PRIORITY_COLOR: Record<string, React.CSSProperties> = {
-  low: { background: '#f3f4f6', color: '#6b7280' },
+  low: { background: 'var(--bg-page)', color: 'var(--text-muted)' },
   medium: { background: '#fef3c7', color: '#d97706' },
   high: { background: '#fed7aa', color: '#ea580c' },
   critical: { background: '#fee2e2', color: '#dc2626' },
 }
 const STATUS_COLOR: Record<IssueStatus, React.CSSProperties> = {
-  pending: { background: '#f3f4f6', color: '#6b7280' },
+  pending: { background: 'var(--bg-page)', color: 'var(--text-muted)' },
   in_progress: { background: '#dbeafe', color: '#2563eb' },
   completed: { background: '#dcfce7', color: '#16a34a' },
   rejected: { background: '#fee2e2', color: '#dc2626' },
@@ -86,7 +86,7 @@ export default function IssueDetailView({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ marginBottom: 14 }}>
-        <Link href="/report-issue" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none' }}>
+        <Link href="/report-issue" style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>
           ← 返回列表
         </Link>
       </div>
@@ -126,17 +126,17 @@ export default function IssueDetailView({
           <option value="rejected">已拒絕</option>
         </select>
         {issue.module && (
-          <span style={{ ...chip, background: '#f3f4f6', color: '#6b7280' }}>{issue.module}</span>
+          <span style={{ ...chip, background: 'var(--bg-page)', color: 'var(--text-muted)' }}>{issue.module}</span>
         )}
-        <span style={{ fontSize: 12, color: '#9ca3af' }}>
+        <span style={{ fontSize: 12, color: 'var(--text-subtle)' }}>
           建立者：{issue.created_by ? (userMap[issue.created_by] ?? '-') : '-'}　{formatDate(issue.created_at)}
         </span>
-        <span style={{ fontSize: 12, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
           承接：
           <select
             defaultValue={issue.assigned_to ?? ''}
             onChange={(e) => startTransition(async () => { await assignIssue(issue.id, e.target.value ? Number(e.target.value) : null) })}
-            style={{ fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 6px' }}
+            style={{ fontSize: 12, border: '1px solid var(--border-color)', borderRadius: 4, padding: '2px 6px' }}
           >
             <option value="">未指派</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -145,8 +145,8 @@ export default function IssueDetailView({
       </div>
 
       {/* panels */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', flex: 1, minHeight: 0 }}>
-        <div style={{ borderRight: '1px solid #e5e7eb', overflowY: 'auto', height: 'calc(100vh - 255px)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden', flex: 1, minHeight: 0 }}>
+        <div style={{ borderRight: '1px solid var(--border-color)', overflowY: 'auto', height: 'calc(100vh - 255px)' }}>
           <ContentEditor
             side="before"
             issueId={issue.id}
@@ -283,8 +283,8 @@ function ContentEditor({
     <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* 標頭 */}
       <div style={{ borderLeft: `4px solid ${accentColor}`, paddingLeft: 10 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>{title}</div>
-        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{subtitle}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-title)' }}>{title}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>{subtitle}</div>
       </div>
 
       {/* 工具列 */}
@@ -292,7 +292,7 @@ function ContentEditor({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          style={{ fontSize: 12, border: '1px solid #d1d5db', borderRadius: 4, padding: '4px 12px', background: '#fff', cursor: uploading ? 'not-allowed' : 'pointer', color: '#374151' }}
+          style={{ fontSize: 12, border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', background: 'var(--bg-card)', cursor: uploading ? 'not-allowed' : 'pointer', color: 'var(--text-body)' }}
         >
           {uploading ? '上傳中...' : '📷 插入圖片'}
         </button>
@@ -310,19 +310,19 @@ function ContentEditor({
         onClick={handleClick}
         style={{
           minHeight: 260,
-          border: '1px solid #e5e7eb',
+          border: '1px solid var(--border-color)',
           borderRadius: 8,
           padding: '12px 14px',
           fontSize: 14,
           lineHeight: 1.8,
-          color: '#111827',
+          color: 'var(--text-title)',
           outline: 'none',
           wordBreak: 'break-word',
         }}
       />
 
       {/* 儲存（sticky 固定在可視區底部） */}
-      <div style={{ position: 'sticky', bottom: 0, background: '#fff', paddingTop: 8, paddingBottom: 4, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-card)', paddingTop: 8, paddingBottom: 4, display: 'flex', alignItems: 'center', gap: 10 }}>
         <button
           onClick={handleSave}
           disabled={saving}
@@ -335,7 +335,7 @@ function ContentEditor({
             {saveOk ? '已儲存' : '儲存失敗'}
           </span>
         )}
-        {uploading && <span style={{ fontSize: 12, color: '#9ca3af' }}>圖片上傳中...</span>}
+        {uploading && <span style={{ fontSize: 12, color: 'var(--text-subtle)' }}>圖片上傳中...</span>}
       </div>
 
       <input

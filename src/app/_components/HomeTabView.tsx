@@ -58,7 +58,7 @@ export default function HomeTabView({
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
-              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+              <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
                 {['狀態', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
                   <th key={i} style={th}>{col}</th>
                 ))}
@@ -71,7 +71,7 @@ export default function HomeTabView({
                 </tr>
               )}
               {fundsRecords.map((r) => (
-                <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                   <td style={td}>{r.status}</td>
                   <td style={td}>{r.apply_division ?? '-'}</td>
                   <td style={td}>{r.apply_section ?? '-'}</td>
@@ -100,7 +100,7 @@ export default function HomeTabView({
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
-              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+              <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
                 {['狀態', '費用項目', '項目', '付款方式', '金額', ''].map((col, i) => (
                   <th key={i} style={th}>{col}</th>
                 ))}
@@ -113,7 +113,7 @@ export default function HomeTabView({
                 </tr>
               )}
               {paymentRecords.map((r) => (
-                <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                   <td style={td}>{r.status}</td>
                   <td style={td}>{r.expense_item ?? '-'}</td>
                   <td style={td}>{r.name}</td>
@@ -141,22 +141,22 @@ const th: React.CSSProperties = {
   padding: '10px 16px',
   textAlign: 'left',
   fontWeight: 600,
-  color: '#374151',
+  color: 'var(--text-body)',
   whiteSpace: 'nowrap',
 }
 
-const td: React.CSSProperties = { padding: '10px 16px', color: '#111827' }
+const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }
 
 const empty: React.CSSProperties = {
   padding: '24px 16px',
   textAlign: 'center',
-  color: '#9ca3af',
+  color: 'var(--text-subtle)',
 }
 
 const linkStyle: React.CSSProperties = {
   fontSize: 13,
-  color: '#374151',
-  border: '1px solid #d1d5db',
+  color: 'var(--text-body)',
+  border: '1px solid var(--btn-border)',
   borderRadius: 4,
   padding: '4px 12px',
   textDecoration: 'none',

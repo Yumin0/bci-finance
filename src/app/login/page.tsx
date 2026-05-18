@@ -8,11 +8,11 @@ export default function LoginPage() {
   const [registerState, registerAction, registerPending] = useActionState(register, undefined)
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
-      <div style={{ width: 400, background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', padding: 32 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-sidebar)' }}>
+      <div style={{ width: 400, background: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border-color)', padding: 32 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24, textAlign: 'center' }}>BCI 財務系統</h1>
 
-        <div style={{ display: 'flex', marginBottom: 24, borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ display: 'flex', marginBottom: 24, borderBottom: '1px solid var(--border-color)' }}>
           {(['login', 'register'] as const).map((m) => (
             <button
               key={m}
@@ -73,7 +73,7 @@ export default function LoginPage() {
   )
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }
-const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
+const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
 const btnStyle: React.CSSProperties = { width: '100%', padding: '10px 0', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8 }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginTop: 4 }
