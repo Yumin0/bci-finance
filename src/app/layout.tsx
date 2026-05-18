@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { logout } from "@/app/actions/auth";
-import SidebarNav from "@/app/_components/SidebarNav";
+import SidebarLayout from "@/app/_components/SidebarLayout";
 import ThemeProvider from "@/app/_components/ThemeProvider";
 import ThemeToggle from "@/app/_components/ThemeToggle";
 import { getSidebarConfigForUser } from "@/app/actions/sidebar-config";
@@ -62,14 +62,9 @@ export default async function RootLayout({
                   </form>
                 </div>
               </header>
-              <div style={{ display: 'flex', marginTop: 52, minHeight: 'calc(100vh - 52px)' }}>
-                <nav style={{ position: 'fixed', top: 52, left: 0, bottom: 0, width: 220, background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border-color)', padding: '24px 0', overflowY: 'auto' }}>
-                  <SidebarNav config={sidebarConfig} />
-                </nav>
-                <main style={{ marginLeft: 220, flex: 1, padding: 32 }}>
-                  {children}
-                </main>
-              </div>
+              <SidebarLayout config={sidebarConfig}>
+                {children}
+              </SidebarLayout>
             </>
           ) : (
             children
