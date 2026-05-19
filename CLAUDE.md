@@ -1,5 +1,76 @@
 @AGENTS.md
 
+# 系統背景
+
+## 技術棧
+- **Next.js** (App Router) + **React 19** + **TypeScript**（strict mode）
+- **Tailwind CSS 4.x** 樣式
+- **Supabase**（PostgreSQL 資料庫 + Storage 圖片儲存）
+- **JWT Session**（HTTP-only Secure Cookie，7 天有效期，jose 套件）
+- **路由保護**：`src/proxy.ts` 攔截未登入請求，重導向 `/login`
+- **Server Actions**：所有資料庫操作在 Server Actions 執行，不直接暴露 API
+
+## 已完成功能模組
+
+| 模組 | 路徑 | 說明 |
+|------|------|------|
+| 資金分配申請 | `/funds-allocation` | 申請、編輯、5 級審核工作流（課→處→諮詢議會→主管議會→財務長） |
+| 付款憑單 | `/funds-payment` | 新增、4 級審核工作流（課→處→支出課→處長） |
+| 財務管理 | `/finance` | 資金管理與付款憑單總覽 |
+| 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位、側邊欄自定義、角色權限、表單設定 |
+| 問題回報 | `/report-issue` | Rich Text + 圖片上傳、狀態追蹤、影響模組標籤 |
+| 登入 | `/login` | Email + Password |
+| 首頁 | `/` | 顯示我的申請紀錄與付款憑單 |
+
+## 主要資料模型（Supabase 資料表）
+
+- `funds_allocation`：資金分配申請，含 `step1~5_decision/comment/reviewer/at`
+- `funds_payment`：付款憑單，關聯 `funds_allocation_id`，含 `step1~4_*`
+- `app_users`：系統使用者，含 `system_role_id`
+- `user_positions`：使用者職位，關聯 `org_unit_role_id`，`is_primary` 標記主職位
+- `org_units`：組織單位，樹狀結構（部門/處/課/科），含 `parent_id`
+- `role_types`：職位類型
+- `org_unit_roles`：組織單位職位（`org_unit_id` + `role_type_id` 組合）
+- `system_roles`：系統角色，`is_admin` 標記管理員，`allowed_item_ids` 功能菜單權限
+- `dropdown_options`：下拉選項（institution / payment_account 欄位）
+- `expense_items`：費用項目
+- `dev_tracker`：問題回報（type: bug/feature/improvement/performance）
+- `form_schema_rows` / `form_slots`：動態表單配置
+- **Storage Bucket** `issue-images`：問題回報圖片（路徑：`{issueId}/{timestamp}.{ext}`）
+
+## 目錄結構
+
+```
+src/
+├── app/
+│   ├── _components/       # 全局共享組件（SidebarLayout、ThemeProvider、HomeTabView 等）
+│   ├── actions/           # Server Actions（auth、payment、account、sidebar-config、dev-tracker、form-schema）
+│   ├── api/               # API Routes（upload-image）
+│   ├── funds-allocation/  # 資金分配申請模組
+│   ├── funds-payment/     # 付款憑單模組
+│   ├── finance/           # 財務管理
+│   ├── system-settings/   # 系統設定
+│   ├── report-issue/      # 問題回報
+│   └── login/
+├── lib/
+│   ├── types.ts           # 所有 TypeScript 型別定義
+│   ├── constants.ts       # 狀態常數
+│   ├── supabase.ts        # Supabase 客戶端
+│   ├── session.ts         # JWT Session 管理
+│   ├── sidebar-config.ts  # 側邊欄預設配置
+│   └── dateUtils.ts       # 日期格式化（Asia/Taipei）
+└── proxy.ts               # 路由保護中間件
+```
+
+## 架構注意事項
+
+- **權限三層**：SystemRole（功能菜單）→ UserPosition（組織職位）→ SidebarConfig（動態側邊欄）
+- **動態表單**：FormSchemaRow + FormSlot，支援 12+ 種資料來源，可在 Supabase 管理不需部署
+- **主題**：CSS Variables 定義顏色，偏好存 localStorage（`bci-theme`），有防 hydration 閃爍 script
+- **MOCK_USER_ID**：`'00000000-0000-0000-0000-000000000001'`，待整合真正 Supabase Auth 後替換
+
+---
+
 # 協作工作流程規則
 
 每次對話開始時，主動確認以下事項：
