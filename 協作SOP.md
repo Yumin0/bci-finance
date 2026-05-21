@@ -64,22 +64,13 @@ GitHub 不讓你用密碼登入，要用特殊的「通行碼」代替：
 
 ## 二、每次開始改程式碼的流程
 
-### 第一步：打開終端機，進入專案資料夾，啟動伺服器
-```
-cd ~/Documents/bci-finance
-npm run dev
-```
-看到 `Ready` 字樣後，打開瀏覽器前往 `localhost:3000` 確認畫面正常。
+### 第一步：在 VS Code 裡叫 Claude Code 拉取最新版本並啟動伺服器
+直接在 VS Code 的 Claude Code 對話框說：
 
-> 伺服器啟動後終端機會一直在跑、沒辦法輸入其他指令，這是正常的。
-> 要停掉時在終端機按 `Ctrl + C`，看到 `bci-finance %` 代表已停止。
+> 「幫我拉取最新的 main 分支，然後啟動開發伺服器」
 
-### 第二步：叫 Claude Code 拉取最新版本並建立工作區
-在 VS Code 裡跟 Claude Code 說：
-
-> 「幫我拉取最新的 main 分支，然後建立一個新分支叫 feature/你要做的事情名稱」
-
-Claude Code 會自動執行，不需要自己輸入任何指令。
+Claude Code 會自動執行 `git pull` 和 `npm run dev`，不需要自己開終端機。
+看到 Claude Code 回報 `Ready` 後，打開瀏覽器前往 `localhost:3000` 確認畫面正常。
 
 ### 第三步：跟 Claude Code 說你要改什麼
 直接描述需求，讓 Claude Code 寫程式。
