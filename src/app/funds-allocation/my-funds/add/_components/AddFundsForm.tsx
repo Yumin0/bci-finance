@@ -75,9 +75,12 @@ export default function AddFundsForm({
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
-          const t = data as { template_id: number; approval_flow_templates: { id: number; name: string } }
+          const t = data as { template_id: number; approval_flow_templates: Array<{ id: number; name: string }> }
+          const tmpl = Array.isArray(t.approval_flow_templates)
+            ? t.approval_flow_templates[0]
+            : t.approval_flow_templates
           setFlowTemplateId(t.template_id)
-          setFlowTemplateName(t.approval_flow_templates.name)
+          setFlowTemplateName((tmpl as { name: string } | undefined)?.name ?? null)
         } else {
           setFlowTemplateId(null)
           setFlowTemplateName(null)
