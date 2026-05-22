@@ -144,7 +144,7 @@ function HistoryList({ items }: { items: HistoryItem[] }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['審核階段', '申請課別', '申請人', '憑單名稱', '金額', '審核時間'].map((col, i) => (
+            {['審核階段', '申請課別', '申請人', '憑單名稱', '金額', '審核時間', ''].map((col, i) => (
               <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
             ))}
           </tr>
@@ -164,6 +164,14 @@ function HistoryList({ items }: { items: HistoryItem[] }) {
                 <td style={td}>{r.funds_payment?.name ?? '-'}</td>
                 <td style={td}>{r.funds_payment?.amount?.toLocaleString() ?? '-'}</td>
                 <td style={td}>{r.reviewed_at ? formatDateTime(r.reviewed_at) : '-'}</td>
+                <td style={td}>
+                  {r.funds_payment_id && (
+                    <Link href={`/funds-payment/review/check/${r.funds_payment_id}`}
+                      style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>
+                      查閱
+                    </Link>
+                  )}
+                </td>
               </tr>
             )
           })}

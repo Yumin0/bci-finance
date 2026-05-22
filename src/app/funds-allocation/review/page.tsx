@@ -61,6 +61,7 @@ export default function ReviewPage() {
         `)
         .eq('reviewer_id', MOCK_USER_ID)
         .not('decision', 'is', null)
+        .not('funds_allocation_id', 'is', null)
         .order('reviewed_at', { ascending: false })
         .limit(500)
 
@@ -179,7 +180,7 @@ function HistoryList({ items }: { items: HistoryItem[] }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['審核階段', '申請課別', '申請人', '項目名稱', '金額', '審核時間'].map((col, i) => (
+            {['審核階段', '申請課別', '申請人', '項目名稱', '金額', '審核時間', ''].map((col, i) => (
               <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
             ))}
           </tr>
@@ -203,6 +204,14 @@ function HistoryList({ items }: { items: HistoryItem[] }) {
                 <td style={td}>{r.funds_allocation?.name ?? '-'}</td>
                 <td style={td}>{r.funds_allocation?.amount?.toLocaleString() ?? '-'}</td>
                 <td style={td}>{r.reviewed_at ? formatDateTime(r.reviewed_at) : '-'}</td>
+                <td style={td}>
+                  {r.funds_allocation_id && (
+                    <Link href={`/funds-allocation/review/check/${r.funds_allocation_id}`}
+                      style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>
+                      查閱
+                    </Link>
+                  )}
+                </td>
               </tr>
             )
           })}
