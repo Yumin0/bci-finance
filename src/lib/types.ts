@@ -189,9 +189,16 @@ export type FundsAllocation = {
   payment_account: string | null
   expense_item: string | null
   status: FundsStatus
+  flow_template_id: number | null
+  current_step: number | null
   created_by: string
   created_at: string
   updated_at: string
+  applicant: string | null
+  apply_division: string | null
+  apply_section: string | null
+  apply_role: string | null
+  // 舊欄位保留中（過渡期備份，確認無誤後可刪除）
   step1_decision: StepDecision
   step1_comment: string | null
   step1_reviewer: string | null
@@ -212,8 +219,50 @@ export type FundsAllocation = {
   step5_comment: string | null
   step5_reviewer: string | null
   step5_at: string | null
-  applicant: string | null
-  apply_division: string | null
-  apply_section: string | null
-  apply_role: string | null
+}
+
+export type ReviewerType = 'org_role' | 'system_role'
+
+export type ApprovalFlowTemplate = {
+  id: number
+  name: string
+  form_type: FormType
+  is_active: boolean
+  created_at: string
+}
+
+export type ApprovalFlowStep = {
+  id: number
+  template_id: number
+  step_number: number
+  step_name: string
+  reviewer_type: ReviewerType
+  role_type_id: number | null
+  system_role_id: number | null
+  created_at: string
+}
+
+export type ApprovalFlowStepWithRole = {
+  id: number
+  template_id: number
+  step_number: number
+  step_name: string
+  reviewer_type: ReviewerType
+  role_type_id: number | null
+  system_role_id: number | null
+  role_type_name: string | null
+  system_role_name: string | null
+}
+
+export type ApprovalRecord = {
+  id: number
+  funds_allocation_id: number | null
+  funds_payment_id: number | null
+  step_number: number
+  step_name: string
+  decision: StepDecision
+  comment: string | null
+  reviewer_id: string | null
+  reviewed_at: string | null
+  created_at: string
 }

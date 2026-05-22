@@ -2,17 +2,9 @@
 export const MOCK_USER_ID = '00000000-0000-0000-0000-000000000001'
 
 export const FUNDS_STATUS = {
-  PENDING_STEP1: '新單-課級',
-  REJECTED_STEP1: '未核准-課級',
-  PENDING_STEP2: '新單-處級',
-  REJECTED_STEP2: '未核准-處級',
-  PENDING_STEP3: '新單-諮詢議會',
-  REJECTED_STEP3: '未核准-諮詢議會',
-  PENDING_STEP4: '新單-主管議會',
-  REJECTED_STEP4: '未核准-主管議會',
-  PENDING_STEP5: '新單-財務長',
-  REJECTED_STEP5: '未核准-財務長',
-  APPROVED: '已核准 - 財務長',
+  PENDING:  'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
 } as const
 
 export type FundsStatus = typeof FUNDS_STATUS[keyof typeof FUNDS_STATUS]

@@ -46,6 +46,10 @@ export default function AddFundsForm({
   // Generic field values (for non-cascade fields)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
 
+  // 審核流程（根據出款帳號自動帶入）
+  const [flowTemplateId, setFlowTemplateId] = useState<number | null>(null)
+  const [flowTemplateName, setFlowTemplateName] = useState<string | null>(null)
+
   // Collect which data sources are needed
   const allSlots: NonNullable<FormSlot>[] = schema.flatMap(r =>
     r.slots.filter((s): s is NonNullable<FormSlot> => s !== null)
@@ -55,6 +59,31 @@ export default function AddFundsForm({
   const setField = useCallback((id: string, val: string) => {
     setFieldValues(prev => ({ ...prev, [id]: val }))
   }, [])
+
+  // 當出款帳號改變時，自動查找對應的審核流程範本
+  useEffect(() => {
+    const label = fieldValues.payment_account
+    if (!label) { setFlowTemplateId(null); setFlowTemplateName(null); return }
+    const option = dropdownOptions['payment_account']?.find(o => o.label === label)
+    if (!option) { setFlowTemplateId(null); setFlowTemplateName(null); return }
+    supabase
+      .from('template_payment_accounts')
+      .select('template_id, approval_flow_templates!inner(id, name, is_active, form_type)')
+      .eq('payment_account_option_id', option.id)
+      .eq('approval_flow_templates.form_type', 'funds_allocation')
+      .eq('approval_flow_templates.is_active', true)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const t = data as { template_id: number; approval_flow_templates: { id: number; name: string } }
+          setFlowTemplateId(t.template_id)
+          setFlowTemplateName(t.approval_flow_templates.name)
+        } else {
+          setFlowTemplateId(null)
+          setFlowTemplateName(null)
+        }
+      })
+  }, [fieldValues.payment_account, dropdownOptions])
 
   useEffect(() => {
     async function load() {
@@ -303,7 +332,9 @@ export default function AddFundsForm({
       category: fieldValues.category || null,
       note: fieldValues.note || null,
       extra_data: extraData,
-      status: FUNDS_STATUS.PENDING_STEP1,
+      status: FUNDS_STATUS.PENDING,
+      flow_template_id: flowTemplateId,
+      current_step: 1,
       created_by: MOCK_USER_ID,
     }
 
@@ -342,8 +373,23 @@ export default function AddFundsForm({
           </div>
         ))}
 
+        {/* 審核流程顯示 */}
+        {fieldValues.payment_account && (
+          <div style={{
+            margin: '12px 0', padding: '10px 14px', borderRadius: 6,
+            background: flowTemplateName ? '#f0fdf4' : '#fef2f2',
+            border: `1px solid ${flowTemplateName ? '#86efac' : '#fca5a5'}`,
+            fontSize: 13,
+          }}>
+            {flowTemplateName
+              ? <span style={{ color: '#15803d' }}>✓ 審核流程：<strong>{flowTemplateName}</strong></span>
+              : <span style={{ color: '#dc2626' }}>⚠ 此出款帳號尚未設定審核流程，請聯絡系統管理員</span>
+            }
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting || (!!fieldValues.payment_account && !flowTemplateId)}>
             {submitting ? '送出中...' : '送出申請'}
           </Button>
           <Button type="button" variant="outline" onClick={() => router.back()}>取消</Button>

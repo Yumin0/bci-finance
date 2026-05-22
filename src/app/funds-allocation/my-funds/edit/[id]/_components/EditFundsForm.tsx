@@ -47,7 +47,7 @@ export default function EditFundsForm({
   )
   const neededSources = new Set(allSlots.map(s => s.dataSource))
 
-  const canEdit = record.status === FUNDS_STATUS.PENDING_STEP1
+  const canEdit = record.current_step === 1 && record.status === FUNDS_STATUS.PENDING
 
   function setField(id: string, val: string) {
     setFieldValues(prev => ({ ...prev, [id]: val }))
@@ -278,13 +278,6 @@ export default function EditFundsForm({
     router.push('/funds-allocation/my-funds')
   }
 
-  function currentStep(status: string): 1 | 2 | 3 | 4 | 5 {
-    if (status === FUNDS_STATUS.PENDING_STEP2 || status === FUNDS_STATUS.REJECTED_STEP2) return 2
-    if (status === FUNDS_STATUS.PENDING_STEP3 || status === FUNDS_STATUS.REJECTED_STEP3) return 3
-    if (status === FUNDS_STATUS.PENDING_STEP4 || status === FUNDS_STATUS.REJECTED_STEP4) return 4
-    if (status === FUNDS_STATUS.PENDING_STEP5 || status === FUNDS_STATUS.REJECTED_STEP5 || status === FUNDS_STATUS.APPROVED) return 5
-    return 1
-  }
 
   return (
     <div>
@@ -322,7 +315,7 @@ export default function EditFundsForm({
               刪除此單據
             </Button>
           )}
-          {record.status === FUNDS_STATUS.APPROVED && (
+          {record.status === FUNDS_STATUS.APPROVED && record.current_step === null && (
             <Button type="button" onClick={() => router.push(`/funds-payment/my-payment/add/${record.id}`)}>
               建立付款憑單
             </Button>
@@ -333,7 +326,7 @@ export default function EditFundsForm({
       <div style={{ marginTop: 40 }}>
         <ApprovalPanel
           record={record}
-          currentStep={currentStep(record.status)}
+          currentStep={((record.current_step ?? 1) as 1 | 2 | 3 | 4 | 5)}
           canReview={false}
           decision={approvalDecision}
           comment={approvalComment}

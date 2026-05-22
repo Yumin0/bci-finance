@@ -7,11 +7,38 @@ import { FundsAllocation } from '@/lib/types'
 export default async function MyFundsPage() {
   const { data, error } = await supabase
     .from('funds_allocation')
-    .select('*')
+    .select(`
+      *,
+      approval_flow_templates(
+        name,
+        approval_flow_steps(step_name, step_number)
+      )
+    `)
     .eq('created_by', MOCK_USER_ID)
     .order('created_at', { ascending: false })
 
-  const records = (data as FundsAllocation[]) ?? []
+  type RecordWithTemplate = FundsAllocation & {
+    approval_flow_templates: {
+      name: string
+      approval_flow_steps: Array<{ step_name: string; step_number: number }>
+    } | null
+  }
+  const records = (data as RecordWithTemplate[]) ?? []
+
+  function statusLabel(r: RecordWithTemplate) {
+    if (r.status === 'approved') return '已核准'
+    if (r.status === 'rejected') return '已拒絕'
+    const step = r.approval_flow_templates?.approval_flow_steps?.find(
+      s => s.step_number === r.current_step
+    )
+    return step ? `審核中・${step.step_name}` : '審核中'
+  }
+
+  function statusColor(status: string) {
+    if (status === 'approved') return '#16a34a'
+    if (status === 'rejected') return '#dc2626'
+    return 'var(--accent)'
+  }
 
   return (
     <div>
@@ -48,7 +75,11 @@ export default async function MyFundsPage() {
             )}
             {records.map((r) => (
               <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={td}>{r.status}</td>
+                <td style={td}>
+                  <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: `${statusColor(r.status)}1a`, color: statusColor(r.status), fontWeight: 500, whiteSpace: 'nowrap' }}>
+                    {statusLabel(r)}
+                  </span>
+                </td>
                 <td style={td}>{r.apply_division ?? '-'}</td>
                 <td style={td}>{r.apply_section ?? '-'}</td>
                 <td style={td}>{r.applicant ?? '-'}</td>

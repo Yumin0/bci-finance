@@ -5,26 +5,40 @@ import { supabase } from '@/lib/supabase'
 import { DEFAULT_SIDEBAR_CONFIG, type SidebarCategory, type SidebarEntry } from '@/lib/sidebar-config'
 
 function mergeWithDefaults(saved: SidebarCategory[]): SidebarCategory[] {
-  const result = saved.map(savedCat => {
-    const defaultCat = DEFAULT_SIDEBAR_CONFIG.find(d => d.id === savedCat.id)
-    if (!defaultCat) return savedCat
-
-    const savedIds = new Set(
-      savedCat.entries.flatMap(e =>
+  // 取得所有預設有效的 item id，用來過濾掉已被移除的舊項目
+  const validItemIds = new Set(
+    DEFAULT_SIDEBAR_CONFIG.flatMap(cat =>
+      cat.entries.flatMap(e =>
         e.kind === 'item' ? [e.id] : [e.id, ...e.items.map(i => i.id)]
       )
     )
+  )
 
+  const result = saved.map(savedCat => {
+    const defaultCat = DEFAULT_SIDEBAR_CONFIG.find(d => d.id === savedCat.id)
+    if (!defaultCat) return null // 整個分類已從預設移除
+
+    // 只保留預設裡仍存在的項目（移除已廢棄的 id）
+    const filteredEntries = savedCat.entries
+      .map(e => {
+        if (e.kind === 'item') return validItemIds.has(e.id) ? e : null
+        const filteredItems = e.items.filter(i => validItemIds.has(i.id))
+        return filteredItems.length > 0 ? { ...e, items: filteredItems } : null
+      })
+      .filter((e): e is NonNullable<typeof e> => e !== null)
+
+    // 補上預設新增的項目
+    const keptIds = new Set(filteredEntries.flatMap(e =>
+      e.kind === 'item' ? [e.id] : [e.id, ...e.items.map(i => i.id)]
+    ))
     const missingEntries = defaultCat.entries.filter(e =>
       e.kind === 'item'
-        ? !savedIds.has(e.id)
-        : !savedIds.has(e.id) && e.items.every(i => !savedIds.has(i.id))
+        ? !keptIds.has(e.id)
+        : !keptIds.has(e.id) && e.items.every(i => !keptIds.has(i.id))
     )
 
-    return missingEntries.length > 0
-      ? { ...savedCat, entries: [...savedCat.entries, ...missingEntries] }
-      : savedCat
-  })
+    return { ...savedCat, entries: [...filteredEntries, ...missingEntries] }
+  }).filter((c): c is NonNullable<typeof c> => c !== null)
 
   const savedCatIds = new Set(saved.map(c => c.id))
   const missingCats = DEFAULT_SIDEBAR_CONFIG.filter(c => !savedCatIds.has(c.id))
