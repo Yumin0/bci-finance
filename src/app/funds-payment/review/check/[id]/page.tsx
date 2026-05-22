@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MOCK_USER_ID } from '@/lib/constants'
-import { FundsPayment, ApprovalRecord, StepDecision } from '@/lib/types'
+import { FundsPayment, ApprovalRecord, StepDecision, FormBlock } from '@/lib/types'
 import { submitApprovalDecision } from '@/app/actions/approval-flow'
+import { getFormSchemas } from '@/app/actions/form-schema'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
 import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/dateUtils'
@@ -31,6 +32,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
   const router = useRouter()
   const [record, setRecord] = useState<RecordWithTemplate | null>(null)
   const [pastRecords, setPastRecords] = useState<ApprovalRecord[]>([])
+  const [schema, setSchema] = useState<FormBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
@@ -71,6 +73,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
       setLoading(false)
     }
     load()
+    getFormSchemas().then(s => setSchema(s.payment_voucher))
   }, [params])
 
   const steps = record?.approval_flow_templates?.approval_flow_steps
@@ -116,7 +119,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
 
       {error && <p style={{ color: '#dc2626', marginBottom: 12 }}>{error}</p>}
 
-      <FundsPaymentDetail record={record} />
+      <FundsPaymentDetail record={record} schema={schema} />
 
       <div style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>審核進度</h2>

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
-import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormSchemaRow, FormSlot, StepDecision } from '@/lib/types'
+import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSlot, StepDecision } from '@/lib/types'
 import ApprovalPanel from '@/app/funds-allocation/_components/ApprovalPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +23,7 @@ export default function EditFundsForm({
   userId,
 }: {
   record: FundsAllocation
-  schema: FormSchemaRow[]
+  schema: FormBlock[]
   applicantName: string
   userId: number | null
 }) {
@@ -42,8 +42,8 @@ export default function EditFundsForm({
   const [approvalDecision, setApprovalDecision] = useState<StepDecision>(null)
   const [approvalComment, setApprovalComment] = useState('')
 
-  const allSlots: NonNullable<FormSlot>[] = schema.flatMap(r =>
-    r.slots.filter((s): s is NonNullable<FormSlot> => s !== null)
+  const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
+    b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
   )
   const neededSources = new Set(allSlots.map(s => s.dataSource))
 
@@ -286,21 +286,41 @@ export default function EditFundsForm({
       {error && <p style={errorStyle}>錯誤：{error}</p>}
 
       <form onSubmit={handleSubmit}>
-        {schema.map(row => (
-          <div key={row.id} style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
-            gap: 20, marginBottom: 20,
+        {schema.map(block => (
+          <div key={block.id} style={{
+            marginBottom: 16,
+            border: '1px solid var(--border-color)',
+            borderRadius: 10,
+            overflow: 'hidden',
           }}>
-            {row.slots.map((slot, idx) => slot ? (
-              <div key={idx}>
-                <label style={labelStyle}>
-                  {slot.label}
-                  {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
-                </label>
-                {renderField(slot)}
+            {block.title && (
+              <div style={{
+                padding: '10px 20px',
+                background: 'var(--bg-sidebar)',
+                borderBottom: '1px solid var(--border-color)',
+              }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
               </div>
-            ) : <div key={idx} />)}
+            )}
+            <div style={{ padding: '20px 20px 4px' }}>
+              {block.rows.map(row => (
+                <div key={row.id} style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
+                  gap: 20, marginBottom: 20,
+                }}>
+                  {row.slots.map((slot, idx) => slot ? (
+                    <div key={idx}>
+                      <label style={labelStyle}>
+                        {slot.label}
+                        {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                      </label>
+                      {renderField(slot)}
+                    </div>
+                  ) : <div key={idx} />)}
+                </div>
+              ))}
+            </div>
           </div>
         ))}
 

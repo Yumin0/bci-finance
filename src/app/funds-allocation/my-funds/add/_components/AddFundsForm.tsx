@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
-import { DropdownOption, ExpenseItem, OrgUnit, FormSchemaRow, FormSlot } from '@/lib/types'
+import { DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSlot } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -26,7 +26,7 @@ export default function AddFundsForm({
 }: {
   applicantName: string
   userId: number | null
-  schema: FormSchemaRow[]
+  schema: FormBlock[]
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
@@ -51,8 +51,8 @@ export default function AddFundsForm({
   const [flowTemplateName, setFlowTemplateName] = useState<string | null>(null)
 
   // Collect which data sources are needed
-  const allSlots: NonNullable<FormSlot>[] = schema.flatMap(r =>
-    r.slots.filter((s): s is NonNullable<FormSlot> => s !== null)
+  const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
+    b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
   )
   const neededSources = new Set(allSlots.map(s => s.dataSource))
 
@@ -352,27 +352,47 @@ export default function AddFundsForm({
       {error && <p style={errorStyle}>送出失敗：{error}</p>}
 
       <form onSubmit={handleSubmit}>
-        {schema.map(row => (
-          <div
-            key={row.id}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
-              gap: 20,
-              marginBottom: 20,
-            }}
-          >
-            {row.slots.map((slot, idx) => slot ? (
-              <div key={idx}>
-                <label style={labelStyle}>
-                  {slot.label}
-                  {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
-                </label>
-                {renderField(slot)}
+        {schema.map(block => (
+          <div key={block.id} style={{
+            marginBottom: 16,
+            border: '1px solid var(--border-color)',
+            borderRadius: 10,
+            overflow: 'hidden',
+          }}>
+            {block.title && (
+              <div style={{
+                padding: '10px 20px',
+                background: 'var(--bg-sidebar)',
+                borderBottom: '1px solid var(--border-color)',
+              }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
               </div>
-            ) : (
-              <div key={idx} />
-            ))}
+            )}
+            <div style={{ padding: '20px 20px 4px' }}>
+              {block.rows.map(row => (
+                <div
+                  key={row.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
+                    gap: 20,
+                    marginBottom: 20,
+                  }}
+                >
+                  {row.slots.map((slot, idx) => slot ? (
+                    <div key={idx}>
+                      <label style={labelStyle}>
+                        {slot.label}
+                        {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                      </label>
+                      {renderField(slot)}
+                    </div>
+                  ) : (
+                    <div key={idx} />
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         ))}
 

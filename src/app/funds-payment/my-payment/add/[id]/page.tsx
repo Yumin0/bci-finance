@@ -3,18 +3,40 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsAllocation } from '@/lib/types'
+import { FundsAllocation, FormBlock } from '@/lib/types'
 import { createPayment } from '@/app/actions/payment'
+import { getFormSchemas } from '@/app/actions/form-schema'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
 const PAYMENT_METHODS = ['匯款', '支票', '現金', '其他']
 
+function getAllocFieldValue(fieldId: string, record: FundsAllocation): string {
+  const map: Record<string, unknown> = {
+    date: record.date,
+    apply_division: record.apply_division,
+    apply_section: record.apply_section,
+    applicant: record.applicant,
+    apply_role: record.apply_role,
+    institution: record.institution,
+    payment_account: record.payment_account,
+    expense_item: record.expense_item,
+    name: record.name,
+    amount: record.amount,
+    category: record.category,
+    note: record.note,
+  }
+  const val = map[fieldId]
+  if (val == null || val === '') return '-'
+  return String(val)
+}
+
 export default function AddPaymentPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const [record, setRecord] = useState<FundsAllocation | null>(null)
   const [allocationId, setAllocationId] = useState<number | null>(null)
+  const [schema, setSchema] = useState<FormBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -35,6 +57,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       setLoading(false)
     }
     load()
+    getFormSchemas().then(s => setSchema(s.payment_voucher))
   }, [params])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -42,7 +65,6 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
     if (!allocationId) return
     setSubmitting(true)
     setError(null)
-
     const { error: insertError } = await createPayment(allocationId, paymentMethod)
     if (insertError) { setError(insertError); setSubmitting(false); return }
     router.push('/funds-payment/my-payment')
@@ -52,76 +74,67 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   if (!record) return <p style={{ color: 'red' }}>找不到資金分配申請單</p>
 
   return (
-    <div style={{ maxWidth: 480 }}>
+    <div style={{ maxWidth: 720 }}>
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>建立付款憑單</h1>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>資金分配申請單 #{record.id}</p>
 
       {error && <p style={errorStyle}>錯誤：{error}</p>}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <label style={labelStyle}>日期</label>
-          <Input value={record.date} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
-        <div>
-          <label style={labelStyle}>申請處別</label>
-          <Input value={record.apply_division ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
-        <div>
-          <label style={labelStyle}>申請課別</label>
-          <Input value={record.apply_section ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
-        <div>
-          <label style={labelStyle}>申請人</label>
-          <Input value={record.applicant ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
-        <div>
-          <label style={labelStyle}>職稱</label>
-          <Input value={record.apply_role ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
-        <div>
-          <label style={labelStyle}>機構</label>
-          <Input value={record.institution ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
-        <div>
-          <label style={labelStyle}>出款帳戶</label>
-          <Input value={record.payment_account ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
-        <div>
-          <label style={labelStyle}>費用項目</label>
-          <Input value={record.expense_item ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
-        <div>
-          <label style={labelStyle}>項目</label>
-          <Input value={record.name} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
-        <div>
-          <label style={labelStyle}>金額</label>
-          <Input value={record.amount} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
-        <div>
-          <label style={labelStyle}>備註</label>
-          <Textarea value={record.note ?? ''} readOnly rows={3} className="bg-[var(--bg-page)] cursor-not-allowed" />
-        </div>
+      <form onSubmit={handleSubmit}>
+        {schema.map(block => (
+          <div key={block.id} style={{
+            marginBottom: 16,
+            border: '1px solid var(--border-color)',
+            borderRadius: 10,
+            overflow: 'hidden',
+          }}>
+            {block.title && (
+              <div style={{
+                padding: '10px 20px',
+                background: 'var(--bg-sidebar)',
+                borderBottom: '1px solid var(--border-color)',
+              }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
+              </div>
+            )}
+            <div style={{ padding: '20px 20px 4px' }}>
+              {block.rows.map(row => (
+                <div key={row.id} style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
+                  gap: 20,
+                  marginBottom: 20,
+                }}>
+                  {row.slots.map((slot, idx) => slot ? (
+                    <div key={idx}>
+                      <label style={labelStyle}>
+                        {slot.label}
+                        {slot.fieldId === 'payment_method' && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                      </label>
+                      {slot.fieldId === 'payment_method' ? (
+                        <select
+                          value={paymentMethod}
+                          onChange={e => setPaymentMethod(e.target.value)}
+                          required
+                          style={selectStyle}
+                        >
+                          <option value="">請選擇</option>
+                          {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      ) : slot.type === 'textarea' ? (
+                        <Textarea value={getAllocFieldValue(slot.fieldId, record)} readOnly rows={4} className="bg-[var(--bg-page)] cursor-not-allowed" />
+                      ) : (
+                        <Input value={getAllocFieldValue(slot.fieldId, record)} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+                      )}
+                    </div>
+                  ) : <div key={idx} />)}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
 
-        <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
-
-        <div>
-          <label style={labelStyle}>付款方式 *</label>
-          <select
-            value={paymentMethod}
-            onChange={e => setPaymentMethod(e.target.value)}
-            required
-            style={selectStyle}
-          >
-            <option value="">請選擇</option>
-            {PAYMENT_METHODS.map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <Button type="submit" disabled={submitting}>
             {submitting ? '建立中...' : '建立付款憑單'}
           </Button>

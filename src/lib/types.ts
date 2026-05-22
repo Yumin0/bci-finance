@@ -174,6 +174,12 @@ export type FormSchemaRow = {
   slots: FormSlot[]
 }
 
+export type FormBlock = {
+  id: string
+  title: string | null
+  rows: FormSchemaRow[]
+}
+
 export type ExpenseItem = {
   id: number
   label: string

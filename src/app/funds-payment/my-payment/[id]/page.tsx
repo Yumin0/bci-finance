@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsPayment, ApprovalRecord } from '@/lib/types'
+import { FundsPayment, ApprovalRecord, FormBlock } from '@/lib/types'
 import { PAYMENT_STATUS } from '@/lib/constants'
-import { getMyPayment, submitMyPayment } from '@/app/actions/payment'
+import { submitMyPayment } from '@/app/actions/payment'
+import { getFormSchemas } from '@/app/actions/form-schema'
+import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/dateUtils'
 
@@ -21,6 +23,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter()
   const [record, setRecord] = useState<RecordWithTemplate | null>(null)
   const [approvalHistory, setApprovalHistory] = useState<ApprovalRecord[]>([])
+  const [schema, setSchema] = useState<FormBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +46,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       setLoading(false)
     }
     load()
+    getFormSchemas().then(s => setSchema(s.payment_voucher))
   }, [params])
 
   async function handleSubmit() {
@@ -72,26 +76,13 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     return step ? `審核中・${step.step_name}` : '審核中'
   }
 
-  const fields: { label: string; value: string | number | null }[] = [
-    { label: '日期', value: record!.date },
-    { label: '申請處別', value: record!.apply_division },
-    { label: '申請課別', value: record!.apply_section },
-    { label: '申請人', value: record!.applicant },
-    { label: '職稱', value: record!.apply_role },
-    { label: '機構', value: record!.institution },
-    { label: '出款帳戶', value: record!.payment_account },
-    { label: '費用項目', value: record!.expense_item },
-    { label: '項目', value: record!.name },
-    { label: '金額', value: record!.amount },
-    { label: '類別', value: record!.category },
-    { label: '備註', value: record!.note },
-    { label: '付款方式', value: record!.payment_method },
-  ]
-
   return (
     <div>
-      <div style={{ maxWidth: 480 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>付款憑單</h1>
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <Link href="/funds-payment/my-payment" className={buttonVariants({ variant: 'outline' })}>← 返回列表</Link>
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>付款憑單</h1>
+        </div>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
           狀態：<strong>{statusLabel()}</strong>　資金分配申請單 #
           <Link href={`/funds-allocation/my-funds/edit/${record!.funds_allocation_id}`} style={{ color: '#2563eb' }}>
@@ -99,25 +90,17 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           </Link>
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {fields.map(({ label, value }) => (
-            <div key={label}>
-              <p style={labelStyle}>{label}</p>
-              <p style={valueStyle}>{value ?? '-'}</p>
-            </div>
-          ))}
-        </div>
+        <FundsPaymentDetail record={record!} schema={schema} />
 
         {error && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 16 }}>錯誤：{error}</p>}
 
-        <div style={{ marginTop: 32, display: 'flex', gap: 8 }}>
-          <Link href="/funds-payment/my-payment" className={buttonVariants({ variant: 'outline' })}>返回列表</Link>
-          {isDraft && (
+        {isDraft && (
+          <div style={{ marginTop: 32, display: 'flex', gap: 8 }}>
             <Button onClick={handleSubmit} disabled={submitting}>
               {submitting ? '送出中...' : '確定送出'}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* 審核歷程 */}
@@ -142,5 +125,3 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   )
 }
 
-const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 2 }
-const valueStyle: React.CSSProperties = { fontSize: 14, color: 'var(--text-title)', padding: '8px 12px', background: 'var(--bg-sidebar)', border: '1px solid var(--border-color)', borderRadius: 6 }

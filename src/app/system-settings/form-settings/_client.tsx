@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { saveFormSchema } from '@/app/actions/form-schema'
-import { FormSchemaRow, FormSlot, FormColCount, FormType, FormFieldType, FormDataSourceDef } from '@/lib/types'
+import { FormBlock, FormSchemaRow, FormSlot, FormColCount, FormType, FormFieldType, FormDataSourceDef } from '@/lib/types'
 
 type FieldDef = {
   id: string
@@ -65,60 +65,80 @@ function fieldPlaceholder(type: FormFieldType): string {
 }
 
 type Selection =
-  | { kind: 'row';  rowId: string }
-  | { kind: 'slot'; rowId: string; slotIdx: number }
+  | { kind: 'row';  blockId: string; rowId: string }
+  | { kind: 'slot'; blockId: string; rowId: string; slotIdx: number }
   | null
 
 export default function FormSettingsClient({
   initialSchemas,
   dataSources,
 }: {
-  initialSchemas: Record<FormType, FormSchemaRow[]>
+  initialSchemas: Record<FormType, FormBlock[]>
   dataSources: FormDataSourceDef[]
 }) {
-  const [formType, setFormType]     = useState<FormType>('funds_allocation')
-  const [schemas,  setSchemas]      = useState<Record<FormType, FormSchemaRow[]>>(initialSchemas)
-  const [selection, setSelection]   = useState<Selection>(null)
-  const [saving,    setSaving]      = useState(false)
-  const [savedMsg,  setSavedMsg]    = useState<string | null>(null)
+  const [formType, setFormType]   = useState<FormType>('funds_allocation')
+  const [schemas,  setSchemas]    = useState<Record<FormType, FormBlock[]>>(initialSchemas)
+  const [selection, setSelection] = useState<Selection>(null)
+  const [saving,    setSaving]    = useState(false)
+  const [savedMsg,  setSavedMsg]  = useState<string | null>(null)
   const [customLabel, setCustomLabel] = useState('')
   const [customType,  setCustomType]  = useState<FormFieldType>('text')
   const [customDs,    setCustomDs]    = useState<string>('static')
   const [staticOptionsInput, setStaticOptionsInput] = useState('')
 
-  const rows    = schemas[formType]
+  const blocks  = schemas[formType]
   const catalog = FIELD_CATALOG[formType]
 
-  function setRows(updater: (prev: FormSchemaRow[]) => FormSchemaRow[]) {
+  // --- Block helpers ---
+  function setBlocks(updater: (prev: FormBlock[]) => FormBlock[]) {
     setSchemas(prev => ({ ...prev, [formType]: updater(prev[formType]) }))
   }
 
-  const placedFieldIds = new Set(
-    rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null).map(s => s.fieldId))
-  )
-  const availableFields = catalog.filter(f => !placedFieldIds.has(f.id))
-
-  function addRow() {
-    setRows(prev => [...prev, { id: `row_${Date.now()}`, cols: 1, slots: [null] }])
+  function updateBlock(blockId: string, updater: (b: FormBlock) => FormBlock) {
+    setBlocks(prev => prev.map(b => b.id === blockId ? updater(b) : b))
   }
 
-  function deleteRow(rowId: string) {
-    setRows(prev => prev.filter(r => r.id !== rowId))
+  function setBlockRows(blockId: string, updater: (prev: FormSchemaRow[]) => FormSchemaRow[]) {
+    updateBlock(blockId, b => ({ ...b, rows: updater(b.rows) }))
+  }
+
+  function addBlock() {
+    setBlocks(prev => [...prev, { id: `block_${Date.now()}`, title: null, rows: [] }])
+  }
+
+  function deleteBlock(blockId: string) {
+    setBlocks(prev => prev.filter(b => b.id !== blockId))
+    if (selection?.blockId === blockId) setSelection(null)
+  }
+
+  function updateBlockTitle(blockId: string, title: string) {
+    updateBlock(blockId, b => ({ ...b, title: title || null }))
+  }
+
+  // --- Row helpers ---
+  function addRow(blockId: string) {
+    setBlockRows(blockId, prev => [...prev, { id: `row_${Date.now()}`, cols: 1, slots: [null] }])
+  }
+
+  function deleteRow(blockId: string, rowId: string) {
+    setBlockRows(blockId, prev => prev.filter(r => r.id !== rowId))
     if (selection?.rowId === rowId) setSelection(null)
   }
 
-  function setRowCols(rowId: string, cols: FormColCount) {
-    setRows(prev => prev.map(r => {
+  function setRowCols(blockId: string, rowId: string, cols: FormColCount) {
+    setBlockRows(blockId, prev => prev.map(r => {
       if (r.id !== rowId) return r
       const newSlots: FormSlot[] = Array(cols).fill(null)
       for (let i = 0; i < Math.min(r.slots.length, cols); i++) newSlots[i] = r.slots[i]
       return { ...r, cols, slots: newSlots }
     }))
-    if (selection?.kind === 'slot' && selection.rowId === rowId) setSelection({ kind: 'row', rowId })
+    if (selection?.kind === 'slot' && selection.rowId === rowId) {
+      setSelection({ kind: 'row', blockId, rowId })
+    }
   }
 
-  function placeField(rowId: string, slotIdx: number, def: FieldDef) {
-    setRows(prev => prev.map(r => {
+  function placeField(blockId: string, rowId: string, slotIdx: number, def: FieldDef) {
+    setBlockRows(blockId, prev => prev.map(r => {
       if (r.id !== rowId) return r
       const slots = [...r.slots]
       slots[slotIdx] = {
@@ -128,14 +148,14 @@ export default function FormSettingsClient({
       }
       return { ...r, slots }
     }))
-    setSelection({ kind: 'slot', rowId, slotIdx })
+    setSelection({ kind: 'slot', blockId, rowId, slotIdx })
   }
 
-  function placeCustomField(rowId: string, slotIdx: number) {
+  function placeCustomField(blockId: string, rowId: string, slotIdx: number) {
     const trimmed = customLabel.trim()
     if (!trimmed) return
     const options = staticOptionsInput.split('\n').map(s => s.trim()).filter(Boolean)
-    setRows(prev => prev.map(r => {
+    setBlockRows(blockId, prev => prev.map(r => {
       if (r.id !== rowId) return r
       const slots = [...r.slots]
       const isStatic = dataSources.find(ds => ds.source_key === customDs)?.is_static_options
@@ -147,11 +167,11 @@ export default function FormSettingsClient({
       return { ...r, slots }
     }))
     setCustomLabel(''); setCustomType('text'); setCustomDs('static'); setStaticOptionsInput('')
-    setSelection({ kind: 'slot', rowId, slotIdx })
+    setSelection({ kind: 'slot', blockId, rowId, slotIdx })
   }
 
-  function updateSlot(rowId: string, slotIdx: number, patch: Partial<FormSlot & object>) {
-    setRows(prev => prev.map(r => {
+  function updateSlot(blockId: string, rowId: string, slotIdx: number, patch: Partial<FormSlot & object>) {
+    setBlockRows(blockId, prev => prev.map(r => {
       if (r.id !== rowId) return r
       const slots = [...r.slots]
       const s = slots[slotIdx]
@@ -161,27 +181,30 @@ export default function FormSettingsClient({
     }))
   }
 
-  function removeField(rowId: string, slotIdx: number) {
-    setRows(prev => prev.map(r => {
+  function removeField(blockId: string, rowId: string, slotIdx: number) {
+    setBlockRows(blockId, prev => prev.map(r => {
       if (r.id !== rowId) return r
       const slots = [...r.slots]
       slots[slotIdx] = null
       return { ...r, slots }
     }))
-    setSelection({ kind: 'row', rowId })
+    setSelection({ kind: 'row', blockId, rowId })
   }
 
-  function swapSlots(rowId: string, idxA: number, idxB: number) {
-    setRows(prev => prev.map(r => {
+  function swapSlots(blockId: string, rowId: string, idxA: number, idxB: number) {
+    setBlockRows(blockId, prev => prev.map(r => {
       if (r.id !== rowId) return r
       const slots = [...r.slots]
       ;[slots[idxA], slots[idxB]] = [slots[idxB], slots[idxA]]
       return { ...r, slots }
     }))
-    setSelection({ kind: 'slot', rowId, slotIdx: idxB })
+    setSelection({ kind: 'slot', blockId, rowId, slotIdx: idxB })
   }
 
-  function moveFieldToRow(rowId: string, slotIdx: number, direction: 'up' | 'down') {
+  function moveFieldToRow(blockId: string, rowId: string, slotIdx: number, direction: 'up' | 'down') {
+    const block = blocks.find(b => b.id === blockId)
+    if (!block) return
+    const rows = block.rows
     const rowIdx = rows.findIndex(r => r.id === rowId)
     const targetRowIdx = direction === 'up' ? rowIdx - 1 : rowIdx + 1
     if (targetRowIdx < 0 || targetRowIdx >= rows.length) return
@@ -189,7 +212,7 @@ export default function FormSettingsClient({
     const targetSlotIdx = targetRow.slots.findIndex(s => s === null)
     if (targetSlotIdx === -1) return
     const field = rows[rowIdx].slots[slotIdx]
-    setRows(prev => prev.map((r, idx) => {
+    setBlockRows(blockId, prev => prev.map((r, idx) => {
       if (idx === rowIdx) {
         const slots = [...r.slots]; slots[slotIdx] = null; return { ...r, slots }
       }
@@ -198,18 +221,26 @@ export default function FormSettingsClient({
       }
       return r
     }))
-    setSelection({ kind: 'slot', rowId: targetRow.id, slotIdx: targetSlotIdx })
+    setSelection({ kind: 'slot', blockId, rowId: targetRow.id, slotIdx: targetSlotIdx })
   }
 
   async function handleSave() {
     setSaving(true); setSavedMsg(null)
-    const { error } = await saveFormSchema(formType, rows)
+    const { error } = await saveFormSchema(formType, blocks)
     setSaving(false)
     if (error) { setSavedMsg(error) } else { setSavedMsg('已儲存'); setTimeout(() => setSavedMsg(null), 3000) }
   }
 
-  const selectedRow  = selection ? rows.find(r => r.id === selection.rowId) ?? null : null
-  const selectedSlot = selection?.kind === 'slot' ? (selectedRow?.slots[selection.slotIdx] ?? null) : null
+  // --- Derived state ---
+  const allRows = blocks.flatMap(b => b.rows)
+  const placedFieldIds = new Set(
+    allRows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null).map(s => s.fieldId))
+  )
+  const availableFields = catalog.filter(f => !placedFieldIds.has(f.id))
+
+  const selectedBlock = selection ? (blocks.find(b => b.id === selection.blockId) ?? null) : null
+  const selectedRow   = selection ? (selectedBlock?.rows.find(r => r.id === selection.rowId) ?? null) : null
+  const selectedSlot  = selection?.kind === 'slot' ? (selectedRow?.slots[selection.slotIdx] ?? null) : null
   const selectedCatalogDef = selectedSlot ? catalog.find(f => f.id === selectedSlot.fieldId) : null
   const isCustomField = selectedSlot ? selectedSlot.fieldId.startsWith('custom_') : false
 
@@ -242,68 +273,114 @@ export default function FormSettingsClient({
       <div style={{ display: 'flex', gap: 0, minHeight: 500 }}>
         {/* Canvas */}
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: 20 }}>
-          {rows.map((row, rowIdx) => {
-            const isRowSel = selection?.rowId === row.id
-            return (
-              <div key={row.id} style={{ marginBottom: 10, border: `1.5px solid ${isRowSel ? '#2563eb' : '#e5e7eb'}`, borderRadius: 8, overflow: 'hidden' }}>
-                {/* Row header */}
-                <div onClick={() => setSelection({ kind: 'row', rowId: row.id })}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 12px',
-                    background: isRowSel ? '#eff6ff' : '#f9fafb', borderBottom: '1px solid var(--border-color)', cursor: 'pointer' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>第 {rowIdx + 1} 列</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {([1, 2, 3] as FormColCount[]).map(c => (
-                      <button key={c} onClick={e => { e.stopPropagation(); setRowCols(row.id, c) }}
-                        style={{ padding: '2px 7px', fontSize: 11, border: '1px solid',
-                          borderColor: row.cols === c ? '#2563eb' : '#d1d5db', borderRadius: 4,
-                          background: row.cols === c ? '#2563eb' : 'white',
-                          color: row.cols === c ? 'white' : '#374151', cursor: 'pointer', fontWeight: row.cols === c ? 600 : 400 }}>
-                        {c}欄
-                      </button>
-                    ))}
-                    <button onClick={e => { e.stopPropagation(); deleteRow(row.id) }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', fontSize: 16, lineHeight: 1, padding: '0 2px' }}>×</button>
-                  </div>
-                </div>
-                {/* Slots */}
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)` }}>
-                  {row.slots.map((slot, slotIdx) => {
-                    const isSlotSel = selection?.kind === 'slot' && selection.rowId === row.id && selection.slotIdx === slotIdx
-                    return (
-                      <div key={slotIdx} onClick={() => setSelection({ kind: 'slot', rowId: row.id, slotIdx })}
-                        style={{ padding: 14, borderRight: slotIdx < row.cols - 1 ? '1px solid var(--border-color)' : 'none',
-                          background: isSlotSel ? '#eff6ff' : 'white', cursor: 'pointer', minHeight: 72 }}>
-                        {slot ? (
-                          <>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 5 }}>
-                              {slot.label}{slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
-                            </div>
-                            <div style={{ padding: '6px 10px', border: '1px solid var(--btn-border)', borderRadius: 6,
-                              fontSize: 13, color: 'var(--text-subtle)', background: slot.type === 'readonly' ? '#f3f4f6' : 'white' }}>
-                              {slot.type === 'radio' && slot.staticOptions?.length
-                                ? slot.staticOptions.map(o => `○ ${o}`).join('  ')
-                                : fieldPlaceholder(slot.type)}
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            height: '100%', minHeight: 44,
-                            border: `1.5px dashed ${isSlotSel ? '#93c5fd' : '#d1d5db'}`, borderRadius: 6,
-                            color: isSlotSel ? '#2563eb' : '#9ca3af', fontSize: 13 }}>
-                            ＋ 點選新增欄位
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+          {blocks.map((block, blockIdx) => (
+            <div key={block.id} style={{
+              marginBottom: 16,
+              border: '1.5px solid var(--border-color)',
+              borderRadius: 10,
+              overflow: 'hidden',
+            }}>
+              {/* Block header */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+                background: '#f3f4f6', borderBottom: '1px solid var(--border-color)',
+              }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  第 {blockIdx + 1} 區塊
+                </span>
+                <input
+                  value={block.title ?? ''}
+                  onChange={e => updateBlockTitle(block.id, e.target.value)}
+                  placeholder="區塊名稱（選填）"
+                  style={{
+                    flex: 1, padding: '4px 8px', fontSize: 13, border: '1px solid #d1d5db',
+                    borderRadius: 5, background: 'white', color: 'var(--text-body)',
+                  }}
+                />
+                <button
+                  onClick={() => deleteBlock(block.id)}
+                  title="刪除區塊"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16, padding: '0 4px', lineHeight: 1 }}>
+                  ×
+                </button>
               </div>
-            )
-          })}
-          <button onClick={addRow}
-            style={{ width: '100%', padding: 10, border: '1.5px dashed #d1d5db', borderRadius: 8,
-              background: 'none', color: 'var(--text-muted)', fontSize: 14, cursor: 'pointer' }}>
-            ＋ 新增列
+
+              {/* Rows inside block */}
+              <div style={{ padding: '8px 10px' }}>
+                {block.rows.map((row, rowIdx) => {
+                  const isRowSel = selection?.rowId === row.id && selection.blockId === block.id
+                  return (
+                    <div key={row.id} style={{ marginBottom: 8, border: `1.5px solid ${isRowSel ? '#2563eb' : '#e5e7eb'}`, borderRadius: 7, overflow: 'hidden' }}>
+                      {/* Row header */}
+                      <div onClick={() => setSelection({ kind: 'row', blockId: block.id, rowId: row.id })}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px',
+                          background: isRowSel ? '#eff6ff' : '#f9fafb', borderBottom: '1px solid var(--border-color)', cursor: 'pointer' }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>第 {rowIdx + 1} 列</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          {([1, 2, 3] as FormColCount[]).map(c => (
+                            <button key={c} onClick={e => { e.stopPropagation(); setRowCols(block.id, row.id, c) }}
+                              style={{ padding: '2px 7px', fontSize: 11, border: '1px solid',
+                                borderColor: row.cols === c ? '#2563eb' : '#d1d5db', borderRadius: 4,
+                                background: row.cols === c ? '#2563eb' : 'white',
+                                color: row.cols === c ? 'white' : '#374151', cursor: 'pointer', fontWeight: row.cols === c ? 600 : 400 }}>
+                              {c}欄
+                            </button>
+                          ))}
+                          <button onClick={e => { e.stopPropagation(); deleteRow(block.id, row.id) }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', fontSize: 15, lineHeight: 1, padding: '0 2px' }}>×</button>
+                        </div>
+                      </div>
+                      {/* Slots */}
+                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)` }}>
+                        {row.slots.map((slot, slotIdx) => {
+                          const isSlotSel = selection?.kind === 'slot' && selection.blockId === block.id && selection.rowId === row.id && selection.slotIdx === slotIdx
+                          return (
+                            <div key={slotIdx} onClick={() => setSelection({ kind: 'slot', blockId: block.id, rowId: row.id, slotIdx })}
+                              style={{ padding: 12, borderRight: slotIdx < row.cols - 1 ? '1px solid var(--border-color)' : 'none',
+                                background: isSlotSel ? '#eff6ff' : 'white', cursor: 'pointer', minHeight: 64 }}>
+                              {slot ? (
+                                <>
+                                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+                                    {slot.label}{slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                                  </div>
+                                  <div style={{ padding: '5px 10px', border: '1px solid var(--btn-border)', borderRadius: 5,
+                                    fontSize: 13, color: 'var(--text-subtle)', background: slot.type === 'readonly' ? '#f3f4f6' : 'white' }}>
+                                    {slot.type === 'radio' && slot.staticOptions?.length
+                                      ? slot.staticOptions.map(o => `○ ${o}`).join('  ')
+                                      : fieldPlaceholder(slot.type)}
+                                  </div>
+                                </>
+                              ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  height: '100%', minHeight: 40,
+                                  border: `1.5px dashed ${isSlotSel ? '#93c5fd' : '#d1d5db'}`, borderRadius: 5,
+                                  color: isSlotSel ? '#2563eb' : '#9ca3af', fontSize: 13 }}>
+                                  ＋ 點選新增欄位
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Add row button inside block */}
+                <button onClick={() => addRow(block.id)}
+                  style={{ width: '100%', padding: '7px 10px', border: '1.5px dashed #d1d5db', borderRadius: 6,
+                    background: 'none', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
+                  ＋ 新增列
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Add block button */}
+          <button onClick={addBlock}
+            style={{ width: '100%', padding: 12, border: '2px dashed #d1d5db', borderRadius: 10,
+              background: 'none', color: 'var(--text-muted)', fontSize: 14, cursor: 'pointer', fontWeight: 500 }}>
+            ＋ 新增區塊
           </button>
         </div>
 
@@ -317,13 +394,13 @@ export default function FormSettingsClient({
           )}
 
           {/* Row settings */}
-          {selection?.kind === 'row' && selectedRow && (
+          {selection?.kind === 'row' && selectedRow && selectedBlock && (
             <div>
               <p style={panelTitle}>列設定</p>
               <p style={panelLabel}>欄數</p>
               <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
                 {([1, 2, 3] as FormColCount[]).map(c => (
-                  <button key={c} onClick={() => setRowCols(selectedRow.id, c)}
+                  <button key={c} onClick={() => setRowCols(selectedBlock.id, selectedRow.id, c)}
                     style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid',
                       borderColor: selectedRow.cols === c ? '#2563eb' : '#d1d5db', borderRadius: 6,
                       background: selectedRow.cols === c ? '#2563eb' : 'white',
@@ -332,12 +409,12 @@ export default function FormSettingsClient({
                   </button>
                 ))}
               </div>
-              <button onClick={() => deleteRow(selectedRow.id)} style={btnDanger}>刪除此列</button>
+              <button onClick={() => deleteRow(selectedBlock.id, selectedRow.id)} style={btnDanger}>刪除此列</button>
             </div>
           )}
 
           {/* Empty slot */}
-          {selection?.kind === 'slot' && !selectedSlot && (
+          {selection?.kind === 'slot' && !selectedSlot && selectedBlock && (
             <div>
               <p style={panelTitle}>新增欄位</p>
               {availableFields.length > 0 && (
@@ -345,7 +422,7 @@ export default function FormSettingsClient({
                   <p style={panelLabel}>從現有欄位選取</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 16 }}>
                     {availableFields.map(f => (
-                      <button key={f.id} onClick={() => placeField(selection.rowId, selection.slotIdx, f)}
+                      <button key={f.id} onClick={() => placeField(selectedBlock.id, selection.rowId, selection.slotIdx, f)}
                         style={{ padding: '7px 12px', textAlign: 'left', border: '1px solid var(--border-color)',
                           borderRadius: 6, background: 'white', fontSize: 13, cursor: 'pointer', color: 'var(--text-body)' }}>
                         {f.label}
@@ -388,7 +465,7 @@ export default function FormSettingsClient({
                     )}
                   </>
                 )}
-                <button onClick={() => placeCustomField(selection.rowId, selection.slotIdx)}
+                <button onClick={() => placeCustomField(selectedBlock.id, selection.rowId, selection.slotIdx)}
                   disabled={!customLabel.trim()}
                   style={{ width: '100%', padding: '7px', fontSize: 13, border: '1px solid var(--btn-border)', borderRadius: 6,
                     background: customLabel.trim() ? '#111827' : '#f3f4f6',
@@ -401,19 +478,19 @@ export default function FormSettingsClient({
           )}
 
           {/* Filled slot */}
-          {selection?.kind === 'slot' && selectedSlot && selectedRow && (
+          {selection?.kind === 'slot' && selectedSlot && selectedRow && selectedBlock && (
             <div>
               <p style={panelTitle}>欄位設定</p>
 
               <p style={panelLabel}>顯示標籤</p>
               <input value={selectedSlot.label}
-                onChange={e => updateSlot(selectedRow.id, selection.slotIdx, { label: e.target.value })}
+                onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, { label: e.target.value })}
                 style={{ ...panelInput, marginBottom: 14 }} />
 
               <p style={panelLabel}>必填</p>
               <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
                 {[true, false].map(val => (
-                  <button key={String(val)} onClick={() => updateSlot(selectedRow.id, selection.slotIdx, { required: val })}
+                  <button key={String(val)} onClick={() => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, { required: val })}
                     style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid',
                       borderColor: selectedSlot.required === val ? '#2563eb' : '#d1d5db', borderRadius: 6,
                       background: selectedSlot.required === val ? '#2563eb' : 'white',
@@ -423,7 +500,6 @@ export default function FormSettingsClient({
                 ))}
               </div>
 
-              {/* Data source section */}
               {selectedSlot.type !== 'textarea' && (
                 <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
                   <p style={{ ...panelLabel, marginBottom: 4 }}>資料來源</p>
@@ -433,7 +509,7 @@ export default function FormSettingsClient({
                         value={selectedSlot.dataSource}
                         onChange={e => {
                           const isStatic = dataSources.find(ds => ds.source_key === e.target.value)?.is_static_options
-                          updateSlot(selectedRow.id, selection.slotIdx, {
+                          updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
                             dataSource: e.target.value,
                             staticOptions: isStatic ? (selectedSlot.staticOptions ?? []) : undefined,
                           })
@@ -448,7 +524,7 @@ export default function FormSettingsClient({
                           <p style={{ ...panelLabel, marginTop: 4 }}>選項內容（每行一個）</p>
                           <textarea
                             value={(selectedSlot.staticOptions ?? []).join('\n')}
-                            onChange={e => updateSlot(selectedRow.id, selection.slotIdx, {
+                            onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
                               staticOptions: e.target.value.split('\n').map(s => s.trim()).filter(Boolean),
                             })}
                             rows={4}
@@ -466,7 +542,7 @@ export default function FormSettingsClient({
                           <p style={{ ...panelLabel, marginTop: 8 }}>選項內容（每行一個）</p>
                           <textarea
                             value={selectedSlot.staticOptions.join('\n')}
-                            onChange={e => updateSlot(selectedRow.id, selection.slotIdx, {
+                            onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
                               staticOptions: e.target.value.split('\n').map(s => s.trim()).filter(Boolean),
                             })}
                             rows={4}
@@ -484,7 +560,7 @@ export default function FormSettingsClient({
                   const target = selection.slotIdx + delta
                   const disabled = target < 0 || target >= selectedRow.cols
                   return (
-                    <button key={label} onClick={() => swapSlots(selectedRow.id, selection.slotIdx, target)}
+                    <button key={label} onClick={() => swapSlots(selectedBlock.id, selectedRow.id, selection.slotIdx, target)}
                       disabled={disabled}
                       style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid var(--btn-border)', borderRadius: 6,
                         background: disabled ? '#f9fafb' : 'white',
@@ -496,13 +572,14 @@ export default function FormSettingsClient({
                 })}
               </div>
               {(() => {
-                const rowIdx = rows.findIndex(r => r.id === selectedRow.id)
-                const canUp   = rowIdx > 0 && rows[rowIdx - 1].slots.some(s => s === null)
-                const canDown = rowIdx < rows.length - 1 && rows[rowIdx + 1].slots.some(s => s === null)
+                const blockRows = selectedBlock.rows
+                const rowIdx = blockRows.findIndex(r => r.id === selectedRow.id)
+                const canUp   = rowIdx > 0 && blockRows[rowIdx - 1].slots.some(s => s === null)
+                const canDown = rowIdx < blockRows.length - 1 && blockRows[rowIdx + 1].slots.some(s => s === null)
                 return (
                   <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
                     {[{ label: '↑ 移至上列', dir: 'up' as const, ok: canUp }, { label: '↓ 移至下列', dir: 'down' as const, ok: canDown }].map(({ label, dir, ok }) => (
-                      <button key={label} onClick={() => moveFieldToRow(selectedRow.id, selection.slotIdx, dir)}
+                      <button key={label} onClick={() => moveFieldToRow(selectedBlock.id, selectedRow.id, selection.slotIdx, dir)}
                         disabled={!ok}
                         style={{ flex: 1, padding: '7px 0', fontSize: 12, border: '1px solid var(--btn-border)', borderRadius: 6,
                           background: !ok ? '#f9fafb' : 'white',
@@ -515,7 +592,7 @@ export default function FormSettingsClient({
                 )
               })()}
 
-              <button onClick={() => removeField(selectedRow.id, selection.slotIdx)} style={btnDanger}>
+              <button onClick={() => removeField(selectedBlock.id, selectedRow.id, selection.slotIdx)} style={btnDanger}>
                 移除此欄位
               </button>
             </div>
