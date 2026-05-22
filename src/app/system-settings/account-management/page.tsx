@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/dateUtils'
+import { buttonVariants } from '@/components/ui/button'
 
 type AppUser = {
   id: number
@@ -20,10 +21,7 @@ export default async function AccountManagementPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>帳號管理</h1>
-        <Link
-          href="/system-settings/account-management/new"
-          style={{ padding: '8px 16px', background: '#111827', color: '#fff', borderRadius: 6, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}
-        >
+        <Link href="/system-settings/account-management/new" className={buttonVariants({ variant: 'default' })}>
           ＋ 新增帳號
         </Link>
       </div>
@@ -50,10 +48,7 @@ export default async function AccountManagementPage() {
                 <td style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(user.created_at)}</td>
                 <td style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(user.updated_at)}</td>
                 <td style={td}>
-                  <Link
-                    href={`/system-settings/account-management/${user.id}/edit`}
-                    style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                  >
+                  <Link href={`/system-settings/account-management/${user.id}/edit`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                     編輯
                   </Link>
                 </td>

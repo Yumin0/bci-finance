@@ -3,6 +3,8 @@ import { useActionState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateAccount } from '@/app/actions/account'
 import type { SystemRole } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 type User = { id: number; email: string; name: string; system_role_id: number | null }
 
@@ -17,22 +19,22 @@ export default function EditAccountForm({ user, systemRoles }: { user: User; sys
       <form action={action} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label style={labelStyle}>姓名</label>
-          <input name="name" defaultValue={user.name} required style={inputStyle} />
+          <Input name="name" defaultValue={user.name} required />
           {state?.errors?.name && <p style={errorStyle}>{state.errors.name[0]}</p>}
         </div>
         <div>
           <label style={labelStyle}>帳號（Email）</label>
-          <input name="email" type="email" defaultValue={user.email} required style={inputStyle} />
+          <Input name="email" type="email" defaultValue={user.email} required />
           {state?.errors?.email && <p style={errorStyle}>{state.errors.email[0]}</p>}
         </div>
         <div>
           <label style={labelStyle}>新密碼（留空則不更改）</label>
-          <input name="password" type="password" placeholder="留空則不更改" style={inputStyle} />
+          <Input name="password" type="password" placeholder="留空則不更改" />
           {state?.errors?.password && <p style={errorStyle}>{state.errors.password[0]}</p>}
         </div>
         <div>
           <label style={labelStyle}>系統角色（直接指派）</label>
-          <select name="system_role_id" defaultValue={user.system_role_id ?? ''} style={inputStyle}>
+          <select name="system_role_id" defaultValue={user.system_role_id ?? ''} style={selectStyle}>
             <option value="">依組織職位決定</option>
             {systemRoles.map(r => (
               <option key={r.id} value={r.id}>
@@ -46,12 +48,12 @@ export default function EditAccountForm({ user, systemRoles }: { user: User; sys
         {state?.message && <p style={errorStyle}>{state.message}</p>}
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" disabled={pending} style={btnStyle}>
+          <Button type="submit" disabled={pending}>
             {pending ? '儲存中...' : '儲存'}
-          </button>
-          <button type="button" onClick={() => router.back()} style={cancelStyle}>
+          </Button>
+          <Button type="button" variant="outline" onClick={() => router.back()}>
             取消
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -59,7 +61,5 @@ export default function EditAccountForm({ user, systemRoles }: { user: User; sys
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
-const btnStyle: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
+const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginTop: 4 }

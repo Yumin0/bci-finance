@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { PAYMENT_STATUS } from '@/lib/constants'
 import { FundsPayment } from '@/lib/types'
@@ -48,12 +49,7 @@ export default async function PaymentStep4Page() {
                 <td style={td}>{r.payment_method ?? '-'}</td>
                 <td style={td}>{r.amount}</td>
                 <td style={td}>
-                  <Link
-                    href={`/funds-payment/step4/check/${r.id}`}
-                    style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                  >
-                    檢視 / 審核
-                  </Link>
+                  <Link href={`/funds-payment/step4/check/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>檢視 / 審核</Link>
                 </td>
               </tr>
             ))}

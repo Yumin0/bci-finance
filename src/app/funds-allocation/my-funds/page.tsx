@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation } from '@/lib/types'
@@ -18,7 +19,7 @@ export default async function MyFundsPage() {
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>我的資金分配申請</h1>
         <Link
           href="/funds-allocation/my-funds/add"
-          style={{ padding: '8px 16px', background: '#111827', color: '#fff', borderRadius: 6, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}
+          className={buttonVariants({ variant: 'default', size: 'sm' })}
         >
           ＋ 新增申請單
         </Link>
@@ -59,7 +60,7 @@ export default async function MyFundsPage() {
                 <td style={td}>
                   <Link
                     href={`/funds-allocation/my-funds/edit/${r.id}`}
-                    style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                    className={buttonVariants({ variant: 'outline', size: 'sm' })}
                   >
                     檢視 / 編輯
                   </Link>

@@ -1,6 +1,10 @@
 'use client'
 
 import { FundsAllocation, StepDecision } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 type Props = {
   record: FundsAllocation
@@ -41,7 +45,7 @@ export default function ApprovalPanel({
   return (
     <div>
       <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>主管審核</h2>
-      <hr style={{ borderColor: '#e5e7eb', margin: 0 }} />
+      <hr style={{ borderColor: 'var(--border-color)', margin: 0 }} />
 
       {STEPS.map(({ label, num, decisionKey, commentKey }) => {
         const isActive = num === currentStep
@@ -63,7 +67,6 @@ export default function ApprovalPanel({
               opacity: isActive ? 1 : 0.45,
             }}
           >
-            {/* 上排：標籤、核准選項、金額、按鈕 */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '130px 1fr 120px 90px',
@@ -98,58 +101,34 @@ export default function ApprovalPanel({
                 ))}
               </div>
 
-              <input
+              <Input
                 type="number"
                 value={record.amount}
                 readOnly
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  border: '1px solid var(--btn-border)',
-                  borderRadius: 6,
-                  backgroundColor: '#f3f4f6',
-                  fontSize: 14,
-                  boxSizing: 'border-box',
-                }}
+                className="bg-[var(--bg-page)] cursor-default"
               />
 
-              <button
+              <Button
                 onClick={buttonActive ? onSubmit : undefined}
                 disabled={!buttonActive}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 6,
-                  border: 'none',
-                  backgroundColor: buttonActive ? '#22c55e' : '#e5e7eb',
-                  color: buttonActive ? '#fff' : '#9ca3af',
-                  cursor: buttonActive ? 'pointer' : 'default',
-                  fontWeight: 500,
-                  fontSize: 14,
-                  whiteSpace: 'nowrap',
-                  height: 36,
-                }}
+                className={cn(
+                  'whitespace-nowrap border-transparent',
+                  buttonActive
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-gray-200 text-gray-400'
+                )}
               >
                 {isActive && submitting ? '送出中...' : '確定送出'}
-              </button>
+              </Button>
             </div>
 
-            {/* 下排：評論區佔滿全寬 */}
-            <textarea
+            <Textarea
               placeholder={isActive ? '評論' : ''}
               rows={3}
               value={rowComment}
               disabled={disabled}
               onChange={(e) => onCommentChange(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                border: '1px solid var(--btn-border)',
-                borderRadius: 6,
-                resize: 'vertical',
-                backgroundColor: disabled ? '#f3f4f6' : '#fff',
-                fontSize: 14,
-                boxSizing: 'border-box',
-              }}
+              className={disabled ? 'bg-[var(--bg-page)]' : ''}
             />
           </div>
         )

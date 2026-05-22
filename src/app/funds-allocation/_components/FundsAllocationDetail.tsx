@@ -1,8 +1,9 @@
 import { FundsAllocation } from '@/lib/types'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const readonlyStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'var(--bg-page)', cursor: 'default' }
-const textareaReadonlyStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'var(--bg-page)', cursor: 'default', resize: 'vertical' }
+const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
 
 export default function FundsAllocationDetail({ record }: { record: FundsAllocation }) {
   return (
@@ -13,51 +14,51 @@ export default function FundsAllocationDetail({ record }: { record: FundsAllocat
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label style={labelStyle}>日期 *</label>
-          <input value={record.date} readOnly style={readonlyStyle} />
+          <Input value={record.date} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>申請處別</label>
-          <input value={record.apply_division ?? ''} readOnly style={readonlyStyle} />
+          <Input value={record.apply_division ?? ''} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>申請課別</label>
-          <input value={record.apply_section ?? ''} readOnly style={readonlyStyle} />
+          <Input value={record.apply_section ?? ''} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>申請人</label>
-          <input value={record.applicant ?? ''} readOnly style={readonlyStyle} />
+          <Input value={record.applicant ?? ''} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>職稱</label>
-          <input value={record.apply_role ?? ''} readOnly style={readonlyStyle} />
+          <Input value={record.apply_role ?? ''} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>機構</label>
-          <input value={record.institution ?? ''} readOnly style={readonlyStyle} />
+          <Input value={record.institution ?? ''} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>出款帳戶</label>
-          <input value={record.payment_account ?? ''} readOnly style={readonlyStyle} />
+          <Input value={record.payment_account ?? ''} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>費用項目</label>
-          <input value={record.expense_item ?? ''} readOnly style={readonlyStyle} />
+          <Input value={record.expense_item ?? ''} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>名稱 *</label>
-          <input value={record.name} readOnly style={readonlyStyle} />
+          <Input value={record.name} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>金額 *</label>
-          <input value={record.amount} readOnly style={readonlyStyle} />
+          <Input value={record.amount} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>類別</label>
-          <input value={record.category ?? ''} readOnly style={readonlyStyle} />
+          <Input value={record.category ?? ''} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>備註</label>
-          <textarea value={record.note ?? ''} readOnly rows={4} style={textareaReadonlyStyle} />
+          <Textarea value={record.note ?? ''} readOnly rows={4} className={readonlyCls} />
         </div>
       </div>
     </div>

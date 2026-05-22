@@ -6,6 +6,9 @@ import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormSchemaRow, FormSlot, StepDecision } from '@/lib/types'
 import ApprovalPanel from '@/app/funds-allocation/_components/ApprovalPanel'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
@@ -144,7 +147,7 @@ export default function EditFundsForm({
     const disabled = !canEdit
 
     if (fieldId === 'applicant' || dataSource === 'current_user_name') {
-      return <input value={record.applicant ?? applicantName} readOnly style={readonlyStyle} />
+      return <Input value={record.applicant ?? applicantName} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
     if (fieldId === 'apply_division') {
       return (
@@ -213,23 +216,23 @@ export default function EditFundsForm({
 
     if (type === 'textarea') {
       return (
-        <textarea value={fieldValues[fieldId] ?? ''} disabled={disabled}
+        <Textarea value={fieldValues[fieldId] ?? ''} disabled={disabled}
           onChange={e => setField(fieldId, e.target.value)}
           required={required} rows={4}
-          style={disabled ? { ...textareaStyle, background: 'var(--bg-page)', cursor: 'not-allowed' } : textareaStyle} />
+          className={disabled ? 'bg-[var(--bg-page)]' : ''} />
       )
     }
 
     if (type === 'readonly') {
-      return <input value={fieldValues[fieldId] ?? ''} readOnly style={readonlyStyle} />
+      return <Input value={fieldValues[fieldId] ?? ''} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
     const inputType = type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'
     return (
-      <input type={inputType} value={fieldValues[fieldId] ?? ''} disabled={disabled}
+      <Input type={inputType} value={fieldValues[fieldId] ?? ''} disabled={disabled}
         onChange={e => setField(fieldId, e.target.value)}
         required={required}
-        style={disabled ? readonlyStyle : inputStyle} />
+        className={disabled ? 'bg-[var(--bg-page)]' : ''} />
     )
   }
 
@@ -311,15 +314,18 @@ export default function EditFundsForm({
         {!canEdit && <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>此申請單已進入審核程序，無法編輯。</p>}
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-          {canEdit && <button type="submit" disabled={submitting} style={btnStyle}>{submitting ? '儲存中...' : '儲存變更'}</button>}
-          <button type="button" onClick={() => router.back()} style={cancelStyle}>返回</button>
-          {canEdit && <button type="button" onClick={handleDelete} disabled={submitting} style={deleteStyle}>刪除此單據</button>}
+          {canEdit && <Button type="submit" disabled={submitting}>{submitting ? '儲存中...' : '儲存變更'}</Button>}
+          <Button type="button" variant="outline" onClick={() => router.back()}>返回</Button>
+          {canEdit && (
+            <Button type="button" variant="outline" onClick={handleDelete} disabled={submitting}
+              className="text-red-600 border-red-200 hover:bg-red-50">
+              刪除此單據
+            </Button>
+          )}
           {record.status === FUNDS_STATUS.APPROVED && (
-            <button type="button"
-              onClick={() => router.push(`/funds-payment/my-payment/add/${record.id}`)}
-              style={paymentBtnStyle}>
+            <Button type="button" onClick={() => router.push(`/funds-payment/my-payment/add/${record.id}`)}>
               建立付款憑單
-            </button>
+            </Button>
           )}
         </div>
       </form>
@@ -342,12 +348,6 @@ export default function EditFundsForm({
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
 const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
 const readonlyStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'var(--bg-page)', cursor: 'not-allowed' }
-const textareaStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', resize: 'vertical' }
-const btnStyle: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
-const deleteStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
-const paymentBtnStyle: React.CSSProperties = { padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 12 }

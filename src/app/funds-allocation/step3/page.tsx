@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS } from '@/lib/constants'
 import { FundsAllocation } from '@/lib/types'

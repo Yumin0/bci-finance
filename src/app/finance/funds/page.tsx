@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 type AccountRow = {
   account: string
@@ -116,20 +118,9 @@ export default function FundsPage() {
                     : <span style={{ color: 'var(--text-subtle)' }}>—</span>}
                 </td>
                 <td style={td}>
-                  <button
-                    onClick={() => openModal(row.account)}
-                    style={{
-                      padding: '5px 14px',
-                      fontSize: 13,
-                      border: '1px solid var(--btn-border)',
-                      borderRadius: 4,
-                      background: 'var(--bg-card)',
-                      cursor: 'pointer',
-                      color: 'var(--text-body)',
-                    }}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => openModal(row.account)}>
                     輸入金額
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -166,18 +157,13 @@ export default function FundsPage() {
 
             {/* Body */}
             <div style={{ padding: '28px 24px' }}>
-              <input
+              <Input
                 type="number"
                 value={inputValue}
                 onChange={e => setInputValue(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleConfirm() }}
                 placeholder="20000"
                 autoFocus
-                style={{
-                  width: '100%', padding: '10px 14px', fontSize: 15,
-                  border: '1px solid var(--btn-border)', borderRadius: 8,
-                  boxSizing: 'border-box', outline: 'none',
-                }}
               />
             </div>
 
@@ -186,17 +172,13 @@ export default function FundsPage() {
               display: 'flex', justifyContent: 'flex-end',
               padding: '12px 24px 20px', borderTop: '1px solid var(--border-color)',
             }}>
-              <button
+              <Button
                 onClick={handleConfirm}
                 disabled={saving}
-                style={{
-                  padding: '10px 28px', background: '#4ade80', color: '#fff',
-                  border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600,
-                  cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
-                }}
+                className="bg-green-400 hover:bg-green-500 text-white"
               >
                 確認
-              </button>
+              </Button>
             </div>
           </div>
         </div>

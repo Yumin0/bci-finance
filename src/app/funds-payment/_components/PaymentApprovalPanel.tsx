@@ -1,6 +1,9 @@
 'use client'
 
 import { FundsPayment, StepDecision } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
 type Props = {
   record: FundsPayment
@@ -40,7 +43,7 @@ export default function PaymentApprovalPanel({
   return (
     <div>
       <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>主管審核</h2>
-      <hr style={{ borderColor: '#e5e7eb', margin: 0 }} />
+      <hr style={{ borderColor: 'var(--border-color)', margin: 0 }} />
 
       {STEPS.map(({ label, num, decisionKey, commentKey }) => {
         const isActive = num === currentStep
@@ -93,42 +96,27 @@ export default function PaymentApprovalPanel({
               ))}
             </div>
 
-            <textarea
+            <Textarea
               placeholder={isActive ? '評論' : ''}
               rows={3}
               value={rowComment}
               disabled={disabled}
               onChange={(e) => onCommentChange(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                border: '1px solid var(--btn-border)',
-                borderRadius: 6,
-                resize: 'vertical',
-                backgroundColor: disabled ? '#f3f4f6' : '#fff',
-                fontSize: 14,
-                boxSizing: 'border-box',
-              }}
+              className={disabled ? 'bg-[var(--bg-page)]' : ''}
             />
 
-            <button
+            <Button
               onClick={buttonActive ? onSubmit : undefined}
               disabled={!buttonActive}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 6,
-                border: 'none',
-                backgroundColor: buttonActive ? '#22c55e' : '#e5e7eb',
-                color: buttonActive ? '#fff' : '#9ca3af',
-                cursor: buttonActive ? 'pointer' : 'default',
-                fontWeight: 500,
-                fontSize: 14,
-                whiteSpace: 'nowrap',
-                height: 36,
-              }}
+              className={cn(
+                'whitespace-nowrap border-transparent',
+                buttonActive
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  : 'bg-gray-200 text-gray-400'
+              )}
             >
               {isActive && submitting ? '送出中...' : '確定送出'}
-            </button>
+            </Button>
           </div>
         )
       })}

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 type ModuleOption = {
   id: number
@@ -85,7 +87,7 @@ export default function IssueModuleSettingsPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>影響模組自定義</h1>
-        <button onClick={openAdd} style={solidBtn}>＋ 新增</button>
+        <Button onClick={openAdd}>＋ 新增</Button>
       </div>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>
         管理「回報問題」表單中「影響模組」下拉選單的選項，可自訂排序與名稱。
@@ -124,8 +126,8 @@ export default function IssueModuleSettingsPage() {
                 </td>
                 <td style={td}>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => openEdit(opt)} style={actionBtn}>編輯</button>
-                    <button onClick={() => handleDelete(opt.id)} style={{ ...actionBtn, color: '#dc2626', borderColor: '#fca5a5' }}>刪除</button>
+                    <Button variant="outline" size="sm" onClick={() => openEdit(opt)}>編輯</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDelete(opt.id)} className="text-red-600 border-red-200 hover:bg-red-50">刪除</Button>
                   </div>
                 </td>
               </tr>
@@ -150,23 +152,18 @@ export default function IssueModuleSettingsPage() {
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 8 }}>
                 模組名稱
               </label>
-              <input
+              <Input
                 value={inputValue}
                 onChange={e => setInputValue(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
                 placeholder="請輸入模組名稱"
                 autoFocus
-                style={{ width: '100%', padding: '10px 14px', fontSize: 15, border: '1px solid var(--btn-border)', borderRadius: 8, boxSizing: 'border-box', outline: 'none' }}
               />
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 24px 20px', borderTop: '1px solid var(--border-color)' }}>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                style={{ padding: '10px 28px', background: '#4ade80', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
-              >
+              <Button onClick={handleSave} disabled={saving} className="bg-green-400 hover:bg-green-500 text-white">
                 確認
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -176,8 +173,6 @@ export default function IssueModuleSettingsPage() {
 }
 
 const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)', verticalAlign: 'middle' }
-const solidBtn: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const actionBtn: React.CSSProperties = { padding: '5px 14px', fontSize: 13, border: '1px solid var(--btn-border)', borderRadius: 4, background: 'var(--bg-card)', cursor: 'pointer', color: 'var(--text-body)' }
 function arrowBtn(disabled: boolean): React.CSSProperties {
   return { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18, fontSize: 9, lineHeight: 1, padding: 0, background: disabled ? '#f9fafb' : '#fff', border: '1px solid var(--border-color)', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer', color: disabled ? '#d1d5db' : '#374151' }
 }

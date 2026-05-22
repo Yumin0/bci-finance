@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_SIDEBAR_CONFIG } from '@/lib/sidebar-config'
 import type { SystemRole, RoleType } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 type SystemRoleWithRoleTypes = SystemRole & { role_type_ids: number[] }
 
@@ -110,11 +112,10 @@ function RoleForm({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
         <label style={labelStyle}>角色名稱</label>
-        <input
+        <Input
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="如：課長、財務人員"
-          style={inputStyle}
           autoFocus
         />
       </div>
@@ -187,10 +188,10 @@ function RoleForm({
       {error && <p style={{ color: '#dc2626', fontSize: 13 }}>{error}</p>}
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={handleSave} disabled={saving} style={btnStyle}>
+        <Button onClick={handleSave} disabled={saving}>
           {saving ? '儲存中...' : '儲存'}
-        </button>
-        <button onClick={onCancel} style={cancelStyle}>取消</button>
+        </Button>
+        <Button variant="outline" onClick={onCancel}>取消</Button>
       </div>
     </div>
   )
@@ -329,6 +330,3 @@ export default function RolePermissionsPage() {
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
-const btnStyle: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }

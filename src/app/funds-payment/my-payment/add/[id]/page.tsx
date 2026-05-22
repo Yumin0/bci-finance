@@ -5,6 +5,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsAllocation } from '@/lib/types'
 import { createPayment } from '@/app/actions/payment'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 const PAYMENT_METHODS = ['匯款', '支票', '現金', '其他']
 
@@ -58,47 +61,47 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label style={labelStyle}>日期</label>
-          <input value={record.date} readOnly style={readonlyStyle} />
+          <Input value={record.date} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
         <div>
           <label style={labelStyle}>申請處別</label>
-          <input value={record.apply_division ?? '-'} readOnly style={readonlyStyle} />
+          <Input value={record.apply_division ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
         <div>
           <label style={labelStyle}>申請課別</label>
-          <input value={record.apply_section ?? '-'} readOnly style={readonlyStyle} />
+          <Input value={record.apply_section ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
         <div>
           <label style={labelStyle}>申請人</label>
-          <input value={record.applicant ?? '-'} readOnly style={readonlyStyle} />
+          <Input value={record.applicant ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
         <div>
           <label style={labelStyle}>職稱</label>
-          <input value={record.apply_role ?? '-'} readOnly style={readonlyStyle} />
+          <Input value={record.apply_role ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
         <div>
           <label style={labelStyle}>機構</label>
-          <input value={record.institution ?? '-'} readOnly style={readonlyStyle} />
+          <Input value={record.institution ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
         <div>
           <label style={labelStyle}>出款帳戶</label>
-          <input value={record.payment_account ?? '-'} readOnly style={readonlyStyle} />
+          <Input value={record.payment_account ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
         <div>
           <label style={labelStyle}>費用項目</label>
-          <input value={record.expense_item ?? '-'} readOnly style={readonlyStyle} />
+          <Input value={record.expense_item ?? '-'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
         <div>
           <label style={labelStyle}>項目</label>
-          <input value={record.name} readOnly style={readonlyStyle} />
+          <Input value={record.name} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
         <div>
           <label style={labelStyle}>金額</label>
-          <input value={record.amount} readOnly style={readonlyStyle} />
+          <Input value={record.amount} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
         <div>
           <label style={labelStyle}>備註</label>
-          <textarea value={record.note ?? ''} readOnly rows={3} style={{ ...textareaStyle, background: 'var(--bg-page)', cursor: 'not-allowed' }} />
+          <Textarea value={record.note ?? ''} readOnly rows={3} className="bg-[var(--bg-page)] cursor-not-allowed" />
         </div>
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
@@ -119,10 +122,10 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" disabled={submitting} style={btnStyle}>
+          <Button type="submit" disabled={submitting}>
             {submitting ? '建立中...' : '建立付款憑單'}
-          </button>
-          <button type="button" onClick={() => router.back()} style={cancelStyle}>取消</button>
+          </Button>
+          <Button type="button" variant="outline" onClick={() => router.back()}>取消</Button>
         </div>
       </form>
     </div>
@@ -130,9 +133,5 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const readonlyStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'var(--bg-page)', cursor: 'not-allowed' }
 const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
-const textareaStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', resize: 'vertical' }
-const btnStyle: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 8 }

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MOCK_USER_ID, PAYMENT_STATUS } from '@/lib/constants'
 import { FundsPayment, StepDecision } from '@/lib/types'
+import { Button } from '@/components/ui/button'
 import PaymentApprovalPanel from '@/app/funds-payment/_components/PaymentApprovalPanel'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
 
@@ -82,7 +83,7 @@ export default function PaymentStep3CheckPage({ params }: { params: Promise<{ id
 
       {error && <p style={{ color: 'red', marginTop: 12 }}>錯誤：{error}</p>}
 
-      <button onClick={() => router.back()} style={{ marginTop: 16 }}>返回列表</button>
+      <Button variant="outline" onClick={() => router.back()} className="mt-4">返回列表</Button>
     </div>
   )
 }

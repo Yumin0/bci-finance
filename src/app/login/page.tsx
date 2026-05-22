@@ -1,6 +1,8 @@
 'use client'
 import { useActionState, useState } from 'react'
 import { login, register } from '@/app/actions/auth'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -34,38 +36,38 @@ export default function LoginPage() {
           <form action={loginAction}>
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Email</label>
-              <input name="email" type="email" placeholder="your@email.com" required style={inputStyle} />
+              <Input name="email" type="email" placeholder="your@email.com" required />
             </div>
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>密碼</label>
-              <input name="password" type="password" placeholder="請輸入密碼" required style={inputStyle} />
+              <Input name="password" type="password" placeholder="請輸入密碼" required />
             </div>
             {loginState?.error && <p style={errorStyle}>{loginState.error}</p>}
-            <button type="submit" disabled={loginPending} style={btnStyle}>
+            <Button type="submit" disabled={loginPending} className="w-full mt-2">
               {loginPending ? '登入中...' : '登入'}
-            </button>
+            </Button>
           </form>
         ) : (
           <form action={registerAction}>
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>姓名</label>
-              <input name="name" type="text" placeholder="請輸入姓名" required style={inputStyle} />
+              <Input name="name" type="text" placeholder="請輸入姓名" required />
               {registerState?.errors?.name && <p style={errorStyle}>{registerState.errors.name[0]}</p>}
             </div>
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Email</label>
-              <input name="email" type="email" placeholder="your@email.com" required style={inputStyle} />
+              <Input name="email" type="email" placeholder="your@email.com" required />
               {registerState?.errors?.email && <p style={errorStyle}>{registerState.errors.email[0]}</p>}
             </div>
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>密碼</label>
-              <input name="password" type="password" placeholder="至少 6 個字元" required style={inputStyle} />
+              <Input name="password" type="password" placeholder="至少 6 個字元" required />
               {registerState?.errors?.password && <p style={errorStyle}>{registerState.errors.password[0]}</p>}
             </div>
             {registerState?.message && <p style={errorStyle}>{registerState.message}</p>}
-            <button type="submit" disabled={registerPending} style={btnStyle}>
+            <Button type="submit" disabled={registerPending} className="w-full mt-2">
               {registerPending ? '建立中...' : '建立帳號'}
-            </button>
+            </Button>
           </form>
         )}
       </div>
@@ -74,6 +76,4 @@ export default function LoginPage() {
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
-const btnStyle: React.CSSProperties = { width: '100%', padding: '10px 0', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8 }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginTop: 4 }

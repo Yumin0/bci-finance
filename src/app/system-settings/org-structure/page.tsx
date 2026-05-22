@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { OrgUnit, OrgLevel, RoleType, RoleLevel, OrgUnitRole, AppUser, UserPosition } from '@/lib/types'
+import { Button } from '@/components/ui/button'
 
 const LEVEL_INDENT: Record<OrgLevel, number> = { '部門': 0, '處': 0, '課': 16, '科': 32 }
 const LEVEL_FONT_SIZE: Record<OrgLevel, number> = { '部門': 15, '處': 14, '課': 13, '科': 13 }
@@ -786,10 +787,7 @@ export default function OrgStructurePage() {
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>管理部門、處、課等組織節點，設定各職位，並指派對應的使用者。</p>
         </div>
         {!isAddingDept && (
-          <button
-            onClick={() => setIsAddingDept(true)}
-            style={{ fontSize: 13, padding: '6px 14px', cursor: 'pointer', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, whiteSpace: 'nowrap', marginTop: 4 }}
-          >+ 新增部門</button>
+          <Button onClick={() => setIsAddingDept(true)}>+ 新增部門</Button>
         )}
       </div>
 

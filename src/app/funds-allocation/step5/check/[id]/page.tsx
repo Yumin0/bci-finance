@@ -7,6 +7,7 @@ import { MOCK_USER_ID, FUNDS_STATUS } from '@/lib/constants'
 import { FundsAllocation, StepDecision } from '@/lib/types'
 import ApprovalPanel from '@/app/funds-allocation/_components/ApprovalPanel'
 import FundsAllocationDetail from '@/app/funds-allocation/_components/FundsAllocationDetail'
+import { Button } from '@/components/ui/button'
 
 export default function Step5CheckPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
@@ -80,7 +81,7 @@ export default function Step5CheckPage({ params }: { params: Promise<{ id: strin
 
       {error && <p style={{ color: 'red' }}>錯誤：{error}</p>}
 
-      <button onClick={() => router.back()} style={{ marginTop: 16 }}>返回列表</button>
+      <Button variant="outline" onClick={() => router.back()} className="mt-4">返回列表</Button>
     </div>
   )
 }

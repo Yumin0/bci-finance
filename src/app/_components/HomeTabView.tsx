@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { FundsAllocation, FundsPayment } from '@/lib/types'
+import { buttonVariants } from '@/components/ui/button'
 
 type Tab = 'funds' | 'payment'
 
@@ -82,10 +83,7 @@ export default function HomeTabView({
                   <td style={td}>{r.expense_item ?? '-'}</td>
                   <td style={td}>{r.name}</td>
                   <td style={td}>
-                    <Link
-                      href={`/funds-allocation/my-funds/edit/${r.id}`}
-                      style={linkStyle}
-                    >
+                    <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                       檢視 / 編輯
                     </Link>
                   </td>
@@ -120,10 +118,7 @@ export default function HomeTabView({
                   <td style={td}>{r.payment_method ?? '-'}</td>
                   <td style={td}>{r.amount}</td>
                   <td style={td}>
-                    <Link
-                      href={`/funds-payment/my-payment/${r.id}`}
-                      style={linkStyle}
-                    >
+                    <Link href={`/funds-payment/my-payment/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                       檢視
                     </Link>
                   </td>
@@ -153,12 +148,3 @@ const empty: React.CSSProperties = {
   color: 'var(--text-subtle)',
 }
 
-const linkStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: 'var(--text-body)',
-  border: '1px solid var(--btn-border)',
-  borderRadius: 4,
-  padding: '4px 12px',
-  textDecoration: 'none',
-  whiteSpace: 'nowrap',
-}

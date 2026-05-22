@@ -9,6 +9,7 @@ import {
   type SidebarItem,
 } from '@/lib/sidebar-config'
 import { saveSidebarConfig, resetSidebarConfig } from '@/app/actions/sidebar-config'
+import { Button } from '@/components/ui/button'
 
 function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v))
@@ -101,10 +102,10 @@ export default function SidebarCustomizationClient({ initialConfig }: { initialC
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>側邊欄自定義設定</h1>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={handleReset} disabled={isPending} style={outlineBtn}>還原預設</button>
-          <button onClick={handleSave} disabled={isPending} style={solidBtn}>
+          <Button variant="outline" onClick={handleReset} disabled={isPending}>還原預設</Button>
+          <Button onClick={handleSave} disabled={isPending}>
             {isPending ? '處理中...' : savedMsg ? '已儲存' : '儲存設定'}
-          </button>
+          </Button>
         </div>
       </div>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 28 }}>
@@ -207,8 +208,6 @@ function Arrows({ onUp, onDown, upOff, downOff }: { onUp: () => void; onDown: ()
 }
 
 const inp: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid var(--btn-border)', borderRadius: 5, fontSize: 14, color: 'var(--text-title)', outline: 'none', boxSizing: 'border-box' }
-const solidBtn: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const outlineBtn: React.CSSProperties = { padding: '8px 16px', background: 'var(--bg-card)', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
 function arrowBtn(disabled: boolean): React.CSSProperties {
   return { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18, fontSize: 9, lineHeight: 1, padding: 0, background: disabled ? '#f9fafb' : '#fff', border: '1px solid var(--border-color)', borderRadius: 3, cursor: disabled ? 'not-allowed' : 'pointer', color: disabled ? '#d1d5db' : '#374151' }
 }

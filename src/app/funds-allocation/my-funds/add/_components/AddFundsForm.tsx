@@ -5,6 +5,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
 import { DropdownOption, ExpenseItem, OrgUnit, FormSchemaRow, FormSlot } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
@@ -137,7 +140,7 @@ export default function AddFundsForm({
 
     // Catalog fields with special behavior
     if (fieldId === 'applicant' || dataSource === 'current_user_name') {
-      return <input value={applicantName} readOnly style={readonlyStyle} />
+      return <Input value={applicantName} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
     if (fieldId === 'apply_division') {
       return (
@@ -228,13 +231,12 @@ export default function AddFundsForm({
 
     if (type === 'textarea') {
       return (
-        <textarea
+        <Textarea
           name={fieldId}
           value={fieldValues[fieldId] ?? ''}
           onChange={e => setField(fieldId, e.target.value)}
           required={required}
           rows={4}
-          style={textareaStyle}
         />
       )
     }
@@ -244,21 +246,21 @@ export default function AddFundsForm({
         : dataSource === 'current_user_name' ? applicantName
         : dataSource === 'current_user_id' ? String(userId ?? '')
         : fieldValues[fieldId] ?? ''
-      return <input value={autoVal} readOnly style={readonlyStyle} />
+      return <Input value={autoVal} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
     // text / number / date
     const inputType = type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'
     const autoVal = dataSource === 'today_date' ? today() : undefined
     return (
-      <input
+      <Input
         type={inputType}
         name={fieldId}
         value={autoVal ?? fieldValues[fieldId] ?? ''}
         onChange={e => setField(fieldId, e.target.value)}
         readOnly={!!autoVal}
         required={required}
-        style={autoVal ? readonlyStyle : inputStyle}
+        className={autoVal ? 'bg-[var(--bg-page)] cursor-not-allowed' : ''}
       />
     )
   }
@@ -341,10 +343,10 @@ export default function AddFundsForm({
         ))}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <button type="submit" disabled={submitting} style={btnStyle}>
+          <Button type="submit" disabled={submitting}>
             {submitting ? '送出中...' : '送出申請'}
-          </button>
-          <button type="button" onClick={() => router.back()} style={cancelStyle}>取消</button>
+          </Button>
+          <Button type="button" variant="outline" onClick={() => router.back()}>取消</Button>
         </div>
       </form>
     </div>
@@ -352,10 +354,5 @@ export default function AddFundsForm({
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
 const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
-const readonlyStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'var(--bg-page)', cursor: 'not-allowed' }
-const textareaStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', resize: 'vertical' }
-const btnStyle: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-const cancelStyle: React.CSSProperties = { padding: '8px 20px', background: 'none', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 12 }

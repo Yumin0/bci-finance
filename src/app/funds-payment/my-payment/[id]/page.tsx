@@ -7,6 +7,7 @@ import { FundsPayment, StepDecision } from '@/lib/types'
 import { PAYMENT_STATUS, PaymentStatus } from '@/lib/constants'
 import PaymentApprovalPanel from '@/app/funds-payment/_components/PaymentApprovalPanel'
 import { getMyPayment, submitMyPayment } from '@/app/actions/payment'
+import { Button, buttonVariants } from '@/components/ui/button'
 
 function getCurrentStep(status: PaymentStatus): 1 | 2 | 3 | 4 {
   if (status === PAYMENT_STATUS.PENDING_STEP2 || status === PAYMENT_STATUS.REJECTED_STEP2) return 2
@@ -96,29 +97,13 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         {error && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 16 }}>錯誤：{error}</p>}
 
         <div style={{ marginTop: 32, display: 'flex', gap: 8 }}>
-          <Link
-            href="/funds-payment/my-payment"
-            style={{ padding: '8px 20px', background: 'none', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, textDecoration: 'none' }}
-          >
+          <Link href="/funds-payment/my-payment" className={buttonVariants({ variant: 'outline' })}>
             返回列表
           </Link>
           {isDraft && (
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              style={{
-                padding: '8px 20px',
-                background: submitting ? '#d1d5db' : '#111827',
-                color: submitting ? '#9ca3af' : '#fff',
-                border: 'none',
-                borderRadius: 6,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: submitting ? 'default' : 'pointer',
-              }}
-            >
+            <Button onClick={handleSubmit} disabled={submitting}>
               {submitting ? '送出中...' : '確定送出'}
-            </button>
+            </Button>
           )}
         </div>
       </div>

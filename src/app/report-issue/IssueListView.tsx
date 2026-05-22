@@ -5,23 +5,26 @@ import Link from 'next/link'
 import { DevTracker, IssueStatus, AppUser } from '@/lib/types'
 import { submitIssue, updateIssueStatus, assignIssue, IssueFormState } from '@/app/actions/dev-tracker'
 import { formatDate } from '@/lib/dateUtils'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 
-const TYPE_LABEL: Record<string, string> = { improvement: '小優化許願', feature: '新功能許願', bug: 'Bug回報', performance: '技術效能優化' }
-const PRIORITY_LABEL: Record<string, string> = { low: '低', medium: '中', high: '高', critical: '緊急' }
-const STATUS_LABEL: Record<IssueStatus, string> = {
-  pending: '待處理',
-  in_progress: '進行中',
-  completed: '已完成',
-  rejected: '已拒絕',
-  on_hold: '暫緩',
+const TYPE_LABEL: Record<string, string> = {
+  improvement: '小優化許願',
+  feature: '新功能許願',
+  bug: 'Bug回報',
+  performance: '技術效能優化',
 }
+const PRIORITY_LABEL: Record<string, string> = { low: '低', medium: '中', high: '高', critical: '緊急' }
 
-const PRIORITY_COLOR: Record<string, React.CSSProperties> = {
+const PRIORITY_BADGE_STYLE: Record<string, React.CSSProperties> = {
   low: { background: 'var(--bg-page)', color: 'var(--text-muted)' },
   medium: { background: '#fef3c7', color: '#d97706' },
   high: { background: '#fed7aa', color: '#ea580c' },
   critical: { background: '#fee2e2', color: '#dc2626' },
 }
+
 const STATUS_COLOR: Record<IssueStatus, React.CSSProperties> = {
   pending: { background: 'var(--bg-page)', color: 'var(--text-muted)' },
   in_progress: { background: '#dbeafe', color: '#2563eb' },
@@ -53,18 +56,25 @@ export default function IssueListView({
   const overlayRef = useRef<HTMLDivElement>(null)
   const tempId = useRef(`new-${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
+  // 控制式 select 狀態，確保顯示中文標籤
+  const [typeValue, setTypeValue] = useState<string>('')
+  const [priorityValue, setPriorityValue] = useState<string>('medium')
+  const [moduleValue, setModuleValue] = useState<string>('')
+
   const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]))
 
   useEffect(() => {
     if (state?.success) {
       setShowForm(false)
       setSelectedImg(null)
+      setTypeValue('')
+      setPriorityValue('medium')
+      setModuleValue('')
       if (editorRef.current) editorRef.current.innerHTML = ''
       tempId.current = `new-${Date.now()}-${Math.random().toString(36).slice(2)}`
     }
   }, [state])
 
-  // Clear selection on any scroll so the fixed overlay doesn't drift
   useEffect(() => {
     const onScroll = () => setSelectedImg(null)
     window.addEventListener('scroll', onScroll, true)
@@ -164,22 +174,13 @@ export default function IssueListView({
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>問題回報 / 開發追蹤</h1>
-        <button
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-title)' }}>問題回報 / 開發追蹤</h1>
+        <Button
           onClick={() => setShowForm((v) => !v)}
-          style={{
-            background: showForm ? '#f3f4f6' : '#2563eb',
-            color: showForm ? '#374151' : '#fff',
-            border: 'none',
-            borderRadius: 6,
-            padding: '8px 20px',
-            fontSize: 14,
-            fontWeight: 500,
-            cursor: 'pointer',
-          }}
+          variant={showForm ? 'outline' : 'default'}
         >
           {showForm ? '取消' : '＋ 新增回報'}
-        </button>
+        </Button>
       </div>
 
       {showForm && (
@@ -190,59 +191,81 @@ export default function IssueListView({
           marginBottom: 28,
           background: 'var(--bg-sidebar)',
         }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, marginTop: 0, marginBottom: 20 }}>新增回報</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 600, marginTop: 0, marginBottom: 20, color: 'var(--text-title)' }}>新增回報</h2>
           <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
               <div>
                 <label style={labelStyle}>類型 *</label>
-                <select name="type" required style={inputStyle}>
-                  <option value="">請選擇</option>
-                  <option value="improvement">小優化許願</option>
-                  <option value="feature">新功能許願</option>
-                  <option value="bug">Bug回報</option>
-                  <option value="performance">技術效能優化</option>
-                </select>
+                <Select name="type" value={typeValue} onValueChange={(v) => setTypeValue(v ?? '')}>
+                  <SelectTrigger className="w-full">
+                    <span style={{ color: typeValue ? 'var(--text-title)' : 'var(--text-subtle)' }}>
+                      {typeValue ? TYPE_LABEL[typeValue] : '請選擇'}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="improvement">小優化許願</SelectItem>
+                    <SelectItem value="feature">新功能許願</SelectItem>
+                    <SelectItem value="bug">Bug回報</SelectItem>
+                    <SelectItem value="performance">技術效能優化</SelectItem>
+                  </SelectContent>
+                </Select>
+                <input type="hidden" name="type" value={typeValue} />
               </div>
               <div>
                 <label style={labelStyle}>優先級</label>
-                <select name="priority" defaultValue="medium" style={inputStyle}>
-                  <option value="low">低</option>
-                  <option value="medium">中</option>
-                  <option value="high">高</option>
-                  <option value="critical">緊急</option>
-                </select>
+                <Select name="priority" value={priorityValue} onValueChange={(v) => setPriorityValue(v ?? 'medium')}>
+                  <SelectTrigger className="w-full">
+                    <span style={{ color: 'var(--text-title)' }}>
+                      {PRIORITY_LABEL[priorityValue]}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">低</SelectItem>
+                    <SelectItem value="medium">中</SelectItem>
+                    <SelectItem value="high">高</SelectItem>
+                    <SelectItem value="critical">緊急</SelectItem>
+                  </SelectContent>
+                </Select>
+                <input type="hidden" name="priority" value={priorityValue} />
               </div>
               <div>
                 <label style={labelStyle}>影響模組</label>
-                <select name="module" style={inputStyle}>
-                  <option value="">請選擇（選填）</option>
-                  {moduleOptions.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
+                <Select name="module" value={moduleValue} onValueChange={(v) => setModuleValue(v ?? '')}>
+                  <SelectTrigger className="w-full">
+                    <span style={{ color: moduleValue ? 'var(--text-title)' : 'var(--text-subtle)' }}>
+                      {moduleValue || '請選擇（選填）'}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {moduleOptions.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <input type="hidden" name="module" value={moduleValue} />
               </div>
             </div>
             <div>
               <label style={labelStyle}>標題 *</label>
-              <input
+              <Input
                 name="title"
                 type="text"
                 placeholder="請簡述問題或需求"
                 required
-                style={inputStyle}
               />
             </div>
             <div>
               <label style={labelStyle}>詳細描述</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  style={{ fontSize: 12, border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 10px', background: 'var(--bg-card)', cursor: uploading ? 'not-allowed' : 'pointer', color: 'var(--text-body)' }}
                 >
                   {uploading ? '上傳中...' : '📷 插入截圖'}
-                </button>
+                </Button>
                 <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>或直接貼上圖片（Cmd+V）／拖曳</span>
               </div>
               <div
@@ -293,31 +316,19 @@ export default function IssueListView({
               <p style={{ color: '#16a34a', fontSize: 13, margin: 0 }}>已成功提交！</p>
             )}
             <div>
-              <button
-                type="submit"
-                disabled={isPending}
-                style={{
-                  background: isPending ? '#93c5fd' : '#2563eb',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 6,
-                  padding: '9px 24px',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  cursor: isPending ? 'not-allowed' : 'pointer',
-                }}
-              >
+              <Button type="submit" disabled={isPending}>
                 {isPending ? '提交中...' : '送出回報'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e5e7eb' }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid var(--border-color)' }}>
         {(['improvement', 'feature', 'bug', 'performance'] as const).map((type) => (
           <button
             key={type}
+            type="button"
             onClick={() => setActiveTab(type)}
             style={{
               padding: '8px 20px',
@@ -326,7 +337,7 @@ export default function IssueListView({
               border: 'none',
               background: 'none',
               cursor: 'pointer',
-              color: activeTab === type ? '#2563eb' : '#6b7280',
+              color: activeTab === type ? '#2563eb' : 'var(--text-muted)',
               borderBottom: activeTab === type ? '2px solid #2563eb' : '2px solid transparent',
               marginBottom: -2,
             }}
@@ -365,16 +376,15 @@ export default function IssueListView({
                   )}
                 </td>
                 <td style={td}>
-                  <span style={{ ...badge, ...PRIORITY_COLOR[issue.priority] }}>
+                  <Badge style={PRIORITY_BADGE_STYLE[issue.priority]}>
                     {PRIORITY_LABEL[issue.priority]}
-                  </span>
+                  </Badge>
                 </td>
                 <td style={td}>
                   <select
                     defaultValue={issue.status}
                     onChange={(e) => handleStatusChange(issue.id, e.target.value)}
                     style={{
-                      ...badge,
                       ...STATUS_COLOR[issue.status],
                       border: 'none',
                       cursor: 'pointer',
@@ -382,6 +392,7 @@ export default function IssueListView({
                       fontSize: 12,
                       borderRadius: 12,
                       padding: '2px 8px',
+                      display: 'inline-block',
                     }}
                   >
                     <option value="pending">待處理</option>
@@ -401,7 +412,7 @@ export default function IssueListView({
                   <select
                     defaultValue={issue.assigned_to ?? ''}
                     onChange={(e) => handleAssignChange(issue.id, e.target.value)}
-                    style={{ fontSize: 12, border: '1px solid var(--border-color)', borderRadius: 4, padding: '2px 6px', color: 'var(--text-body)' }}
+                    style={{ fontSize: 12, border: '1px solid var(--border-color)', borderRadius: 4, padding: '2px 6px', color: 'var(--text-body)', background: 'var(--bg-card)' }}
                   >
                     <option value="">未指派</option>
                     {users.map((u) => (
@@ -426,7 +437,6 @@ export default function IssueListView({
         </table>
       </div>
 
-      {/* Drag-resize overlay — position:fixed so it floats above the editor */}
       {selectedImg && selectedImg.isConnected && (() => {
         const r = selectedImg.getBoundingClientRect()
         return (
@@ -454,17 +464,6 @@ const labelStyle: React.CSSProperties = {
   marginBottom: 5,
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid var(--btn-border)',
-  borderRadius: 6,
-  padding: '7px 10px',
-  fontSize: 13,
-  color: 'var(--text-title)',
-  background: 'var(--bg-card)',
-  boxSizing: 'border-box',
-}
-
 const th: React.CSSProperties = {
   padding: '10px 14px',
   textAlign: 'left',
@@ -478,13 +477,4 @@ const td: React.CSSProperties = {
   padding: '10px 14px',
   color: 'var(--text-title)',
   verticalAlign: 'top',
-}
-
-const badge: React.CSSProperties = {
-  display: 'inline-block',
-  padding: '2px 8px',
-  borderRadius: 12,
-  fontSize: 12,
-  fontWeight: 500,
-  whiteSpace: 'nowrap',
 }

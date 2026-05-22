@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { DevTracker, IssueStatus, IssueType, AppUser } from '@/lib/types'
 import { saveHtml, updateIssueStatus, updateIssueType, assignIssue } from '@/app/actions/dev-tracker'
 import { formatDate } from '@/lib/dateUtils'
+import { Button } from '@/components/ui/button'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -323,13 +324,9 @@ function ContentEditor({
 
       {/* 儲存（sticky 固定在可視區底部） */}
       <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-card)', paddingTop: 8, paddingBottom: 4, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          style={{ background: saving ? '#93c5fd' : '#2563eb', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer' }}
-        >
+        <Button onClick={handleSave} disabled={saving}>
           {saving ? '儲存中...' : '儲存'}
-        </button>
+        </Button>
         {saveOk !== null && (
           <span style={{ fontSize: 12, color: saveOk ? '#16a34a' : '#dc2626' }}>
             {saveOk ? '已儲存' : '儲存失敗'}
