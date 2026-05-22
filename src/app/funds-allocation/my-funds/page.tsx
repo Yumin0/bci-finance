@@ -34,10 +34,10 @@ export default async function MyFundsPage() {
     return step ? `審核中・${step.step_name}` : '審核中'
   }
 
-  function statusColor(status: string) {
-    if (status === 'approved') return '#16a34a'
-    if (status === 'rejected') return '#dc2626'
-    return 'var(--accent)'
+  function statusStyle(status: string): { bg: string; color: string } {
+    if (status === 'approved') return { bg: '#dcfce7', color: '#166534' }
+    if (status === 'rejected') return { bg: '#fee2e2', color: '#991b1b' }
+    return { bg: '#dbeafe', color: '#1d4ed8' }
   }
 
   return (
@@ -76,9 +76,11 @@ export default async function MyFundsPage() {
             {records.map((r) => (
               <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={td}>
-                  <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: `${statusColor(r.status)}1a`, color: statusColor(r.status), fontWeight: 500, whiteSpace: 'nowrap' }}>
-                    {statusLabel(r)}
-                  </span>
+                  {(() => { const s = statusStyle(r.status); return (
+                    <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: s.bg, color: s.color, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      {statusLabel(r)}
+                    </span>
+                  )})()}
                 </td>
                 <td style={td}>{r.apply_division ?? '-'}</td>
                 <td style={td}>{r.apply_section ?? '-'}</td>
