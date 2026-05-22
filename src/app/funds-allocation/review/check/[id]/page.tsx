@@ -40,21 +40,33 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     async function load() {
       const { id } = await params
+      const numId = Number(id)
+
       const [recRes, pastRes] = await Promise.all([
-        supabase
-          .from('funds_allocation')
-          .select(`*, approval_flow_templates(id, name, approval_flow_steps(id, step_number, step_name, reviewer_type, role_type_id, system_role_id))`)
-          .eq('id', Number(id))
-          .single(),
-        supabase
-          .from('approval_records')
-          .select('*')
-          .eq('funds_allocation_id', Number(id))
-          .order('step_number', { ascending: true }),
+        supabase.from('funds_allocation').select('*').eq('id', numId).single(),
+        supabase.from('approval_records').select('*').eq('funds_allocation_id', numId).order('step_number'),
       ])
-      if (recRes.error) setError(recRes.error.message)
-      else setRecord(recRes.data as RecordWithTemplate)
+
+      if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
+
+      const allocation = recRes.data as FundsAllocation
       setPastRecords((pastRes.data as ApprovalRecord[]) ?? [])
+
+      if (allocation.flow_template_id) {
+        const [tmplRes, stepsRes] = await Promise.all([
+          supabase.from('approval_flow_templates').select('id, name').eq('id', allocation.flow_template_id).single(),
+          supabase.from('approval_flow_steps').select('id, step_number, step_name, reviewer_type, role_type_id, system_role_id').eq('template_id', allocation.flow_template_id).order('step_number'),
+        ])
+        setRecord({
+          ...allocation,
+          approval_flow_templates: tmplRes.data
+            ? { id: tmplRes.data.id, name: tmplRes.data.name, approval_flow_steps: (stepsRes.data ?? []) as StepDef[] }
+            : null,
+        })
+      } else {
+        setRecord({ ...allocation, approval_flow_templates: null })
+      }
+
       setLoading(false)
     }
     load()
