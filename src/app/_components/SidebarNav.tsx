@@ -85,6 +85,7 @@ export default function SidebarNav({ config }: { config: SidebarCategory[] }) {
               <ul style={{ listStyle: 'none', margin: 0, padding: '0 0 4px' }}>
                 {category.entries.map(entry => {
                   if (entry.kind === 'item') {
+                    if (entry.navHidden) return null
                     const active = isActive(entry.href)
                     return (
                       <li key={entry.id}>

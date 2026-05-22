@@ -2,8 +2,15 @@ import { supabase } from '@/lib/supabase'
 import { FundsAllocation } from '@/lib/types'
 import { formatDate } from '@/lib/dateUtils'
 import Link from 'next/link'
+import { getSession } from '@/lib/session'
+import { getUserAllowedItemIds } from '@/app/actions/sidebar-config'
+import ExportCsvButton from './_components/ExportCsvButton'
 
 export default async function AllFundsPage() {
+  const session = await getSession()
+  const canExport = session
+    ? await getUserAllowedItemIds(session.userId).then(ids => ids === 'all' || ids.includes('fa-all-export'))
+    : false
   const { data, error } = await supabase
     .from('funds_allocation')
     .select(`
@@ -39,9 +46,12 @@ export default async function AllFundsPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700 }}>全部申請紀錄</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>所有資金分配申請的完整狀態覽表</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>全部申請紀錄</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>所有資金分配申請的完整狀態覽表</p>
+        </div>
+        {canExport && <ExportCsvButton />}
       </div>
 
       {error && <p style={{ color: '#dc2626' }}>載入失敗：{error.message}</p>}

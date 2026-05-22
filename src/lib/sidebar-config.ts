@@ -3,6 +3,7 @@ export type SidebarItem = {
   id: string
   label: string
   href: string
+  navHidden?: boolean
 }
 
 export type SidebarGroup = {
@@ -28,6 +29,7 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
       { kind: 'item', id: 'my-funds',      label: '我的申請紀錄', href: '/funds-allocation/my-funds' },
       { kind: 'item', id: 'fa-review',     label: '審核管理',     href: '/funds-allocation/review' },
       { kind: 'item', id: 'fa-all',        label: '全部申請紀錄', href: '/funds-allocation/all' },
+      { kind: 'item', id: 'fa-all-export', label: '匯出 CSV', href: '', navHidden: true },
     ],
   },
   {

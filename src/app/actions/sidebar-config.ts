@@ -57,7 +57,7 @@ export async function getSidebarConfig(): Promise<SidebarCategory[]> {
   return DEFAULT_SIDEBAR_CONFIG
 }
 
-async function getUserAllowedItemIds(userId: number): Promise<string[] | 'all'> {
+export async function getUserAllowedItemIds(userId: number): Promise<string[] | 'all'> {
   const { data: user } = await supabase
     .from('app_users')
     .select('system_role_id')
