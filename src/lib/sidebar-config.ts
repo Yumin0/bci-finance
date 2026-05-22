@@ -37,10 +37,8 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
     label: '付款憑單',
     entries: [
       { kind: 'item', id: 'my-payment', label: '我的付款憑單', href: '/funds-payment/my-payment' },
-      { kind: 'item', id: 'fp-step1', label: '課級單據管理', href: '/funds-payment/step1' },
-      { kind: 'item', id: 'fp-step2', label: '處級單據管理', href: '/funds-payment/step2' },
-      { kind: 'item', id: 'fp-step3', label: '第三處支出課', href: '/funds-payment/step3' },
-      { kind: 'item', id: 'fp-step4', label: '第三處 處長', href: '/funds-payment/step4' },
+      { kind: 'item', id: 'fp-review',  label: '審核管理',     href: '/funds-payment/review' },
+      { kind: 'item', id: 'fp-all',     label: '全部付款紀錄', href: '/funds-payment/all' },
     ],
   },
   {

@@ -173,7 +173,8 @@ export async function saveTemplatePaymentAccounts(
 // ── 提交審核決定 ──────────────────────────────────────
 
 export async function submitApprovalDecision(params: {
-  fundsAllocationId: number
+  fundsAllocationId?: number
+  fundsPaymentId?: number
   stepNumber: number
   stepName: string
   decision: 'approved' | 'rejected'
@@ -181,18 +182,17 @@ export async function submitApprovalDecision(params: {
   reviewerId: string
   totalSteps: number
 }) {
-  const { fundsAllocationId, stepNumber, stepName, decision, comment, reviewerId, totalSteps } = params
+  const { fundsAllocationId, fundsPaymentId, stepNumber, stepName, decision, comment, reviewerId, totalSteps } = params
 
   const isLastStep = stepNumber >= totalSteps
-  const newStatus = decision === 'rejected'
-    ? 'rejected'
-    : isLastStep ? 'approved' : 'pending'
+  const newStatus = decision === 'rejected' ? 'rejected' : isLastStep ? 'approved' : 'pending'
   const newCurrentStep = decision === 'rejected' || isLastStep ? null : stepNumber + 1
 
   const { error: recordError } = await supabase
     .from('approval_records')
     .insert({
-      funds_allocation_id: fundsAllocationId,
+      funds_allocation_id: fundsAllocationId ?? null,
+      funds_payment_id: fundsPaymentId ?? null,
       step_number: stepNumber,
       step_name: stepName,
       decision,
@@ -202,15 +202,19 @@ export async function submitApprovalDecision(params: {
     })
   if (recordError) throw new Error(recordError.message)
 
-  const { error: updateError } = await supabase
-    .from('funds_allocation')
-    .update({
-      status: newStatus,
-      current_step: newCurrentStep,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', fundsAllocationId)
-  if (updateError) throw new Error(updateError.message)
+  if (fundsAllocationId) {
+    const { error } = await supabase.from('funds_allocation')
+      .update({ status: newStatus, current_step: newCurrentStep, updated_at: new Date().toISOString() })
+      .eq('id', fundsAllocationId)
+    if (error) throw new Error(error.message)
+  }
+
+  if (fundsPaymentId) {
+    const { error } = await supabase.from('funds_payment')
+      .update({ status: newStatus, current_step: newCurrentStep, updated_at: new Date().toISOString() })
+      .eq('id', fundsPaymentId)
+    if (error) throw new Error(error.message)
+  }
 }
 
 // ── 查詢已被其他範本使用的出款帳號 ───────────────────

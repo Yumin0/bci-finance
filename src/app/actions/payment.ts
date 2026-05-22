@@ -37,6 +37,27 @@ export async function createPayment(
 
   const record = alloc as FundsAllocation
 
+  // 根據出款帳號查找對應的付款憑單審核流程範本
+  let flowTemplateId: number | null = null
+  if (record.payment_account) {
+    const { data: paOpt } = await supabase
+      .from('dropdown_options')
+      .select('id')
+      .eq('field', 'payment_account')
+      .eq('label', record.payment_account)
+      .maybeSingle()
+    if (paOpt?.id) {
+      const { data: tpa } = await supabase
+        .from('template_payment_accounts')
+        .select('template_id, approval_flow_templates!inner(id, form_type, is_active)')
+        .eq('payment_account_option_id', paOpt.id)
+        .eq('approval_flow_templates.form_type', 'payment_voucher')
+        .eq('approval_flow_templates.is_active', true)
+        .maybeSingle()
+      if (tpa) flowTemplateId = tpa.template_id
+    }
+  }
+
   const { error } = await supabase.from('funds_payment').insert({
     funds_allocation_id: record.id,
     name: record.name,
@@ -54,6 +75,8 @@ export async function createPayment(
     payment_method: paymentMethod || null,
     created_by: String(session.userId),
     status: PAYMENT_STATUS.DRAFT,
+    flow_template_id: flowTemplateId,
+    current_step: null,
   })
 
   if (error) return { error: error.message }
@@ -66,7 +89,7 @@ export async function submitMyPayment(id: number): Promise<{ error: string | nul
 
   const { error } = await supabase
     .from('funds_payment')
-    .update({ status: PAYMENT_STATUS.PENDING_STEP1, updated_at: new Date().toISOString() })
+    .update({ status: PAYMENT_STATUS.PENDING, current_step: 1, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('created_by', String(session.userId))
 

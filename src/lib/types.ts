@@ -19,7 +19,10 @@ export type FundsPayment = {
   created_by: string
   created_at: string
   status: PaymentStatus
+  flow_template_id: number | null
+  current_step: number | null
   updated_at: string | null
+  // 舊欄位保留中（過渡期備份）
   step1_decision: StepDecision
   step1_comment: string | null
   step1_reviewer: string | null
