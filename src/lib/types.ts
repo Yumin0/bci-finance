@@ -149,7 +149,7 @@ export type SystemRole = {
 
 export type FormFieldType = 'text' | 'date' | 'select' | 'number' | 'textarea' | 'readonly' | 'radio'
 export type FormColCount = 1 | 2 | 3
-export type FormType = 'funds_allocation' | 'payment_voucher'
+export type FormType = 'funds_allocation' | 'payment_voucher' | 'temp_voucher'
 export type FormDataSourceDef = {
   id: number
   label: string
@@ -267,6 +267,7 @@ export type ApprovalRecord = {
   id: number
   funds_allocation_id: number | null
   funds_payment_id: number | null
+  temp_voucher_id: number | null
   step_number: number
   step_name: string
   decision: StepDecision

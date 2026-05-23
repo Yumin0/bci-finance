@@ -80,7 +80,7 @@ export async function getTemplateByPaymentAccount(
 
 export async function createTemplate(
   name: string,
-  formType: 'funds_allocation' | 'payment_voucher'
+  formType: 'funds_allocation' | 'payment_voucher' | 'temp_voucher'
 ): Promise<ApprovalFlowTemplate> {
   const { data, error } = await supabase
     .from('approval_flow_templates')
@@ -175,6 +175,7 @@ export async function saveTemplatePaymentAccounts(
 export async function submitApprovalDecision(params: {
   fundsAllocationId?: number
   fundsPaymentId?: number
+  tempVoucherId?: number
   stepNumber: number
   stepName: string
   decision: 'approved' | 'rejected'
@@ -182,7 +183,7 @@ export async function submitApprovalDecision(params: {
   reviewerId: string
   totalSteps: number
 }) {
-  const { fundsAllocationId, fundsPaymentId, stepNumber, stepName, decision, comment, reviewerId, totalSteps } = params
+  const { fundsAllocationId, fundsPaymentId, tempVoucherId, stepNumber, stepName, decision, comment, reviewerId, totalSteps } = params
 
   const isLastStep = stepNumber >= totalSteps
   const newStatus = decision === 'rejected' ? 'rejected' : isLastStep ? 'approved' : 'pending'
@@ -193,6 +194,7 @@ export async function submitApprovalDecision(params: {
     .insert({
       funds_allocation_id: fundsAllocationId ?? null,
       funds_payment_id: fundsPaymentId ?? null,
+      temp_voucher_id: tempVoucherId ?? null,
       step_number: stepNumber,
       step_name: stepName,
       decision,
@@ -215,12 +217,19 @@ export async function submitApprovalDecision(params: {
       .eq('id', fundsPaymentId)
     if (error) throw new Error(error.message)
   }
+
+  if (tempVoucherId) {
+    const { error } = await supabase.from('temp_vouchers')
+      .update({ status: newStatus, current_step: newCurrentStep, updated_at: new Date().toISOString() })
+      .eq('id', tempVoucherId)
+    if (error) throw new Error(error.message)
+  }
 }
 
 // ── 查詢已被其他範本使用的出款帳號 ───────────────────
 
 export async function getUsedPaymentAccountIds(
-  formType: 'funds_allocation' | 'payment_voucher',
+  formType: 'funds_allocation' | 'payment_voucher' | 'temp_voucher',
   excludeTemplateId?: number
 ) {
   let query = supabase

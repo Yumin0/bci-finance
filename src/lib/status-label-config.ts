@@ -9,6 +9,7 @@ export type ModuleStatusConfig = Record<string, StatusLabelEntry>
 export type StatusLabelConfig = {
   funds_allocation: ModuleStatusConfig
   payment_voucher: ModuleStatusConfig
+  temp_voucher: ModuleStatusConfig
 }
 
 // 舊資料（儲存為 'gray'/'green'/'blue'/'red'）的遷移對應
@@ -52,15 +53,22 @@ export const DEFAULT_STATUS_LABEL_CONFIG: StatusLabelConfig = {
     rejected: { label: '未核准', color: '#be123c', showStep: true  },
     paid:     { label: '已付款', color: '#be123c', showStep: false },
   },
+  temp_voucher: {
+    draft:    { label: '草稿',   color: '#4b5563', showStep: false },
+    pending:  { label: '新單',   color: '#166534', showStep: true  },
+    approved: { label: '已核准', color: '#1d4ed8', showStep: true  },
+    rejected: { label: '未核准', color: '#be123c', showStep: true  },
+  },
 }
 
 export function mergeStatusLabelConfig(saved: Partial<StatusLabelConfig>): StatusLabelConfig {
   const result: StatusLabelConfig = {
     funds_allocation: { ...DEFAULT_STATUS_LABEL_CONFIG.funds_allocation },
     payment_voucher:  { ...DEFAULT_STATUS_LABEL_CONFIG.payment_voucher  },
+    temp_voucher:     { ...DEFAULT_STATUS_LABEL_CONFIG.temp_voucher     },
   }
 
-  for (const mod of ['funds_allocation', 'payment_voucher'] as const) {
+  for (const mod of ['funds_allocation', 'payment_voucher', 'temp_voucher'] as const) {
     const savedMod = saved[mod]
     if (!savedMod) continue
     for (const key of Object.keys(DEFAULT_STATUS_LABEL_CONFIG[mod])) {

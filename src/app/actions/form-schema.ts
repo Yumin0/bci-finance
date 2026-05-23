@@ -117,9 +117,21 @@ const DEFAULT_PAYMENT_BLOCKS: FormBlock[] = [
   },
 ]
 
+const DEFAULT_TEMP_VOUCHER_BLOCKS: FormBlock[] = [
+  {
+    id: 'block_tv_1', title: null, rows: [
+      { id: 'r1', cols: 2, slots: [
+        { fieldId: 'date', label: '申請日期', required: false, type: 'date', dataSource: 'none' },
+        { fieldId: 'applicant', label: '申請人', required: false, type: 'readonly', dataSource: 'current_user_name' },
+      ]},
+    ],
+  },
+]
+
 const DEFAULT_BLOCKS: Record<FormType, FormBlock[]> = {
   funds_allocation: DEFAULT_FUNDS_BLOCKS,
   payment_voucher: DEFAULT_PAYMENT_BLOCKS,
+  temp_voucher: DEFAULT_TEMP_VOUCHER_BLOCKS,
 }
 
 // 偵測是否為舊格式（FormSchemaRow[]），舊格式的元素有 slots 屬性
@@ -172,6 +184,7 @@ export async function getFormSchemas(): Promise<Record<FormType, FormBlock[]>> {
     return {
       funds_allocation: resolve('funds_allocation'),
       payment_voucher: resolve('payment_voucher'),
+      temp_voucher: resolve('temp_voucher'),
     }
   } catch {
     return { ...DEFAULT_BLOCKS }

@@ -42,6 +42,15 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
     ],
   },
   {
+    id: 'funds-voucher',
+    label: '暫付款沖銷憑單',
+    entries: [
+      { kind: 'item', id: 'fv-my-voucher', label: '我的暫付款沖銷憑單', href: '/funds-voucher/my-voucher' },
+      { kind: 'item', id: 'fv-review',     label: '審核管理',           href: '/funds-voucher/review' },
+      { kind: 'item', id: 'fv-all',        label: '全部暫付款沖銷憑單', href: '/funds-voucher/all' },
+    ],
+  },
+  {
     id: 'finance',
     label: '財務管理',
     entries: [

@@ -15,7 +15,7 @@ type Tab = 'pending' | 'history'
 type PendingItem = FundsPayment & { step_name: string }
 
 type HistoryItem = ApprovalRecord & {
-  funds_payment: Pick<FundsPayment, 'id' | 'name' | 'amount' | 'applicant' | 'apply_section'> | null
+  funds_payment: Pick<FundsPayment, 'id' | 'name' | 'amount' | 'applicant' | 'apply_section' | 'status'> | null
 }
 
 export default function PaymentReviewPage() {
@@ -38,7 +38,7 @@ export default function PaymentReviewPage() {
           .order('created_at', { ascending: true }),
         supabase
           .from('approval_records')
-          .select(`*, funds_payment:funds_payment_id(id, name, amount, applicant, apply_section)`)
+          .select(`*, funds_payment:funds_payment_id(id, name, amount, applicant, apply_section, status)`)
           .eq('reviewer_id', MOCK_USER_ID)
           .not('decision', 'is', null)
           .not('funds_payment_id', 'is', null)
@@ -114,7 +114,7 @@ function PendingList({ items, labelConfig }: { items: PendingItem[]; labelConfig
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['審核階段', '申請課別', '申請人', '憑單名稱', '金額', ''].map((col, i) => (
+            {['狀態', '申請課別', '申請人', '憑單名稱', '金額', ''].map((col, i) => (
               <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
             ))}
           </tr>
@@ -150,7 +150,7 @@ function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['審核階段', '申請課別', '申請人', '憑單名稱', '金額', '審核時間', ''].map((col, i) => (
+            {['狀態', '申請課別', '申請人', '憑單名稱', '金額', '審核時間', ''].map((col, i) => (
               <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
             ))}
           </tr>
@@ -161,7 +161,7 @@ function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig
               <td style={td}>
                 <StatusBadge
                   module="payment_voucher"
-                  status={r.decision === 'approved' ? 'approved' : 'rejected'}
+                  status={r.funds_payment?.status ?? (r.decision === 'approved' ? 'approved' : 'rejected')}
                   stepName={r.step_name}
                   labelConfig={labelConfig}
                 />

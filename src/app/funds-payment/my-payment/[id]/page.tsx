@@ -117,6 +117,14 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
             </Button>
           </div>
         )}
+
+        {record!.status === PAYMENT_STATUS.PAID && record!.category === '預支' && (
+          <div style={{ marginTop: 40, paddingTop: 24, borderTop: '1px solid var(--border-color)' }}>
+            <Link href={`/funds-voucher/my-voucher/add/${record!.id}`} className={buttonVariants({ variant: 'default' })}>
+              建立暫付款沖銷憑單
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* 審核歷程 */}

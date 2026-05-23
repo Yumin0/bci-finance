@@ -17,6 +17,7 @@
 |------|------|------|
 | 資金分配申請 | `/funds-allocation` | 申請、編輯、動態審核流程（範本驅動）、審核管理頁、全部申請紀錄 |
 | 付款憑單 | `/funds-payment` | 新增、動態審核流程（共用同一套範本架構）、審核管理頁、全部付款紀錄 |
+| 暫付款沖銷憑單 | `/funds-voucher` | 從付款憑單（已付款+預支）建立、我的列表、詳細頁（送出審核）、審核管理頁、全部紀錄 |
 | 財務管理 | `/finance` | 資金管理與付款憑單總覽 |
 | 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位、側邊欄自定義、角色權限、表單設定、狀態標籤設定 |
 | 問題回報 | `/report-issue` | Rich Text + 圖片上傳、狀態追蹤、影響模組標籤 |
@@ -27,8 +28,9 @@
 
 - `funds_allocation`：資金分配申請，含 `flow_template_id`、`current_step`、`status`（draft/pending/approved/rejected）；舊 `step1~5_*` 欄位保留備份
 - `funds_payment`：付款憑單，關聯 `funds_allocation_id`，套用同一套彈性審核架構；`status`（draft/pending/approved/rejected/paid）
+- `temp_vouchers`：暫付款沖銷憑單，關聯 `funds_payment_id`（限已付款+預支），`status`（draft/pending/approved/rejected）；`created_by bigint` 關聯 `app_users(id)`
 - `status_label_config`：狀態標籤自訂設定（單列 JSON，含各模組 status 的標籤名稱、顏色 hex、是否顯示步驟名）
-- `approval_flow_templates`：審核流程範本（`form_type`: funds_allocation | payment_voucher）
+- `approval_flow_templates`：審核流程範本（`form_type`: funds_allocation | payment_voucher | temp_voucher）
 - `approval_flow_steps`：步驟定義（`reviewer_type`: org_role | system_role）
 - `approval_records`：每筆審核動作記錄（取代舊 step1~5_* 欄位）
 - `template_payment_accounts`：範本與出款帳號的對應（多對多）
@@ -50,7 +52,7 @@
 src/
 ├── app/
 │   ├── _components/       # 全局共享組件（SidebarLayout、ThemeProvider、HomeTabView、StatusBadge 等）
-│   ├── actions/           # Server Actions（auth、payment、account、sidebar-config、dev-tracker、form-schema、status-labels）
+│   ├── actions/           # Server Actions（auth、payment、temp-voucher、account、sidebar-config、dev-tracker、form-schema、status-labels）
 │   ├── api/               # API Routes（upload-image）
 │   ├── funds-allocation/
 │   │   ├── review/        # 審核管理（待我審核 / 我的審核紀錄）
@@ -59,6 +61,13 @@ src/
 │   ├── funds-payment/
 │   │   ├── review/        # 審核管理
 │   │   └── all/           # 全部付款紀錄
+│   ├── funds-voucher/
+│   │   ├── my-voucher/    # 我的暫付款沖銷憑單列表
+│   │   │   ├── [id]/      # 詳細頁（含送出審核）
+│   │   │   └── add/[id]/  # 建立頁（由付款憑單 id 帶入）
+│   │   ├── review/        # 審核管理
+│   │   │   └── check/[id] # 審核操作頁
+│   │   └── all/           # 全部暫付款沖銷憑單紀錄
 │   ├── finance/           # 財務管理
 │   ├── system-settings/
 │   │   ├── approval-flows/ # 審核流程範本管理

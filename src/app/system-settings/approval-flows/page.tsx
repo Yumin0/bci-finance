@@ -10,7 +10,7 @@ import {
   saveTemplateSteps, saveTemplatePaymentAccounts, getUsedPaymentAccountIds,
 } from '@/app/actions/approval-flow'
 
-type FormType = 'funds_allocation' | 'payment_voucher'
+type FormType = 'funds_allocation' | 'payment_voucher' | 'temp_voucher'
 
 type StepDraft = {
   step_number: number
@@ -23,6 +23,7 @@ type StepDraft = {
 const FORM_SECTIONS: { type: FormType; label: string }[] = [
   { type: 'funds_allocation', label: '資金分配申請' },
   { type: 'payment_voucher', label: '付款憑單' },
+  { type: 'temp_voucher', label: '暫付款沖銷憑單' },
 ]
 
 export default function ApprovalFlowsPage() {
@@ -108,7 +109,8 @@ export default function ApprovalFlowsPage() {
   async function handleSave() {
     if (!editName.trim()) { setError('請填寫範本名稱'); return }
     if (editSteps.length === 0) { setError('至少需要一個步驟'); return }
-    if (editPaymentAccountIds.length === 0) { setError('請選擇至少一個出款帳號'); return }
+    const currentType = selectedTemplate?.form_type ?? creatingForType
+    if (currentType !== 'temp_voucher' && editPaymentAccountIds.length === 0) { setError('請選擇至少一個出款帳號'); return }
     for (const s of editSteps) {
       if (!s.step_name.trim()) { setError('步驟名稱不能空白'); return }
       if (s.reviewer_type === 'org_role' && !s.role_type_id) { setError('請選擇組織職位'); return }
@@ -263,8 +265,8 @@ export default function ApprovalFlowsPage() {
             <Input value={editName} onChange={e => setEditName(e.target.value)} style={{ maxWidth: 360 }} />
           </section>
 
-          {/* 適用出款帳號 */}
-          <section style={{ marginBottom: 28 }}>
+          {/* 適用出款帳號（暫付款沖銷憑單不需綁定帳號） */}
+          <section style={{ marginBottom: 28, display: (selectedTemplate?.form_type ?? creatingForType) === 'temp_voucher' ? 'none' : undefined }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>
               適用出款帳號
               <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6, fontSize: 12 }}>

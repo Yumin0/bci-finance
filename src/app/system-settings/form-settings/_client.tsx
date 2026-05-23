@@ -41,6 +41,15 @@ const FIELD_CATALOG: Record<FormType, FieldDef[]> = {
     { id: 'note',             label: '備註',     type: 'textarea', dataSource: 'none',                          dataSourceLabel: '手動輸入' },
     { id: 'payment_method',   label: '付款方式', type: 'select',   dataSource: 'static',                        dataSourceLabel: '固定選項（可自訂）' },
   ],
+  temp_voucher: [
+    { id: 'date',             label: '申請日期', type: 'date',     dataSource: 'none',                          dataSourceLabel: '手動輸入' },
+    { id: 'apply_division',   label: '申請處別', type: 'select',   dataSource: 'org_units:division',            dataSourceLabel: '組織單位（處）' },
+    { id: 'apply_section',    label: '申請課別', type: 'select',   dataSource: 'org_units:section',             dataSourceLabel: '組織單位（課）' },
+    { id: 'applicant',        label: '申請人',   type: 'readonly', dataSource: 'current_user_name',             dataSourceLabel: '目前登入使用者姓名' },
+    { id: 'apply_role',       label: '職稱',     type: 'select',   dataSource: 'org_unit_roles',                dataSourceLabel: '組織職稱清單' },
+    { id: 'amount',           label: '暫付金額', type: 'number',   dataSource: 'none',                          dataSourceLabel: '手動輸入' },
+    { id: 'note',             label: '備註',     type: 'textarea', dataSource: 'none',                          dataSourceLabel: '手動輸入' },
+  ],
 }
 
 const CUSTOM_FIELD_TYPES: { value: FormFieldType; label: string }[] = [
@@ -259,12 +268,12 @@ export default function FormSettingsClient({
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: 20 }}>
-        {(['funds_allocation', 'payment_voucher'] as FormType[]).map(ft => (
+        {(['funds_allocation', 'payment_voucher', 'temp_voucher'] as FormType[]).map(ft => (
           <button key={ft} onClick={() => { setFormType(ft); setSelection(null) }}
             style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
               borderBottom: formType === ft ? '2px solid #111827' : '2px solid transparent',
               marginBottom: -1, cursor: 'pointer', color: formType === ft ? '#111827' : '#6b7280' }}>
-            {ft === 'funds_allocation' ? '資金分配申請單' : '付款憑單'}
+            {ft === 'funds_allocation' ? '資金分配申請單' : ft === 'payment_voucher' ? '付款憑單' : '暫付款沖銷憑單'}
           </button>
         ))}
       </div>

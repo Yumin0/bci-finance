@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 const MODULE_LABELS: Record<keyof StatusLabelConfig, string> = {
   funds_allocation: '資金分配申請',
   payment_voucher:  '付款憑單',
+  temp_voucher:     '暫付款沖銷憑單',
 }
 
 function ColorPicker({
