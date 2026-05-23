@@ -311,6 +311,14 @@ export type FeeCategory = {
   created_at: string
 }
 
+export type FeeSubcategory = {
+  id: number
+  category_id: number
+  name: string
+  sort_order: number
+  created_at: string
+}
+
 export type FeeCategoryField = {
   id: number
   category_id: number
@@ -324,6 +332,7 @@ export type FeeCategoryField = {
 export type FeeRecord = {
   id: number
   category_id: number
+  subcategory_id: number | null
   field_values: Record<string, string>
   sort_order: number
   created_at: string

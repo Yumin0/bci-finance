@@ -445,7 +445,7 @@ export default function PayeeSettingsPage() {
       ) : (
         <>
           {/* 類別 Tab 列 */}
-          <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border-color)', marginBottom: 0 }}>
             {categories.map(cat => (
               <button key={cat.id} onClick={() => switchCategory(cat.id)}
                 style={{
@@ -461,58 +461,60 @@ export default function PayeeSettingsPage() {
           </div>
 
           {activeCat && (
-            <div style={{ border: '1px solid var(--border-color)', borderTop: 'none', borderRadius: '0 0 12px 12px', background: 'var(--bg-card)' }}>
-              {/* 操作列 */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid var(--border-color)' }}>
+            <div style={{ marginTop: 20 }}>
+              {/* 類別設定按鈕 */}
+              <div style={{ marginBottom: 20 }}>
                 <Button variant="outline" onClick={() => setShowCategorySettings(true)}
                   style={{ fontSize: 13, padding: '5px 14px' }}>類別設定</Button>
-                <Button onClick={() => { setEditingRecord(undefined); setShowRecordModal(true) }}
-                  style={{ fontSize: 13, padding: '5px 14px' }}>+ 新增付款對象</Button>
               </div>
 
-              {/* 付款對象列表 */}
-              <div style={{ padding: '0' }}>
+              {/* 付款對象卡片區塊 */}
+              <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-color)', padding: '20px 24px' }}>
+                <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: 'var(--text-body)' }}>{activeCat.name}</h3>
+
                 {activeFields.length === 0 ? (
-                  <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-                    請先點「管理欄位」建立此類別的欄位，再新增付款對象。
-                  </div>
-                ) : activeRecords.length === 0 ? (
-                  <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-                    尚未新增任何付款對象，請點右上角「+ 新增付款對象」。
-                  </div>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0 12px', textAlign: 'center' }}>
+                    請先點「類別設定」建立此類別的欄位，再新增付款對象。
+                  </p>
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-subtle)' }}>
-                          {activeFields.map(f => (
-                            <th key={f.id} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap', minWidth: 100, maxWidth: 160 }}>
-                              {f.label}
-                            </th>
-                          ))}
-                          <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: 12, width: 72 }}>功能</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activeRecords.map((record, idx) => (
-                          <tr key={record.id} style={{ borderBottom: idx < activeRecords.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
-                            {activeFields.map(f => (
-                              <td key={f.id} style={{ padding: '11px 16px', color: 'var(--text-body)', minWidth: 100, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {record.field_values[String(f.id)] || <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                              </td>
-                            ))}
-                            <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
-                              <button onClick={() => { setEditingRecord(record); setShowRecordModal(true) }}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: 15 }} title="編輯">✏️</button>
-                              <button onClick={() => handleDeleteRecord(record)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: 13, color: 'var(--text-muted)' }} title="刪除">✕</button>
-                            </td>
-                          </tr>
+                  <>
+                    {/* 欄位標題 */}
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${activeFields.length}, 1fr) 64px`, gap: 12, marginBottom: 8 }}>
+                      {activeFields.map(f => (
+                        <p key={f.id} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', paddingLeft: 2 }}>{f.label}</p>
+                      ))}
+                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', paddingLeft: 2 }}>功能</p>
+                    </div>
+
+                    {/* 項目列 */}
+                    {activeRecords.map(record => (
+                      <div key={record.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${activeFields.length}, 1fr) 64px`, gap: 12, marginBottom: 8, alignItems: 'center' }}>
+                        {activeFields.map(f => (
+                          <div key={f.id} style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 8, fontSize: 14, color: 'var(--text-body)', border: '1px solid var(--border-color)', minHeight: 40, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {record.field_values[String(f.id)] || <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                            </span>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', paddingLeft: 4 }}>
+                          <button onClick={() => { setEditingRecord(record); setShowRecordModal(true) }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', fontSize: 16, lineHeight: 1, color: 'var(--text-muted)' }} title="編輯">✏️</button>
+                          <button onClick={() => handleDeleteRecord(record)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', fontSize: 13, color: 'var(--text-muted)' }} title="刪除">✕</button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {activeRecords.length === 0 && (
+                      <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0 12px', textAlign: 'center' }}>尚無付款對象</p>
+                    )}
+                  </>
                 )}
+
+                <button onClick={() => { setEditingRecord(undefined); setShowRecordModal(true) }}
+                  style={{ marginTop: 4, fontSize: 13, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontWeight: 500 }}>
+                  + 新增付款對象
+                </button>
               </div>
             </div>
           )}
