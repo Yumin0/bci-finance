@@ -117,11 +117,21 @@ export default function FinancePaymentPage() {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: 170 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 120 }} />
+                  <col />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 120 }} />
+                  <col style={{ width: 72 }} />
+                </colgroup>
                 <thead>
                   <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
                     {['狀態', '申請人', '費用項目', '項目', '付款方式', '金額', '付款執行', ''].map((col, i) => (
-                      <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-body)', whiteSpace: 'nowrap' }}>
+                      <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {col}
                       </th>
                     ))}
@@ -191,4 +201,4 @@ export default function FinancePaymentPage() {
   )
 }
 
-const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }
+const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
