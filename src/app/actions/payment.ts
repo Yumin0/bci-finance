@@ -83,6 +83,17 @@ export async function createPayment(
   return { error: null }
 }
 
+export async function confirmPayment(id: number): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('funds_payment')
+    .update({ status: PAYMENT_STATUS.PAID, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('status', PAYMENT_STATUS.APPROVED)
+
+  if (error) return { error: error.message }
+  return { error: null }
+}
+
 export async function submitMyPayment(id: number): Promise<{ error: string | null }> {
   const session = await getSession()
   if (!session) return { error: '請先登入' }
