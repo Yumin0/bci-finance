@@ -5,6 +5,7 @@
 ## 技術棧
 - **Next.js** (App Router) + **React 19** + **TypeScript**（strict mode）
 - **Tailwind CSS 4.x** 樣式
+- **shadcn/ui**（組件產生器）+ **Base UI**（`@base-ui/react`，headless primitive）+ **class-variance-authority**（cva，樣式變體）
 - **Supabase**（PostgreSQL 資料庫 + Storage 圖片儲存）
 - **JWT Session**（HTTP-only Secure Cookie，7 天有效期，jose 套件）
 - **路由保護**：`src/proxy.ts` 攔截未登入請求，重導向 `/login`
@@ -14,8 +15,8 @@
 
 | 模組 | 路徑 | 說明 |
 |------|------|------|
-| 資金分配申請 | `/funds-allocation` | 申請、編輯、5 級審核工作流（課→處→諮詢議會→主管議會→財務長） |
-| 付款憑單 | `/funds-payment` | 新增、4 級審核工作流（課→處→支出課→處長） |
+| 資金分配申請 | `/funds-allocation` | 申請、編輯、動態審核流程（範本驅動）、審核管理頁、全部申請紀錄 |
+| 付款憑單 | `/funds-payment` | 新增、動態審核流程（共用同一套範本架構）、審核管理頁、全部付款紀錄 |
 | 財務管理 | `/finance` | 資金管理與付款憑單總覽 |
 | 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位、側邊欄自定義、角色權限、表單設定 |
 | 問題回報 | `/report-issue` | Rich Text + 圖片上傳、狀態追蹤、影響模組標籤 |
@@ -24,8 +25,12 @@
 
 ## 主要資料模型（Supabase 資料表）
 
-- `funds_allocation`：資金分配申請，含 `step1~5_decision/comment/reviewer/at`
-- `funds_payment`：付款憑單，關聯 `funds_allocation_id`，含 `step1~4_*`
+- `funds_allocation`：資金分配申請，含 `flow_template_id`、`current_step`、`status`（pending/approved/rejected）；舊 `step1~5_*` 欄位保留備份
+- `funds_payment`：付款憑單，關聯 `funds_allocation_id`，套用同一套彈性審核架構
+- `approval_flow_templates`：審核流程範本（`form_type`: funds_allocation | payment_voucher）
+- `approval_flow_steps`：步驟定義（`reviewer_type`: org_role | system_role）
+- `approval_records`：每筆審核動作記錄（取代舊 step1~5_* 欄位）
+- `template_payment_accounts`：範本與出款帳號的對應（多對多）
 - `app_users`：系統使用者，含 `system_role_id`
 - `user_positions`：使用者職位，關聯 `org_unit_role_id`，`is_primary` 標記主職位
 - `org_units`：組織單位，樹狀結構（部門/處/課/科），含 `parent_id`
@@ -46,12 +51,20 @@ src/
 │   ├── _components/       # 全局共享組件（SidebarLayout、ThemeProvider、HomeTabView 等）
 │   ├── actions/           # Server Actions（auth、payment、account、sidebar-config、dev-tracker、form-schema）
 │   ├── api/               # API Routes（upload-image）
-│   ├── funds-allocation/  # 資金分配申請模組
-│   ├── funds-payment/     # 付款憑單模組
+│   ├── funds-allocation/
+│   │   ├── review/        # 審核管理（待我審核 / 我的審核紀錄）
+│   │   │   └── check/[id] # 動態審核頁
+│   │   └── all/           # 全部申請紀錄（管理員/財務長）
+│   ├── funds-payment/
+│   │   ├── review/        # 審核管理
+│   │   └── all/           # 全部付款紀錄
 │   ├── finance/           # 財務管理
-│   ├── system-settings/   # 系統設定
+│   ├── system-settings/
+│   │   └── approval-flows/ # 審核流程範本管理
 │   ├── report-issue/      # 問題回報
 │   └── login/
+├── components/
+│   └── ui/                # shadcn/ui 組件（button、input、select、tabs、textarea、badge）
 ├── lib/
 │   ├── types.ts           # 所有 TypeScript 型別定義
 │   ├── constants.ts       # 狀態常數
@@ -73,21 +86,52 @@ src/
 
 # 協作工作流程規則
 
-每次對話開始時，主動確認以下事項：
+本專案由 **Yumin** 與 **Riku** 兩人共同開發，使用 GitHub 同步進度。
 
-1. **詢問使用者是否已拉取最新版本**：如果使用者一開始就描述需求（跳過準備步驟），先暫停並提醒：
+## 分支命名規範
+
+- 格式：`feature/{負責人}-{功能簡稱}`，例如 `feature/yumin-csv-export`、`feature/riku-report`
+- 兩人同時有開發任務時，**一律開分支**，不直接在 main 上改動
+- 只有一人在改且另一人沒有進行中任務時，才可直接在 main 上進行
+
+## 每次對話開始時，依序確認以下事項：
+
+1. **確認說話者身份**：如果無法從上下文判斷是 Yumin 還是 Riku，先詢問：「請問你是 Yumin 還是 Riku？」後續的 BACKLOG 記錄與分支命名都需要這個資訊。
+
+2. **詢問使用者是否已拉取最新版本**：如果使用者一開始就描述需求（跳過準備步驟），先暫停並提醒：
    「開始之前，請問你有沒有先拉取最新版本？如果還沒，我可以幫你執行。」
    確認後再繼續。
 
-2. **詢問是否需要建立新分支**：如果是兩人協作期間，提醒使用者是否要建立功能分支，還是確認目前只有自己在改動（可直接在 main 上進行）。
+3. **開啟 BACKLOG.md 確認衝突並登記任務**：如果使用者提出新開發需求，必須先開啟 BACKLOG.md，檢查「進行中」區塊是否已有人在做同一件事。確認無衝突後，把此任務加入「進行中」，格式：
+
+   ```
+   **任務名稱**（負責人）
+   分支：`feature/{負責人}-{功能簡稱}`
+   開始：YYYY-MM-DD
+   ```
+
+   完成後才開始寫程式。
+
+4. **詢問是否需要建立新分支**：依照分支命名規範，提醒使用者是否要開分支，或確認目前可直接在 main 上進行。
 
 完成程式碼改動並確認 localhost:3000 測試沒問題後：
 
-3. **主動提示上傳**：改動完成後，根據本次對話的需求內容自己擬好 commit 說明，主動告知使用者接下來要做什麼，請使用者確認後直接執行。例如：
+5. **commit 前：架構同步檢查**：每次 commit 前，先逐一確認以下四項，有異動就必須在同一個 commit 裡更新 CLAUDE.md 對應區段，不得分開：
+
+   | 本次改動內容 | 需更新 CLAUDE.md 的哪個區段 |
+   |---|---|
+   | 新增或修改資料表 | 主要資料模型 |
+   | 新增路由或頁面 | 已完成功能模組、目錄結構 |
+   | 安裝新套件 | 技術棧 |
+   | 完成 BACKLOG 功能 | 已完成功能模組（更新描述）|
+
+6. **更新 BACKLOG.md 並一起 commit**：把對應任務從「進行中」移至「已完成」表格，與程式碼和 CLAUDE.md 放入同一個 commit，讓對方 pull 後立即看到最新狀態。
+
+7. **主動提示上傳**：改動完成後，根據本次對話的需求內容自己擬好 commit 說明，主動告知使用者接下來要做什麼，請使用者確認後直接執行。例如：
    「改動完成了。我會幫你 commit 並 push 到 GitHub，說明寫『新增報表功能』，確認後我就執行。」
    使用者回覆確認（如「好」、「ok」）即直接執行，不需要使用者再補充任何資訊。
 
-4. **文件改動也要推 GitHub**：如果本次對話中有修改任何文件檔（包含 CLAUDE.md、AGENTS.md、協作 SOP 文件），完成後也要主動提示 commit 並 push，說明：「文件有更新，協作者需要拉取才看得到，我幫你一起推上去。」這類改動不需要通過 localhost:3000 測試，確認即可直接執行。
+8. **文件改動也要推 GitHub**：如果本次對話中有修改任何文件檔（包含 CLAUDE.md、AGENTS.md、BACKLOG.md、協作 SOP 文件），完成後也要主動提示 commit 並 push，說明：「文件有更新，協作者需要拉取才看得到，我幫你一起推上去。」這類改動不需要通過 localhost:3000 測試，確認即可直接執行。
 
 # 方案確認規則
 
