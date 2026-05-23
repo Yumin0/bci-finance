@@ -6,6 +6,19 @@ import StatusBadge from '@/app/_components/StatusBadge'
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
 const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
+const blockStyle: React.CSSProperties = { marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }
+const gridStyle = (cols: number): React.CSSProperties => ({ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 20, marginBottom: 20 })
+
+function Field({ label, value, textarea }: { label: string; value: string; textarea?: boolean }) {
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      {textarea
+        ? <Textarea value={value} readOnly rows={4} className={readonlyCls} />
+        : <Input value={value} readOnly className={readonlyCls} />}
+    </div>
+  )
+}
 
 export default function FundsAllocationDetail({
   record,
@@ -17,65 +30,57 @@ export default function FundsAllocationDetail({
   stepName?: string | null
 }) {
   return (
-    <div style={{ maxWidth: 480, marginBottom: 32 }}>
+    <div style={{ marginBottom: 32 }}>
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>資金分配申請單</h1>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>
         <span>狀態：</span>
-        {labelConfig ? (
-          <StatusBadge module="funds_allocation" status={record.status} stepName={stepName} labelConfig={labelConfig} />
-        ) : (
-          <strong>{record.status}</strong>
-        )}
+        {labelConfig
+          ? <StatusBadge module="funds_allocation" status={record.status} stepName={stepName} labelConfig={labelConfig} />
+          : <strong>{record.status}</strong>}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <label style={labelStyle}>日期 *</label>
-          <Input value={record.date} readOnly className={readonlyCls} />
+      {/* Block 1：申請人資訊 */}
+      <div style={blockStyle}>
+        <div style={{ padding: '20px 20px 4px' }}>
+          <div style={gridStyle(2)}>
+            <Field label="日期 *" value={record.date} />
+            <div />
+          </div>
+          <div style={gridStyle(2)}>
+            <Field label="申請處別" value={record.apply_division ?? ''} />
+            <Field label="申請課別" value={record.apply_section ?? ''} />
+          </div>
+          <div style={gridStyle(2)}>
+            <Field label="申請人" value={record.applicant ?? ''} />
+            <Field label="職稱" value={record.apply_role ?? ''} />
+          </div>
         </div>
-        <div>
-          <label style={labelStyle}>申請處別</label>
-          <Input value={record.apply_division ?? ''} readOnly className={readonlyCls} />
+      </div>
+
+      {/* Block 2：費用資訊 */}
+      <div style={blockStyle}>
+        <div style={{ padding: '20px 20px 4px' }}>
+          <div style={gridStyle(2)}>
+            <Field label="機構" value={record.institution ?? ''} />
+            <Field label="出款帳戶" value={record.payment_account ?? ''} />
+          </div>
+          <div style={gridStyle(2)}>
+            <Field label="費用項目" value={record.expense_item ?? ''} />
+            <Field label="項目 *" value={record.name} />
+          </div>
+          <div style={gridStyle(2)}>
+            <Field label="金額 *" value={String(record.amount)} />
+            <Field label="類別" value={record.category ?? ''} />
+          </div>
         </div>
-        <div>
-          <label style={labelStyle}>申請課別</label>
-          <Input value={record.apply_section ?? ''} readOnly className={readonlyCls} />
-        </div>
-        <div>
-          <label style={labelStyle}>申請人</label>
-          <Input value={record.applicant ?? ''} readOnly className={readonlyCls} />
-        </div>
-        <div>
-          <label style={labelStyle}>職稱</label>
-          <Input value={record.apply_role ?? ''} readOnly className={readonlyCls} />
-        </div>
-        <div>
-          <label style={labelStyle}>機構</label>
-          <Input value={record.institution ?? ''} readOnly className={readonlyCls} />
-        </div>
-        <div>
-          <label style={labelStyle}>出款帳戶</label>
-          <Input value={record.payment_account ?? ''} readOnly className={readonlyCls} />
-        </div>
-        <div>
-          <label style={labelStyle}>費用項目</label>
-          <Input value={record.expense_item ?? ''} readOnly className={readonlyCls} />
-        </div>
-        <div>
-          <label style={labelStyle}>名稱 *</label>
-          <Input value={record.name} readOnly className={readonlyCls} />
-        </div>
-        <div>
-          <label style={labelStyle}>金額 *</label>
-          <Input value={String(record.amount)} readOnly className={readonlyCls} />
-        </div>
-        <div>
-          <label style={labelStyle}>類別</label>
-          <Input value={record.category ?? ''} readOnly className={readonlyCls} />
-        </div>
-        <div>
-          <label style={labelStyle}>備註</label>
-          <Textarea value={record.note ?? ''} readOnly rows={4} className={readonlyCls} />
+      </div>
+
+      {/* Block 3：備註 */}
+      <div style={blockStyle}>
+        <div style={{ padding: '20px 20px 4px' }}>
+          <div style={gridStyle(1)}>
+            <Field label="備註" value={record.note ?? ''} textarea />
+          </div>
         </div>
       </div>
     </div>

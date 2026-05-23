@@ -109,7 +109,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
   if (!record) return <p style={{ padding: 24, color: '#dc2626' }}>找不到此付款憑單</p>
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <button onClick={() => router.back()} style={{ background: 'none', border: '1px solid var(--btn-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>
           ← 返回
