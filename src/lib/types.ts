@@ -276,3 +276,30 @@ export type ApprovalRecord = {
   reviewed_at: string | null
   created_at: string
 }
+
+export type PayeeFieldType = 'text' | 'number' | 'dropdown' | 'date'
+
+export type PayeeCategory = {
+  id: number
+  name: string
+  sort_order: number
+  created_at: string
+}
+
+export type PayeeCategoryField = {
+  id: number
+  category_id: number
+  label: string
+  field_type: PayeeFieldType
+  options: string[] | null
+  sort_order: number
+  created_at: string
+}
+
+export type PayeeRecord = {
+  id: number
+  category_id: number
+  field_values: Record<string, string>
+  sort_order: number
+  created_at: string
+}

@@ -77,6 +77,7 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
       { kind: 'item', id: 'role-permissions',   label: '角色功能權限設定', href: '/system-settings/role-permissions' },
       { kind: 'item', id: 'form-settings',      label: '表單設定',         href: '/system-settings/form-settings' },
       { kind: 'item', id: 'status-labels',      label: '狀態標籤設定',     href: '/system-settings/status-labels' },
+      { kind: 'item', id: 'payee-settings',     label: '付款對象設定',     href: '/system-settings/payee-settings' },
     ],
   },
   {
