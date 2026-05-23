@@ -56,9 +56,6 @@
 #### [（稅收）費用自動計算]（Riku）
 - **目標**：費用欄位支援稅收自動計算
 
-#### [付款對象切換職員／廠商]（Riku）
-- **目標**：付款憑單的付款對象可切換為「職員」或「廠商」兩種模式
-
 #### [付款憑單區塊、列設定]（Riku）
 - **目標**：付款憑單支援自定義區塊與列的排版設定
 
@@ -100,7 +97,7 @@
 ## 已完成
 
 **付款對象設定**（2026-05-23，Yumin）
-系統設定新增付款對象管理：Tab 式分類切換、自訂類別（新增/編輯/刪除）、各類別自訂欄位（文字/數字/下拉/日期）；新增 payee_categories、payee_category_fields 資料表，Server Actions payee.ts，頁面 /system-settings/payee-settings
+系統設定新增付款對象管理：Tab 式分類切換、自訂類別（新增/編輯/刪除）、各類別自訂欄位（文字/數字/下拉/日期）、實際付款對象資料管理；新增 payee_categories、payee_category_fields、payee_records 資料表，Server Actions payee.ts，頁面 /system-settings/payee-settings
 
 **暫付款沖銷憑單**（2026-05-23，Yumin）
 完整暫付款沖銷憑單功能：建立頁（從付款憑單連結）、我的列表、詳細頁、審核管理、全部紀錄；新增 temp_vouchers 資料表、temp_voucher FormType、審核流程範本支援、StatusBadge 整合
