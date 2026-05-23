@@ -136,6 +136,13 @@ src/
 
 8. **文件改動也要推 GitHub**：如果本次對話中有修改任何文件檔（包含 CLAUDE.md、AGENTS.md、BACKLOG.md、協作 SOP 文件），完成後也要主動提示 commit 並 push，說明：「文件有更新，協作者需要拉取才看得到，我幫你一起推上去。」這類改動不需要通過 localhost:3000 測試，確認即可直接執行。
 
+9. **merge 回 main**：push 到 feature 分支後，必須**主動**引導執行以下步驟，不等使用者自己發現：
+   ```
+   git checkout main && git pull && git merge feature/{分支名} && git push
+   ```
+   完成後告知：「已合併到 main，Riku 現在可以 git pull 拿到最新版。」
+   **不得只推 feature 分支就結束**，協作者 pull 的是 main，feature 分支不 merge 對方看不到。
+
 # 方案確認規則
 
 遇到以下情況時，**先用 2–3 句話說明打算怎麼做，等使用者確認後才執行**：
