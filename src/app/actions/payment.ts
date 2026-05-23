@@ -73,6 +73,7 @@ export async function createPayment(
     applicant: record.applicant,
     apply_role: record.apply_role,
     payment_method: paymentMethod || null,
+    purchase_order_number: record.serial_number ? `${record.serial_number}001` : null,
     created_by: String(session.userId),
     status: PAYMENT_STATUS.DRAFT,
     flow_template_id: flowTemplateId,

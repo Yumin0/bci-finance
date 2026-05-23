@@ -31,6 +31,7 @@ CREATE TABLE funds_allocation (
   institution     TEXT,
   payment_account TEXT,
   expense_item    TEXT,
+  serial_number   TEXT UNIQUE,
   status          TEXT NOT NULL DEFAULT '新單-課級',
   created_by      UUID NOT NULL,
   created_at      TIMESTAMPTZ DEFAULT now(),

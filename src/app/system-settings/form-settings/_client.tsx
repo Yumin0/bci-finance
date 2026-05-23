@@ -14,6 +14,7 @@ type FieldDef = {
 
 const FIELD_CATALOG: Record<FormType, FieldDef[]> = {
   funds_allocation: [
+    { id: 'serial_number',    label: '資金分配申請單號', type: 'readonly', dataSource: 'auto_number',           dataSourceLabel: '系統自動流水號' },
     { id: 'date',             label: '申請日期', type: 'date',     dataSource: 'none',                          dataSourceLabel: '手動輸入' },
     { id: 'apply_division',   label: '申請處別', type: 'select',   dataSource: 'org_units:division',            dataSourceLabel: '組織單位（處）' },
     { id: 'apply_section',    label: '申請課別', type: 'select',   dataSource: 'org_units:section',             dataSourceLabel: '組織單位（課）' },
@@ -28,6 +29,7 @@ const FIELD_CATALOG: Record<FormType, FieldDef[]> = {
     { id: 'note',             label: '備註',     type: 'textarea', dataSource: 'none',                          dataSourceLabel: '手動輸入' },
   ],
   payment_voucher: [
+    { id: 'purchase_order_number', label: '採購單號', type: 'readonly', dataSource: 'none',                    dataSourceLabel: '系統自動產生（資金分配單號＋001）' },
     { id: 'date',             label: '日期',     type: 'date',     dataSource: 'none',                          dataSourceLabel: '手動輸入' },
     { id: 'apply_division',   label: '申請處別', type: 'select',   dataSource: 'org_units:division',            dataSourceLabel: '組織單位（處）' },
     { id: 'apply_section',    label: '申請課別', type: 'select',   dataSource: 'org_units:section',             dataSourceLabel: '組織單位（課）' },
@@ -385,7 +387,7 @@ export default function FormSettingsClient({
         </div>
 
         {/* Right panel */}
-        <div style={{ width: 260, flexShrink: 0, borderLeft: '1px solid var(--border-color)', paddingLeft: 20, overflowY: 'auto' }}>
+        <div style={{ width: 260, flexShrink: 0, borderLeft: '1px solid var(--border-color)', paddingLeft: 20, overflowY: 'auto', position: 'sticky', top: 60, alignSelf: 'flex-start', maxHeight: 'calc(100vh - 60px)' }}>
 
           {selection === null && (
             <div style={{ paddingTop: 60, textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13, lineHeight: 1.8 }}>

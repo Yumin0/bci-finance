@@ -14,6 +14,7 @@ const PAYMENT_METHODS = ['匯款', '支票', '現金', '其他']
 
 function getAllocFieldValue(fieldId: string, record: FundsAllocation): string {
   const map: Record<string, unknown> = {
+    purchase_order_number: record.serial_number ? `${record.serial_number}001` : '-',
     date: record.date,
     apply_division: record.apply_division,
     apply_section: record.apply_section,
@@ -74,7 +75,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   if (!record) return <p style={{ color: 'red' }}>找不到資金分配申請單</p>
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div>
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>建立付款憑單</h1>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>資金分配申請單 #{record.id}</p>
 
@@ -87,6 +88,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
             border: '1px solid var(--border-color)',
             borderRadius: 10,
             overflow: 'hidden',
+            background: 'var(--bg-card)',
           }}>
             {block.title && (
               <div style={{

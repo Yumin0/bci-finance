@@ -111,6 +111,7 @@ export default function EditFundsForm({
 
       // Pre-populate field values from record
       const catalogMap: Record<string, string> = {
+        serial_number:   record.serial_number ?? '',
         apply_role:      record.apply_role ?? '',
         institution:     record.institution ?? '',
         payment_account: record.payment_account ?? '',
@@ -146,6 +147,9 @@ export default function EditFundsForm({
     const { fieldId, required, type, dataSource, staticOptions } = slot
     const disabled = !canEdit
 
+    if (fieldId === 'serial_number') {
+      return <Input value={record.serial_number ?? '（自動產生）'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+    }
     if (fieldId === 'applicant' || dataSource === 'current_user_name') {
       return <Input value={record.applicant ?? applicantName} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
@@ -292,13 +296,10 @@ export default function EditFundsForm({
             border: '1px solid var(--border-color)',
             borderRadius: 10,
             overflow: 'hidden',
+            background: 'var(--bg-card)',
           }}>
             {block.title && (
-              <div style={{
-                padding: '10px 20px',
-                background: 'var(--bg-sidebar)',
-                borderBottom: '1px solid var(--border-color)',
-              }}>
+              <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
               </div>
             )}
