@@ -78,7 +78,7 @@ src/
 ## 架構注意事項
 
 - **權限三層**：SystemRole（功能菜單）→ UserPosition（組織職位）→ SidebarConfig（動態側邊欄）
-- **動態表單**：FormSchemaRow + FormSlot，支援 12+ 種資料來源，可在 Supabase 管理不需部署
+- **動態表單**：三層結構 FormBlock → FormSchemaRow → FormSlot，支援多區塊卡片排版；資料來源 12+ 種，可在 Supabase 管理不需部署
 - **主題**：CSS Variables 定義顏色，偏好存 localStorage（`bci-theme`），有防 hydration 閃爍 script
 - **MOCK_USER_ID**：`'00000000-0000-0000-0000-000000000001'`，待整合真正 Supabase Auth 後替換
 
