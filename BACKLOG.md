@@ -74,9 +74,7 @@
 
 ### 🟢 低優先 / 未來探索
 
-#### [付款憑單管理列表依出款帳戶分組顯示]（Yumin）
-- **目標**：`/finance/payment` 頁將現有的單一大列表，改為依出款帳戶分開顯示各自的子列表
-- **參考頁面**：`src/app/finance/payment/page.tsx`
+（目前尚未記錄）
 
 ---
 
@@ -103,6 +101,9 @@
 ---
 
 ## 已完成
+
+**付款憑單管理頁依出款帳戶分組顯示**（2026-05-23，Yumin）
+/finance/payment 依出款帳戶分組，各組顯示總額/已執行統計；新增確認付款按鈕（approved → paid 即時更新）
 
 **自定義狀態標籤名稱**（2026-05-23，Yumin）
 全站狀態 badge 統一改為可自訂，支援標籤名稱、hex 顏色、是否顯示步驟名；新增 status_label_config 資料表、StatusBadge 共用組件、/system-settings/status-labels 設定頁；funds_allocation 新增 draft 狀態支援儲存草稿
