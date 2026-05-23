@@ -18,15 +18,16 @@
 | 資金分配申請 | `/funds-allocation` | 申請、編輯、動態審核流程（範本驅動）、審核管理頁、全部申請紀錄 |
 | 付款憑單 | `/funds-payment` | 新增、動態審核流程（共用同一套範本架構）、審核管理頁、全部付款紀錄 |
 | 財務管理 | `/finance` | 資金管理與付款憑單總覽 |
-| 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位、側邊欄自定義、角色權限、表單設定 |
+| 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位、側邊欄自定義、角色權限、表單設定、狀態標籤設定 |
 | 問題回報 | `/report-issue` | Rich Text + 圖片上傳、狀態追蹤、影響模組標籤 |
 | 登入 | `/login` | Email + Password |
 | 首頁 | `/` | 顯示我的申請紀錄與付款憑單 |
 
 ## 主要資料模型（Supabase 資料表）
 
-- `funds_allocation`：資金分配申請，含 `flow_template_id`、`current_step`、`status`（pending/approved/rejected）；舊 `step1~5_*` 欄位保留備份
-- `funds_payment`：付款憑單，關聯 `funds_allocation_id`，套用同一套彈性審核架構
+- `funds_allocation`：資金分配申請，含 `flow_template_id`、`current_step`、`status`（draft/pending/approved/rejected）；舊 `step1~5_*` 欄位保留備份
+- `funds_payment`：付款憑單，關聯 `funds_allocation_id`，套用同一套彈性審核架構；`status`（draft/pending/approved/rejected/paid）
+- `status_label_config`：狀態標籤自訂設定（單列 JSON，含各模組 status 的標籤名稱、顏色 hex、是否顯示步驟名）
 - `approval_flow_templates`：審核流程範本（`form_type`: funds_allocation | payment_voucher）
 - `approval_flow_steps`：步驟定義（`reviewer_type`: org_role | system_role）
 - `approval_records`：每筆審核動作記錄（取代舊 step1~5_* 欄位）
@@ -48,8 +49,8 @@
 ```
 src/
 ├── app/
-│   ├── _components/       # 全局共享組件（SidebarLayout、ThemeProvider、HomeTabView 等）
-│   ├── actions/           # Server Actions（auth、payment、account、sidebar-config、dev-tracker、form-schema）
+│   ├── _components/       # 全局共享組件（SidebarLayout、ThemeProvider、HomeTabView、StatusBadge 等）
+│   ├── actions/           # Server Actions（auth、payment、account、sidebar-config、dev-tracker、form-schema、status-labels）
 │   ├── api/               # API Routes（upload-image）
 │   ├── funds-allocation/
 │   │   ├── review/        # 審核管理（待我審核 / 我的審核紀錄）
@@ -60,18 +61,20 @@ src/
 │   │   └── all/           # 全部付款紀錄
 │   ├── finance/           # 財務管理
 │   ├── system-settings/
-│   │   └── approval-flows/ # 審核流程範本管理
+│   │   ├── approval-flows/ # 審核流程範本管理
+│   │   └── status-labels/  # 狀態標籤自訂設定
 │   ├── report-issue/      # 問題回報
 │   └── login/
 ├── components/
 │   └── ui/                # shadcn/ui 組件（button、input、select、tabs、textarea、badge）
 ├── lib/
-│   ├── types.ts           # 所有 TypeScript 型別定義
-│   ├── constants.ts       # 狀態常數
-│   ├── supabase.ts        # Supabase 客戶端
-│   ├── session.ts         # JWT Session 管理
-│   ├── sidebar-config.ts  # 側邊欄預設配置
-│   └── dateUtils.ts       # 日期格式化（Asia/Taipei）
+│   ├── types.ts                # 所有 TypeScript 型別定義
+│   ├── constants.ts            # 狀態常數
+│   ├── supabase.ts             # Supabase 客戶端
+│   ├── session.ts              # JWT Session 管理
+│   ├── sidebar-config.ts       # 側邊欄預設配置
+│   ├── status-label-config.ts  # 狀態標籤預設設定與型別（含 hexToRgba）
+│   └── dateUtils.ts            # 日期格式化（Asia/Taipei）
 └── proxy.ts               # 路由保護中間件
 ```
 

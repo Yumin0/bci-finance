@@ -7,6 +7,8 @@ import { MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, ApprovalRecord, StepDecision } from '@/lib/types'
 import { submitApprovalDecision } from '@/app/actions/approval-flow'
 import FundsAllocationDetail from '@/app/funds-allocation/_components/FundsAllocationDetail'
+import { getStatusLabelConfig } from '@/app/actions/status-labels'
+import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/dateUtils'
 
@@ -31,6 +33,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   const router = useRouter()
   const [record, setRecord] = useState<RecordWithTemplate | null>(null)
   const [pastRecords, setPastRecords] = useState<ApprovalRecord[]>([])
+  const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
@@ -42,10 +45,12 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
       const { id } = await params
       const numId = Number(id)
 
-      const [recRes, pastRes] = await Promise.all([
+      const [recRes, pastRes, config] = await Promise.all([
         supabase.from('funds_allocation').select('*').eq('id', numId).single(),
         supabase.from('approval_records').select('*').eq('funds_allocation_id', numId).order('step_number'),
+        getStatusLabelConfig(),
       ])
+      setLabelConfig(config)
 
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
@@ -116,7 +121,11 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
 
       {error && <p style={{ color: '#dc2626', marginBottom: 12 }}>{error}</p>}
 
-      <FundsAllocationDetail record={record} />
+      <FundsAllocationDetail
+        record={record}
+        labelConfig={labelConfig}
+        stepName={steps.find(s => s.step_number === (record.current_step ?? 0))?.step_name ?? null}
+      />
 
       {/* 審核步驟進度 */}
       <div style={{ marginBottom: 32 }}>

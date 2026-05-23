@@ -4,13 +4,19 @@ import { formatDate } from '@/lib/dateUtils'
 import Link from 'next/link'
 import { getSession } from '@/lib/session'
 import { getUserAllowedItemIds } from '@/app/actions/sidebar-config'
+import { getStatusLabelConfig } from '@/app/actions/status-labels'
+import StatusBadge from '@/app/_components/StatusBadge'
 import ExportCsvButton from './_components/ExportCsvButton'
 
 export default async function AllFundsPage() {
-  const session = await getSession()
+  const [session, labelConfig] = await Promise.all([
+    getSession(),
+    getStatusLabelConfig(),
+  ])
   const canExport = session
     ? await getUserAllowedItemIds(session.userId).then(ids => ids === 'all' || ids.includes('fa-all-export'))
     : false
+
   const { data, error } = await supabase
     .from('funds_allocation')
     .select(`
@@ -18,7 +24,8 @@ export default async function AllFundsPage() {
       approval_flow_templates(
         name,
         approval_flow_steps(step_name, step_number)
-      )
+      ),
+      approval_records!funds_allocation_id(step_name, decision)
     `)
     .order('created_at', { ascending: false })
 
@@ -27,21 +34,23 @@ export default async function AllFundsPage() {
       name: string
       approval_flow_steps: Array<{ step_name: string; step_number: number }>
     } | null
+    approval_records: Array<{ step_name: string; decision: string }>
   })[]
 
-  function currentStepLabel(r: typeof records[0]) {
-    if (r.status === 'approved') return '已核准'
-    if (r.status === 'rejected') return '已拒絕'
-    const step = r.approval_flow_templates?.approval_flow_steps?.find(
-      s => s.step_number === r.current_step
-    )
-    return step?.step_name ?? `第 ${r.current_step} 步`
-  }
-
-  function statusColor(status: string) {
-    if (status === 'approved') return '#16a34a'
-    if (status === 'rejected') return '#dc2626'
-    return 'var(--accent)'
+  function getStepName(r: typeof records[0]): string | null {
+    if (r.status === 'pending') {
+      return r.approval_flow_templates?.approval_flow_steps?.find(
+        s => s.step_number === r.current_step
+      )?.step_name ?? null
+    }
+    if (r.status === 'rejected') {
+      return r.approval_records?.find(a => a.decision === 'rejected')?.step_name ?? null
+    }
+    if (r.status === 'approved') {
+      const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+      return steps.reduce((max, s) => s.step_number > max.step_number ? s : max, steps[0])?.step_name ?? null
+    }
+    return null
   }
 
   return (
@@ -51,7 +60,7 @@ export default async function AllFundsPage() {
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>全部申請紀錄</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>所有資金分配申請的完整狀態覽表</p>
         </div>
-        {canExport && <ExportCsvButton />}
+        {canExport && <ExportCsvButton labelConfig={labelConfig} />}
       </div>
 
       {error && <p style={{ color: '#dc2626' }}>載入失敗：{error.message}</p>}
@@ -84,13 +93,12 @@ export default async function AllFundsPage() {
                 <td style={td}>{r.amount.toLocaleString()}</td>
                 <td style={td}>{r.approval_flow_templates?.name ?? '-'}</td>
                 <td style={td}>
-                  <span style={{
-                    fontSize: 12, padding: '2px 8px', borderRadius: 4,
-                    background: `${statusColor(r.status)}1a`,
-                    color: statusColor(r.status), fontWeight: 500,
-                  }}>
-                    {currentStepLabel(r)}
-                  </span>
+                  <StatusBadge
+                    module="funds_allocation"
+                    status={r.status}
+                    stepName={getStepName(r)}
+                    labelConfig={labelConfig}
+                  />
                 </td>
                 <td style={td}>
                   <Link

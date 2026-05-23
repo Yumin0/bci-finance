@@ -8,7 +8,10 @@ import { FundsPayment, ApprovalRecord, FormBlock } from '@/lib/types'
 import { PAYMENT_STATUS } from '@/lib/constants'
 import { submitMyPayment } from '@/app/actions/payment'
 import { getFormSchemas } from '@/app/actions/form-schema'
+import { getStatusLabelConfig } from '@/app/actions/status-labels'
+import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
+import StatusBadge from '@/app/_components/StatusBadge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/dateUtils'
 
@@ -17,6 +20,7 @@ type RecordWithTemplate = FundsPayment & {
     name: string
     approval_flow_steps: Array<{ step_name: string; step_number: number }>
   } | null
+  approval_records: Array<{ step_name: string; decision: string }>
 }
 
 export default function PaymentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +28,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   const [record, setRecord] = useState<RecordWithTemplate | null>(null)
   const [approvalHistory, setApprovalHistory] = useState<ApprovalRecord[]>([])
   const [schema, setSchema] = useState<FormBlock[]>([])
+  const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,16 +38,18 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     async function load() {
       const { id } = await params
       const numId = Number(id)
-      const [{ data, error: fetchError }, histRes] = await Promise.all([
+      const [{ data, error: fetchError }, histRes, config] = await Promise.all([
         supabase.from('funds_payment')
-          .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number))`)
+          .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number)), approval_records!funds_payment_id(step_name, decision)`)
           .eq('id', numId).single(),
         supabase.from('approval_records')
           .select('*').eq('funds_payment_id', numId).order('step_number'),
+        getStatusLabelConfig(),
       ])
       if (fetchError || !data) { setNotFound(true) }
       else { setRecord(data as RecordWithTemplate) }
       setApprovalHistory((histRes.data as ApprovalRecord[]) ?? [])
+      setLabelConfig(config)
       setLoading(false)
     }
     load()
@@ -68,12 +75,19 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
   const isDraft = record!.status === PAYMENT_STATUS.DRAFT
 
-  function statusLabel() {
-    if (record!.status === 'approved') return '已核准'
-    if (record!.status === 'rejected') return '已拒絕'
-    if (isDraft) return '草稿'
-    const step = record!.approval_flow_templates?.approval_flow_steps?.find(s => s.step_number === record!.current_step)
-    return step ? `審核中・${step.step_name}` : '審核中'
+  function getStepName(): string | null {
+    const r = record!
+    if (r.status === 'pending') {
+      return r.approval_flow_templates?.approval_flow_steps?.find(s => s.step_number === r.current_step)?.step_name ?? null
+    }
+    if (r.status === 'rejected') {
+      return r.approval_records?.find(a => a.decision === 'rejected')?.step_name ?? null
+    }
+    if (r.status === 'approved') {
+      const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+      return steps.reduce((max, s) => s.step_number > max.step_number ? s : max, steps[0])?.step_name ?? null
+    }
+    return null
   }
 
   return (
@@ -83,12 +97,14 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           <Link href="/funds-payment/my-payment" className={buttonVariants({ variant: 'outline' })}>← 返回列表</Link>
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>付款憑單</h1>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
-          狀態：<strong>{statusLabel()}</strong>　資金分配申請單 #
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+          <span>狀態：</span>
+          <StatusBadge module="payment_voucher" status={record!.status} stepName={getStepName()} labelConfig={labelConfig} />
+          <span>　資金分配申請單 #</span>
           <Link href={`/funds-allocation/my-funds/edit/${record!.funds_allocation_id}`} style={{ color: '#2563eb' }}>
             {record!.funds_allocation_id}
           </Link>
-        </p>
+        </div>
 
         <FundsPaymentDetail record={record!} schema={schema} />
 

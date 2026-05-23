@@ -5,7 +5,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSlot, StepDecision } from '@/lib/types'
+import { type StatusLabelConfig } from '@/lib/status-label-config'
 import ApprovalPanel from '@/app/funds-allocation/_components/ApprovalPanel'
+import StatusBadge from '@/app/_components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -16,19 +18,26 @@ function unitLabel(u: OrgUnit) {
   return [u.code, u.name].filter(Boolean).join(' ')
 }
 
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 export default function EditFundsForm({
   record,
   schema,
   applicantName,
   userId,
+  labelConfig,
 }: {
   record: FundsAllocation
   schema: FormBlock[]
   applicantName: string
   userId: number | null
+  labelConfig: StatusLabelConfig
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
@@ -42,16 +51,47 @@ export default function EditFundsForm({
   const [approvalDecision, setApprovalDecision] = useState<StepDecision>(null)
   const [approvalComment, setApprovalComment] = useState('')
 
+  // 草稿送出時需要的審核流程資訊
+  const [flowTemplateId, setFlowTemplateId] = useState<number | null>(record.flow_template_id ?? null)
+  const [flowTemplateName, setFlowTemplateName] = useState<string | null>(null)
+
+  const isDraft = record.status === FUNDS_STATUS.DRAFT
+  const canEdit = isDraft || (record.status === FUNDS_STATUS.PENDING && record.current_step === 1)
+
   const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
     b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
   )
   const neededSources = new Set(allSlots.map(s => s.dataSource))
 
-  const canEdit = record.current_step === 1 && record.status === FUNDS_STATUS.PENDING
-
   function setField(id: string, val: string) {
     setFieldValues(prev => ({ ...prev, [id]: val }))
   }
+
+  // 草稿狀態下，出款帳號改變時自動帶入審核流程
+  useEffect(() => {
+    if (!isDraft) return
+    const label = fieldValues.payment_account
+    if (!label) { setFlowTemplateId(null); setFlowTemplateName(null); return }
+    const option = dropdownOptions['payment_account']?.find(o => o.label === label)
+    if (!option) { setFlowTemplateId(null); setFlowTemplateName(null); return }
+    supabase
+      .from('template_payment_accounts')
+      .select('template_id, approval_flow_templates!inner(id, name, is_active, form_type)')
+      .eq('payment_account_option_id', option.id)
+      .eq('approval_flow_templates.form_type', 'funds_allocation')
+      .eq('approval_flow_templates.is_active', true)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const t = data as { template_id: number; approval_flow_templates: Array<{ id: number; name: string }> }
+          const tmpl = Array.isArray(t.approval_flow_templates) ? t.approval_flow_templates[0] : t.approval_flow_templates
+          setFlowTemplateId(t.template_id)
+          setFlowTemplateName((tmpl as { name: string } | undefined)?.name ?? null)
+        } else {
+          setFlowTemplateId(null); setFlowTemplateName(null)
+        }
+      })
+  }, [fieldValues.payment_account, dropdownOptions, isDraft])
 
   useEffect(() => {
     async function load() {
@@ -62,8 +102,6 @@ export default function EditFundsForm({
         if (r.data) {
           const units = r.data as OrgUnit[]
           setOrgUnits(units)
-
-          // Restore cascade state from record
           if (record.apply_division) {
             const divUnit = units.find(u => u.level === '處' && unitLabel(u) === record.apply_division)
             if (divUnit) {
@@ -77,9 +115,7 @@ export default function EditFundsForm({
         }
       }
       const loadOrgRoles = async () => {
-        const r = await supabase.from('org_unit_roles')
-          .select('id, org_unit_id, display_name, role_types(name)')
-          .order('sort_order')
+        const r = await supabase.from('org_unit_roles').select('id, org_unit_id, display_name, role_types(name)').order('sort_order')
         if (r.data) setOrgUnitRoles(r.data as unknown as RoleRow[])
       }
       const loadDropdowns = async (fields: string[]) => {
@@ -109,7 +145,6 @@ export default function EditFundsForm({
 
       await Promise.all(fetches)
 
-      // Pre-populate field values from record
       const catalogMap: Record<string, string> = {
         apply_role:      record.apply_role ?? '',
         institution:     record.institution ?? '',
@@ -119,9 +154,8 @@ export default function EditFundsForm({
         amount:          String(record.amount ?? ''),
         category:        record.category ?? '',
         note:            record.note ?? '',
-        date:            record.date ?? '',
+        date:            record.date ?? today(),
       }
-      // Custom fields from extra_data
       const extraData = (record as FundsAllocation & { extra_data?: Record<string, string> }).extra_data ?? {}
       const customValues: Record<string, string> = {}
       for (const slot of allSlots) {
@@ -201,8 +235,7 @@ export default function EditFundsForm({
       if (dataSource === 'static') options = (staticOptions ?? []).map(o => ({ value: o, label: o }))
       else if (dataSource === 'expense_items') options = expenseItems.map(i => ({ value: i.label, label: i.label }))
       else if (dataSource.startsWith('dropdown_options:')) {
-        const field = dataSource.replace('dropdown_options:', '')
-        options = (dropdownOptions[field] ?? []).map(o => ({ value: o.label, label: o.label }))
+        options = (dropdownOptions[dataSource.replace('dropdown_options:', '')] ?? []).map(o => ({ value: o.label, label: o.label }))
       }
       return (
         <select value={fieldValues[fieldId] ?? ''} disabled={disabled}
@@ -236,28 +269,14 @@ export default function EditFundsForm({
     )
   }
 
-  async function handleDelete() {
-    if (!confirm('確定要刪除此單據嗎？此操作無法復原。')) return
-    setSubmitting(true)
-    const { error: deleteError } = await supabase.from('funds_allocation').delete().eq('id', record.id)
-    if (deleteError) { setError(deleteError.message); setSubmitting(false); return }
-    router.push('/funds-allocation/my-funds')
-  }
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setSubmitting(true); setError(null)
-
+  function buildUpdates() {
     const divUnit = orgUnits.find(u => u.id === divisionId)
     const secUnit = orgUnits.find(u => u.id === sectionId)
-
-    const catalogIds = new Set(['date','apply_division','apply_section','applicant','apply_role','institution','payment_account','expense_item','name','amount','category','note'])
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
       if (slot.fieldId.startsWith('custom_')) extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
     }
-
-    const updates = {
+    return {
       date: fieldValues.date || record.date,
       apply_division: divUnit ? unitLabel(divUnit) : (fieldValues.apply_division ?? null),
       apply_section: secUnit ? unitLabel(secUnit) : (fieldValues.apply_section ?? null),
@@ -272,43 +291,84 @@ export default function EditFundsForm({
       extra_data: extraData,
       updated_at: new Date().toISOString(),
     }
+  }
 
-    const { error: updateError } = await supabase.from('funds_allocation').update(updates).eq('id', record.id)
+  async function handleDelete() {
+    if (!confirm('確定要刪除此單據嗎？此操作無法復原。')) return
+    setSubmitting(true)
+    const { error: deleteError } = await supabase.from('funds_allocation').delete().eq('id', record.id)
+    if (deleteError) { setError(deleteError.message); setSubmitting(false); return }
+    router.push('/funds-allocation/my-funds')
+  }
+
+  async function handleSaveDraft() {
+    setSavingDraft(true); setError(null)
+    const { error: updateError } = await supabase.from('funds_allocation')
+      .update({ ...buildUpdates(), status: 'draft', flow_template_id: null, current_step: null })
+      .eq('id', record.id)
+    setSavingDraft(false)
+    if (updateError) { setError(updateError.message); return }
+    router.push('/funds-allocation/my-funds')
+  }
+
+  async function handleSubmitFromDraft(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setSubmitting(true); setError(null)
+    const { error: updateError } = await supabase.from('funds_allocation')
+      .update({ ...buildUpdates(), status: 'pending', flow_template_id: flowTemplateId, current_step: 1 })
+      .eq('id', record.id)
     if (updateError) { setError(updateError.message); setSubmitting(false); return }
     router.push('/funds-allocation/my-funds')
   }
 
+  async function handleSaveChanges(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setSubmitting(true); setError(null)
+    const { error: updateError } = await supabase.from('funds_allocation').update(buildUpdates()).eq('id', record.id)
+    if (updateError) { setError(updateError.message); setSubmitting(false); return }
+    router.push('/funds-allocation/my-funds')
+  }
+
+  const stepName = (() => {
+    if (record.status === 'pending') return null  // step name handled by list page
+    return null
+  })()
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>資金分配申請單</h1>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>狀態：<strong>{record.status}</strong></p>
+      {/* 標題列 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>
+            {isDraft ? '編輯資金分配申請單' : '資金分配申請單'}
+          </h1>
+          <StatusBadge module="funds_allocation" status={record.status} stepName={stepName} labelConfig={labelConfig} />
+        </div>
+        {canEdit && (
+          <Button
+            type="button"
+            onClick={handleDelete}
+            disabled={submitting || savingDraft}
+            style={{ background: '#dc2626', color: '#fff', border: 'none' }}
+          >
+            刪除此單據
+          </Button>
+        )}
+      </div>
+
       {error && <p style={errorStyle}>錯誤：{error}</p>}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={isDraft ? handleSubmitFromDraft : handleSaveChanges}>
         {schema.map(block => (
-          <div key={block.id} style={{
-            marginBottom: 16,
-            border: '1px solid var(--border-color)',
-            borderRadius: 10,
-            overflow: 'hidden',
-          }}>
+          <div key={block.id} style={{ marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden' }}>
             {block.title && (
-              <div style={{
-                padding: '10px 20px',
-                background: 'var(--bg-sidebar)',
-                borderBottom: '1px solid var(--border-color)',
-              }}>
+              <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
               </div>
             )}
             <div style={{ padding: '20px 20px 4px' }}>
               {block.rows.map(row => (
-                <div key={row.id} style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
-                  gap: 20, marginBottom: 20,
-                }}>
+                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
                   {row.slots.map((slot, idx) => slot ? (
                     <div key={idx}>
                       <label style={labelStyle}>
@@ -324,17 +384,42 @@ export default function EditFundsForm({
           </div>
         ))}
 
-        {!canEdit && <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>此申請單已進入審核程序，無法編輯。</p>}
+        {/* 草稿送出時的審核流程提示 */}
+        {isDraft && fieldValues.payment_account && (
+          <div style={{
+            margin: '12px 0', padding: '10px 14px', borderRadius: 6,
+            background: flowTemplateName ? '#f0fdf4' : '#fef2f2',
+            border: `1px solid ${flowTemplateName ? '#86efac' : '#fca5a5'}`,
+            fontSize: 13,
+          }}>
+            {flowTemplateName
+              ? <span style={{ color: '#15803d' }}>✓ 審核流程：<strong>{flowTemplateName}</strong></span>
+              : <span style={{ color: '#dc2626' }}>⚠ 此出款帳號尚未設定審核流程，請聯絡系統管理員</span>
+            }
+          </div>
+        )}
+
+        {!canEdit && (
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>此申請單已進入審核程序，無法編輯。</p>
+        )}
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-          {canEdit && <Button type="submit" disabled={submitting}>{submitting ? '儲存中...' : '儲存變更'}</Button>}
-          <Button type="button" variant="outline" onClick={() => router.back()}>返回</Button>
-          {canEdit && (
-            <Button type="button" variant="outline" onClick={handleDelete} disabled={submitting}
-              className="text-red-600 border-red-200 hover:bg-red-50">
-              刪除此單據
-            </Button>
+          {isDraft && (
+            <>
+              <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
+                {savingDraft ? '儲存中...' : '儲存草稿'}
+              </Button>
+              <Button type="submit" disabled={submitting || savingDraft || (!!fieldValues.payment_account && !flowTemplateId)}>
+                {submitting ? '送出中...' : '確定送出'}
+              </Button>
+            </>
           )}
+          {!isDraft && canEdit && (
+            <Button type="submit" disabled={submitting}>{submitting ? '儲存中...' : '儲存變更'}</Button>
+          )}
+          <Button type="button" variant="outline" onClick={() => router.back()}>
+            {isDraft ? '取消' : '返回'}
+          </Button>
           {record.status === FUNDS_STATUS.APPROVED && record.current_step === null && (
             <Button type="button" onClick={() => router.push(`/funds-payment/my-payment/add/${record.id}`)}>
               建立付款憑單
@@ -343,19 +428,21 @@ export default function EditFundsForm({
         </div>
       </form>
 
-      <div style={{ marginTop: 40 }}>
-        <ApprovalPanel
-          record={record}
-          currentStep={((record.current_step ?? 1) as 1 | 2 | 3 | 4 | 5)}
-          canReview={false}
-          decision={approvalDecision}
-          comment={approvalComment}
-          submitting={false}
-          onDecisionChange={setApprovalDecision}
-          onCommentChange={setApprovalComment}
-          onSubmit={() => {}}
-        />
-      </div>
+      {!isDraft && (
+        <div style={{ marginTop: 40 }}>
+          <ApprovalPanel
+            record={record}
+            currentStep={((record.current_step ?? 1) as 1 | 2 | 3 | 4 | 5)}
+            canReview={false}
+            decision={approvalDecision}
+            comment={approvalComment}
+            submitting={false}
+            onDecisionChange={setApprovalDecision}
+            onCommentChange={setApprovalComment}
+            onSubmit={() => {}}
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -3,12 +3,22 @@ import { buttonVariants } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 import { FundsPayment } from '@/lib/types'
+import { getStatusLabelConfig } from '@/app/actions/status-labels'
+import StatusBadge from '@/app/_components/StatusBadge'
 
 export default async function MyPaymentPage() {
-  const session = await getSession()
+  const [session, labelConfig] = await Promise.all([
+    getSession(),
+    getStatusLabelConfig(),
+  ])
+
   const { data, error } = await supabase
     .from('funds_payment')
-    .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number))`)
+    .select(`
+      *,
+      approval_flow_templates(name, approval_flow_steps(step_name, step_number)),
+      approval_records!funds_payment_id(step_name, decision)
+    `)
     .eq('created_by', String(session?.userId ?? ''))
     .order('created_at', { ascending: false })
 
@@ -17,22 +27,24 @@ export default async function MyPaymentPage() {
       name: string
       approval_flow_steps: Array<{ step_name: string; step_number: number }>
     } | null
+    approval_records: Array<{ step_name: string; decision: string }>
   }
   const records = (data as RecordWithTemplate[]) ?? []
 
-  function statusLabel(r: RecordWithTemplate) {
-    if (r.status === 'approved') return '已核准'
-    if (r.status === 'rejected') return '已拒絕'
-    if (r.status === 'draft') return '草稿'
-    const step = r.approval_flow_templates?.approval_flow_steps?.find(s => s.step_number === r.current_step)
-    return step ? `審核中・${step.step_name}` : '審核中'
-  }
-
-  function statusStyle(status: string): { bg: string; color: string } {
-    if (status === 'approved') return { bg: '#dcfce7', color: '#166534' }
-    if (status === 'rejected') return { bg: '#fee2e2', color: '#991b1b' }
-    if (status === 'draft')    return { bg: '#f3f4f6', color: '#374151' }
-    return { bg: '#dbeafe', color: '#1d4ed8' }
+  function getStepName(r: RecordWithTemplate): string | null {
+    if (r.status === 'pending') {
+      return r.approval_flow_templates?.approval_flow_steps?.find(
+        s => s.step_number === r.current_step
+      )?.step_name ?? null
+    }
+    if (r.status === 'rejected') {
+      return r.approval_records?.find(a => a.decision === 'rejected')?.step_name ?? null
+    }
+    if (r.status === 'approved') {
+      const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+      return steps.reduce((max, s) => s.step_number > max.step_number ? s : max, steps[0])?.step_name ?? null
+    }
+    return null
   }
 
   return (
@@ -65,11 +77,12 @@ export default async function MyPaymentPage() {
             {records.map((r) => (
               <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={td}>
-                  {(() => { const s = statusStyle(r.status); return (
-                    <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: s.bg, color: s.color, fontWeight: 500, whiteSpace: 'nowrap' }}>
-                      {statusLabel(r)}
-                    </span>
-                  )})()}
+                  <StatusBadge
+                    module="payment_voucher"
+                    status={r.status}
+                    stepName={getStepName(r)}
+                    labelConfig={labelConfig}
+                  />
                 </td>
                 <td style={td}>{r.expense_item ?? '-'}</td>
                 <td style={td}>{r.name}</td>

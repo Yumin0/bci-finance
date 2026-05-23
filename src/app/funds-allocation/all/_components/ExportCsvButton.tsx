@@ -5,29 +5,47 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getFundsAllocationForExport, type FundsAllocationExportRow } from '@/app/actions/export'
 import { formatDate } from '@/lib/dateUtils'
+import { formatStatusLabel, type StatusLabelConfig } from '@/lib/status-label-config'
 
-function resolveStepLabel(row: FundsAllocationExportRow): string {
-  if (row.status === 'approved') return '已核准'
-  if (row.status === 'rejected') return '已拒絕'
+function resolveStepLabel(row: FundsAllocationExportRow, labelConfig: StatusLabelConfig): string {
+  const modConfig = labelConfig.funds_allocation
+  if (row.status === 'approved') {
+    const steps = row.approval_flow_templates?.approval_flow_steps ?? []
+    const lastStep = steps.reduce(
+      (max, s) => s.step_number > max.step_number ? s : max,
+      steps[0]
+    )
+    return formatStatusLabel(modConfig['approved'], lastStep?.step_name ?? null)
+  }
+  if (row.status === 'rejected') {
+    return formatStatusLabel(modConfig['rejected'], null)
+  }
   const step = row.approval_flow_templates?.approval_flow_steps?.find(
     s => s.step_number === row.current_step
   )
-  return step?.step_name ?? '審核中'
+  return formatStatusLabel(modConfig['pending'], step?.step_name ?? null)
 }
 
 // ── 欄位清單 ──────────────────────────────────────────────────────────────────
 // 新增或移除欄位只需改這裡，匯出對話框與 CSV 都會自動跟著變。
-const COLUMNS: { key: string; label: string; getValue: (r: FundsAllocationExportRow) => string | number }[] = [
-  { key: 'created_at',    label: '申請日期', getValue: r => formatDate(r.created_at) },
-  { key: 'apply_section', label: '申請課別', getValue: r => r.apply_section ?? '' },
-  { key: 'applicant',     label: '申請人',   getValue: r => r.applicant ?? r.created_by },
-  { key: 'name',          label: '項目名稱', getValue: r => r.name },
-  { key: 'amount',        label: '金額',     getValue: r => r.amount },
-  { key: 'flow',          label: '審核流程', getValue: r => r.approval_flow_templates?.name ?? '' },
-  { key: 'progress',      label: '目前進度', getValue: r => resolveStepLabel(r) },
-]
+function buildColumns(labelConfig: StatusLabelConfig) {
+  return [
+    { key: 'created_at',    label: '申請日期', getValue: (r: FundsAllocationExportRow) => formatDate(r.created_at) },
+    { key: 'apply_section', label: '申請課別', getValue: (r: FundsAllocationExportRow) => r.apply_section ?? '' },
+    { key: 'applicant',     label: '申請人',   getValue: (r: FundsAllocationExportRow) => r.applicant ?? r.created_by },
+    { key: 'name',          label: '項目名稱', getValue: (r: FundsAllocationExportRow) => r.name },
+    { key: 'amount',        label: '金額',     getValue: (r: FundsAllocationExportRow) => r.amount },
+    { key: 'flow',          label: '審核流程', getValue: (r: FundsAllocationExportRow) => r.approval_flow_templates?.name ?? '' },
+    { key: 'progress',      label: '目前進度', getValue: (r: FundsAllocationExportRow) => resolveStepLabel(r, labelConfig) },
+  ]
+}
 
-function downloadCsv(rows: FundsAllocationExportRow[], selectedKeys: Set<string>) {
+function downloadCsv(
+  rows: FundsAllocationExportRow[],
+  selectedKeys: Set<string>,
+  labelConfig: StatusLabelConfig,
+) {
+  const COLUMNS = buildColumns(labelConfig)
   const activeCols = COLUMNS.filter(c => selectedKeys.has(c.key))
   const headers = activeCols.map(c => c.label)
   const body = rows.map(r => activeCols.map(c => c.getValue(r)))
@@ -46,7 +64,10 @@ function downloadCsv(rows: FundsAllocationExportRow[], selectedKeys: Set<string>
   URL.revokeObjectURL(url)
 }
 
-export default function ExportCsvButton() {
+export default function ExportCsvButton({ labelConfig }: { labelConfig: StatusLabelConfig }) {
+  const COLUMNS = buildColumns(labelConfig)
+  const fa = labelConfig.funds_allocation
+
   const [open, setOpen] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -56,17 +77,11 @@ export default function ExportCsvButton() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function handleOpen() {
-    setOpen(true)
-    setError(null)
-  }
+  function handleOpen() { setOpen(true); setError(null) }
 
   function handleClose() {
     setOpen(false)
-    setDateFrom('')
-    setDateTo('')
-    setApplicant('')
-    setStatus('all')
+    setDateFrom(''); setDateTo(''); setApplicant(''); setStatus('all')
     setSelectedKeys(new Set(COLUMNS.map(c => c.key)))
     setError(null)
   }
@@ -80,22 +95,17 @@ export default function ExportCsvButton() {
   }
 
   function toggleAll() {
-    if (selectedKeys.size === COLUMNS.length) {
-      setSelectedKeys(new Set())
-    } else {
-      setSelectedKeys(new Set(COLUMNS.map(c => c.key)))
-    }
+    setSelectedKeys(selectedKeys.size === COLUMNS.length ? new Set() : new Set(COLUMNS.map(c => c.key)))
   }
 
   async function handleExport() {
     if (selectedKeys.size === 0) { setError('請至少勾選一個欄位'); return }
-    setLoading(true)
-    setError(null)
+    setLoading(true); setError(null)
     const { data, error: fetchError } = await getFundsAllocationForExport({ dateFrom, dateTo, applicant, status })
     setLoading(false)
     if (fetchError || !data) { setError(fetchError ?? '資料載入失敗'); return }
     if (data.length === 0) { setError('沒有符合條件的資料'); return }
-    downloadCsv(data, selectedKeys)
+    downloadCsv(data, selectedKeys, labelConfig)
     handleClose()
   }
 
@@ -117,7 +127,6 @@ export default function ExportCsvButton() {
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, color: 'var(--text-title)' }}>匯出 CSV</h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* 篩選條件 */}
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>申請日期（起）</label>
@@ -146,13 +155,12 @@ export default function ExportCsvButton() {
                   style={{ width: '100%', height: 32, padding: '0 8px', borderRadius: 6, border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-body)', fontSize: 13 }}
                 >
                   <option value="all">全部</option>
-                  <option value="pending">審核中</option>
-                  <option value="approved">已核准</option>
-                  <option value="rejected">已拒絕</option>
+                  <option value="pending">{fa['pending']?.label ?? '新單'}</option>
+                  <option value="approved">{fa['approved']?.label ?? '已核准'}</option>
+                  <option value="rejected">{fa['rejected']?.label ?? '未核准'}</option>
                 </select>
               </div>
 
-              {/* 欄位選擇 */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <label style={labelStyle}>匯出欄位</label>
@@ -195,9 +203,7 @@ export default function ExportCsvButton() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
-              <Button variant="outline" size="sm" onClick={handleClose} disabled={loading}>
-                取消
-              </Button>
+              <Button variant="outline" size="sm" onClick={handleClose} disabled={loading}>取消</Button>
               <Button size="sm" onClick={handleExport} disabled={loading}>
                 {loading ? '載入中…' : '確認匯出'}
               </Button>
@@ -210,9 +216,6 @@ export default function ExportCsvButton() {
 }
 
 const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 12,
-  fontWeight: 500,
-  color: 'var(--text-muted)',
-  marginBottom: 4,
+  display: 'block', fontSize: 12, fontWeight: 500,
+  color: 'var(--text-muted)', marginBottom: 4,
 }

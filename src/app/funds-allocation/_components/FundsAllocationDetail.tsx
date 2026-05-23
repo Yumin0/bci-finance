@@ -1,15 +1,32 @@
 import { FundsAllocation } from '@/lib/types'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { type StatusLabelConfig } from '@/lib/status-label-config'
+import StatusBadge from '@/app/_components/StatusBadge'
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
 const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
 
-export default function FundsAllocationDetail({ record }: { record: FundsAllocation }) {
+export default function FundsAllocationDetail({
+  record,
+  labelConfig,
+  stepName,
+}: {
+  record: FundsAllocation
+  labelConfig?: StatusLabelConfig
+  stepName?: string | null
+}) {
   return (
     <div style={{ maxWidth: 480, marginBottom: 32 }}>
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>資金分配申請單</h1>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>狀態：<strong>{record.status}</strong></p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>
+        <span>狀態：</span>
+        {labelConfig ? (
+          <StatusBadge module="funds_allocation" status={record.status} stepName={stepName} labelConfig={labelConfig} />
+        ) : (
+          <strong>{record.status}</strong>
+        )}
+      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>

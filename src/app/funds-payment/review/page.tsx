@@ -6,6 +6,9 @@ import { MOCK_USER_ID } from '@/lib/constants'
 import { FundsPayment, ApprovalRecord } from '@/lib/types'
 import { formatDateTime } from '@/lib/dateUtils'
 import Link from 'next/link'
+import { getStatusLabelConfig } from '@/app/actions/status-labels'
+import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
+import StatusBadge from '@/app/_components/StatusBadge'
 
 type Tab = 'pending' | 'history'
 
@@ -19,19 +22,33 @@ export default function PaymentReviewPage() {
   const [tab, setTab] = useState<Tab>('pending')
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([])
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([])
+  const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       setLoading(true)
 
-      const { data: pending } = await supabase
-        .from('funds_payment')
-        .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number))`)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true })
+      const [config, pendingRes, historyRaw] = await Promise.all([
+        getStatusLabelConfig(),
+        supabase
+          .from('funds_payment')
+          .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number))`)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('approval_records')
+          .select(`*, funds_payment:funds_payment_id(id, name, amount, applicant, apply_section)`)
+          .eq('reviewer_id', MOCK_USER_ID)
+          .not('decision', 'is', null)
+          .not('funds_payment_id', 'is', null)
+          .order('reviewed_at', { ascending: false })
+          .limit(500),
+      ])
 
-      const pendingMapped: PendingItem[] = (pending ?? []).map((r: FundsPayment & {
+      setLabelConfig(config)
+
+      const pendingMapped: PendingItem[] = (pendingRes.data ?? []).map((r: FundsPayment & {
         approval_flow_templates: { name: string; approval_flow_steps: Array<{ step_name: string; step_number: number }> } | null
       }) => {
         const steps = r.approval_flow_templates?.approval_flow_steps ?? []
@@ -39,17 +56,8 @@ export default function PaymentReviewPage() {
         return { ...r, step_name: step?.step_name ?? `第 ${r.current_step ?? 1} 步` }
       })
 
-      const { data: historyRaw } = await supabase
-        .from('approval_records')
-        .select(`*, funds_payment:funds_payment_id(id, name, amount, applicant, apply_section)`)
-        .eq('reviewer_id', MOCK_USER_ID)
-        .not('decision', 'is', null)
-        .not('funds_payment_id', 'is', null)
-        .order('reviewed_at', { ascending: false })
-        .limit(500)
-
       const seen = new Map<number, HistoryItem>()
-      for (const r of (historyRaw ?? []) as HistoryItem[]) {
+      for (const r of (historyRaw.data ?? []) as HistoryItem[]) {
         const pid = r.funds_payment_id ?? 0
         const existing = seen.get(pid)
         if (!existing || r.step_number > existing.step_number) seen.set(pid, r)
@@ -93,13 +101,13 @@ export default function PaymentReviewPage() {
       </div>
 
       {loading ? <p style={{ color: 'var(--text-muted)' }}>載入中...</p>
-        : tab === 'pending' ? <PendingList items={pendingItems} />
-        : <HistoryList items={historyItems} />}
+        : tab === 'pending' ? <PendingList items={pendingItems} labelConfig={labelConfig} />
+        : <HistoryList items={historyItems} labelConfig={labelConfig} />}
     </div>
   )
 }
 
-function PendingList({ items }: { items: PendingItem[] }) {
+function PendingList({ items, labelConfig }: { items: PendingItem[]; labelConfig: StatusLabelConfig }) {
   if (items.length === 0) return <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>目前沒有待審核的憑單</p>
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -115,9 +123,7 @@ function PendingList({ items }: { items: PendingItem[] }) {
           {items.map(r => (
             <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
               <td style={td}>
-                <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 4, background: '#1d4ed8', color: '#fff', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                  待審核 - {r.step_name}
-                </span>
+                <StatusBadge module="payment_voucher" status="pending" stepName={r.step_name} labelConfig={labelConfig} />
               </td>
               <td style={td}>{r.apply_section ?? '-'}</td>
               <td style={td}>{r.applicant ?? r.created_by}</td>
@@ -137,7 +143,7 @@ function PendingList({ items }: { items: PendingItem[] }) {
   )
 }
 
-function HistoryList({ items }: { items: HistoryItem[] }) {
+function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig: StatusLabelConfig }) {
   if (items.length === 0) return <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>尚無審核紀錄</p>
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -150,31 +156,31 @@ function HistoryList({ items }: { items: HistoryItem[] }) {
           </tr>
         </thead>
         <tbody>
-          {items.map(r => {
-            const approved = r.decision === 'approved'
-            return (
-              <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={td}>
-                  <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 4, fontWeight: 500, background: approved ? '#166534' : '#991b1b', color: '#fff', whiteSpace: 'nowrap' }}>
-                    {approved ? '已核准' : '未核准'} - {r.step_name}
-                  </span>
-                </td>
-                <td style={td}>{r.funds_payment?.apply_section ?? '-'}</td>
-                <td style={td}>{r.funds_payment?.applicant ?? '-'}</td>
-                <td style={td}>{r.funds_payment?.name ?? '-'}</td>
-                <td style={td}>{r.funds_payment?.amount?.toLocaleString() ?? '-'}</td>
-                <td style={td}>{r.reviewed_at ? formatDateTime(r.reviewed_at) : '-'}</td>
-                <td style={td}>
-                  {r.funds_payment_id && (
-                    <Link href={`/funds-payment/review/check/${r.funds_payment_id}`}
-                      style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>
-                      查閱
-                    </Link>
-                  )}
-                </td>
-              </tr>
-            )
-          })}
+          {items.map(r => (
+            <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+              <td style={td}>
+                <StatusBadge
+                  module="payment_voucher"
+                  status={r.decision === 'approved' ? 'approved' : 'rejected'}
+                  stepName={r.step_name}
+                  labelConfig={labelConfig}
+                />
+              </td>
+              <td style={td}>{r.funds_payment?.apply_section ?? '-'}</td>
+              <td style={td}>{r.funds_payment?.applicant ?? '-'}</td>
+              <td style={td}>{r.funds_payment?.name ?? '-'}</td>
+              <td style={td}>{r.funds_payment?.amount?.toLocaleString() ?? '-'}</td>
+              <td style={td}>{r.reviewed_at ? formatDateTime(r.reviewed_at) : '-'}</td>
+              <td style={td}>
+                {r.funds_payment_id && (
+                  <Link href={`/funds-payment/review/check/${r.funds_payment_id}`}
+                    style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>
+                    查閱
+                  </Link>
+                )}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

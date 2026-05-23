@@ -30,6 +30,7 @@ export default function AddFundsForm({
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Data source state
@@ -297,31 +298,14 @@ export default function AddFundsForm({
     )
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setSubmitting(true)
-    setError(null)
-
+  function buildPayload(status: 'draft' | 'pending') {
     const divUnit = orgUnits.find(u => u.id === divisionId)
     const secUnit = orgUnits.find(u => u.id === sectionId)
-
-    // Separate catalog fields from custom fields
-    const catalogIds = new Set([
-      'date', 'apply_division', 'apply_section', 'applicant', 'apply_role',
-      'institution', 'payment_account', 'expense_item', 'name', 'amount', 'category', 'note',
-    ])
-
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
-      if (!catalogIds.has(slot.fieldId) && slot.fieldId.startsWith('custom_')) {
-        const val = slot.type === 'radio'
-          ? fieldValues[slot.fieldId] ?? ''
-          : fieldValues[slot.fieldId] ?? ''
-        extraData[slot.label] = val
-      }
+      if (slot.fieldId.startsWith('custom_')) extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
     }
-
-    const data = {
+    return {
       date: fieldValues.date || today(),
       applicant: applicantName,
       apply_division: divUnit ? unitLabel(divUnit) : (fieldValues.apply_division ?? null),
@@ -335,13 +319,25 @@ export default function AddFundsForm({
       category: fieldValues.category || null,
       note: fieldValues.note || null,
       extra_data: extraData,
-      status: FUNDS_STATUS.PENDING,
-      flow_template_id: flowTemplateId,
-      current_step: 1,
+      status,
+      flow_template_id: status === 'pending' ? flowTemplateId : null,
+      current_step: status === 'pending' ? 1 : null,
       created_by: MOCK_USER_ID,
     }
+  }
 
-    const { error: insertError } = await supabase.from('funds_allocation').insert(data)
+  async function handleSaveDraft() {
+    setSavingDraft(true); setError(null)
+    const { error: insertError } = await supabase.from('funds_allocation').insert(buildPayload('draft'))
+    setSavingDraft(false)
+    if (insertError) { setError(insertError.message); return }
+    router.push('/funds-allocation/my-funds')
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setSubmitting(true); setError(null)
+    const { error: insertError } = await supabase.from('funds_allocation').insert(buildPayload('pending'))
     if (insertError) { setError(insertError.message); setSubmitting(false); return }
     router.push('/funds-allocation/my-funds')
   }
@@ -412,8 +408,11 @@ export default function AddFundsForm({
         )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <Button type="submit" disabled={submitting || (!!fieldValues.payment_account && !flowTemplateId)}>
-            {submitting ? '送出中...' : '送出申請'}
+          <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
+            {savingDraft ? '儲存中...' : '儲存草稿'}
+          </Button>
+          <Button type="submit" disabled={submitting || savingDraft || (!!fieldValues.payment_account && !flowTemplateId)}>
+            {submitting ? '送出中...' : '確定送出'}
           </Button>
           <Button type="button" variant="outline" onClick={() => router.back()}>取消</Button>
         </div>
