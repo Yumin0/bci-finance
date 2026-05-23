@@ -16,6 +16,7 @@ export type FundsPayment = {
   applicant: string | null
   apply_role: string | null
   payment_method: string | null
+  purchase_order_number: string | null
   created_by: string
   created_at: string
   status: PaymentStatus
@@ -207,6 +208,7 @@ export type FundsAllocation = {
   apply_division: string | null
   apply_section: string | null
   apply_role: string | null
+  serial_number: string | null
   // 舊欄位保留中（過渡期備份，確認無誤後可刪除）
   step1_decision: StepDecision
   step1_comment: string | null

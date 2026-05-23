@@ -15,7 +15,8 @@ CREATE TABLE funds_payment (
   apply_section       TEXT,
   applicant           TEXT,
   apply_role          TEXT,
-  payment_method      TEXT,
-  created_by          UUID NOT NULL,
-  created_at          TIMESTAMPTZ DEFAULT now()
+  payment_method          TEXT,
+  purchase_order_number   TEXT,
+  created_by              UUID NOT NULL,
+  created_at              TIMESTAMPTZ DEFAULT now()
 );

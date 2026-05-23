@@ -168,8 +168,22 @@ export default function AddFundsForm({
     .filter(r => r.org_unit_id === sectionId)
     .map(r => r.display_name ?? `${unitLabel(unitMap.get(r.org_unit_id)!)} ${r.role_types.name}`)
 
+  async function generateSerialNumber(): Promise<string> {
+    const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }).replace(/-/g, '')
+    const { count } = await supabase
+      .from('funds_allocation')
+      .select('id', { count: 'exact', head: true })
+      .like('serial_number', `${dateStr}%`)
+    const seq = ((count ?? 0) + 1).toString().padStart(3, '0')
+    return `${dateStr}${seq}`
+  }
+
   function renderField(slot: NonNullable<FormSlot>) {
     const { fieldId, label: _label, required, type, dataSource, staticOptions } = slot
+
+    if (fieldId === 'serial_number') {
+      return <Input value="（送出後自動產生）" readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+    }
 
     // Catalog fields with special behavior
     if (fieldId === 'applicant' || dataSource === 'current_user_name') {
@@ -337,7 +351,8 @@ export default function AddFundsForm({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSubmitting(true); setError(null)
-    const { error: insertError } = await supabase.from('funds_allocation').insert(buildPayload('pending'))
+    const serialNumber = await generateSerialNumber()
+    const { error: insertError } = await supabase.from('funds_allocation').insert({ ...buildPayload('pending'), serial_number: serialNumber })
     if (insertError) { setError(insertError.message); setSubmitting(false); return }
     router.push('/funds-allocation/my-funds')
   }
@@ -354,6 +369,7 @@ export default function AddFundsForm({
             border: '1px solid var(--border-color)',
             borderRadius: 10,
             overflow: 'hidden',
+            background: 'var(--bg-card)',
           }}>
             {block.title && (
               <div style={{

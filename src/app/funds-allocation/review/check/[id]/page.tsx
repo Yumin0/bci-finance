@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MOCK_USER_ID } from '@/lib/constants'
-import { FundsAllocation, ApprovalRecord, StepDecision } from '@/lib/types'
+import { FundsAllocation, ApprovalRecord, StepDecision, FormBlock } from '@/lib/types'
 import { submitApprovalDecision } from '@/app/actions/approval-flow'
+import { getFormSchemas } from '@/app/actions/form-schema'
 import FundsAllocationDetail from '@/app/funds-allocation/_components/FundsAllocationDetail'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
@@ -35,6 +36,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   const [pastRecords, setPastRecords] = useState<ApprovalRecord[]>([])
   const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
+  const [schema, setSchema] = useState<FormBlock[]>([])
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -75,6 +77,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
       setLoading(false)
     }
     load()
+    getFormSchemas().then(s => setSchema(s.funds_allocation))
   }, [params])
 
   const steps = record?.approval_flow_templates?.approval_flow_steps
@@ -111,7 +114,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   if (!record) return <p style={{ padding: 24, color: '#dc2626' }}>找不到此申請單</p>
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <button onClick={() => router.back()} style={{ background: 'none', border: '1px solid var(--btn-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>
           ← 返回
@@ -128,7 +131,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
       />
 
       {/* 審核步驟進度 */}
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: 32, maxWidth: 720 }}>
         <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>審核進度</h2>
 
         {steps.map(step => {

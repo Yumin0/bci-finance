@@ -67,7 +67,7 @@ export default function FundsAllocationDetail({
         </div>
         <div>
           <label style={labelStyle}>金額 *</label>
-          <Input value={record.amount} readOnly className={readonlyCls} />
+          <Input value={String(record.amount)} readOnly className={readonlyCls} />
         </div>
         <div>
           <label style={labelStyle}>類別</label>

@@ -7,6 +7,7 @@ const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
 
 function getFieldValue(fieldId: string, record: FundsPayment): string {
   const map: Record<string, unknown> = {
+    purchase_order_number: record.purchase_order_number,
     date: record.date,
     apply_division: record.apply_division,
     apply_section: record.apply_section,
@@ -43,6 +44,7 @@ export default function FundsPaymentDetail({ record, schema }: { record: FundsPa
           border: '1px solid var(--border-color)',
           borderRadius: 10,
           overflow: 'hidden',
+          background: 'var(--bg-card)',
         }}>
           {block.title && (
             <div style={{
