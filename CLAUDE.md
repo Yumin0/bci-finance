@@ -20,6 +20,7 @@
 | 暫付款沖銷憑單 | `/funds-voucher` | 從付款憑單（已付款+預支）建立、我的列表、詳細頁（送出審核）、審核管理頁、全部紀錄 |
 | 財務管理 | `/finance` | 資金管理與付款憑單總覽 |
 | 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位、側邊欄自定義、角色權限、表單設定、狀態標籤設定、付款對象設定 |
+| 費用類型設定 | `/settings/fee` | 自訂費用類別（Tab 式切換）、各類別自訂欄位（文字/數字/下拉/日期）、費用項目資料管理 |
 | 問題回報 | `/report-issue` | Rich Text + 圖片上傳、狀態追蹤、影響模組標籤 |
 | 登入 | `/login` | Email + Password |
 | 首頁 | `/` | 顯示我的申請紀錄與付款憑單 |
@@ -47,6 +48,9 @@
 - `payee_categories`：付款對象類別（名稱、sort_order）
 - `payee_category_fields`：各類別欄位定義（label、field_type: text|number|dropdown|date、options jsonb）
 - `payee_records`：實際付款對象資料（field_values jsonb 動態存欄位值，key 為 field id）
+- `fee_categories`：費用類別（名稱、sort_order）
+- `fee_category_fields`：各費用類別欄位定義（label、field_type: text|number|dropdown|date、options jsonb）
+- `fee_records`：實際費用項目資料（field_values jsonb 動態存欄位值，key 為 field id）
 - **Storage Bucket** `issue-images`：問題回報圖片（路徑：`{issueId}/{timestamp}.{ext}`）
 
 ## 目錄結構
@@ -55,7 +59,7 @@
 src/
 ├── app/
 │   ├── _components/       # 全局共享組件（SidebarLayout、ThemeProvider、HomeTabView、StatusBadge 等）
-│   ├── actions/           # Server Actions（auth、payment、temp-voucher、account、sidebar-config、dev-tracker、form-schema、status-labels、payee）
+│   ├── actions/           # Server Actions（auth、payment、temp-voucher、account、sidebar-config、dev-tracker、form-schema、status-labels、payee、fee）
 │   ├── api/               # API Routes（upload-image）
 │   ├── funds-allocation/
 │   │   ├── review/        # 審核管理（待我審核 / 我的審核紀錄）
@@ -75,6 +79,8 @@ src/
 │   ├── system-settings/
 │   │   ├── approval-flows/ # 審核流程範本管理
 │   │   └── status-labels/  # 狀態標籤自訂設定
+│   ├── settings/
+│   │   └── fee/           # 費用類型設定
 │   ├── report-issue/      # 問題回報
 │   └── login/
 ├── components/

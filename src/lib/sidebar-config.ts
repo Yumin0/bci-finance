@@ -78,6 +78,7 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
       { kind: 'item', id: 'form-settings',      label: '表單設定',         href: '/system-settings/form-settings' },
       { kind: 'item', id: 'status-labels',      label: '狀態標籤設定',     href: '/system-settings/status-labels' },
       { kind: 'item', id: 'payee-settings',     label: '付款對象設定',     href: '/system-settings/payee-settings' },
+      { kind: 'item', id: 'fee-settings',       label: '費用類型設定',     href: '/settings/fee' },
     ],
   },
   {

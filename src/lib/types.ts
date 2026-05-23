@@ -303,3 +303,28 @@ export type PayeeRecord = {
   sort_order: number
   created_at: string
 }
+
+export type FeeCategory = {
+  id: number
+  name: string
+  sort_order: number
+  created_at: string
+}
+
+export type FeeCategoryField = {
+  id: number
+  category_id: number
+  label: string
+  field_type: PayeeFieldType
+  options: string[] | null
+  sort_order: number
+  created_at: string
+}
+
+export type FeeRecord = {
+  id: number
+  category_id: number
+  field_values: Record<string, string>
+  sort_order: number
+  created_at: string
+}

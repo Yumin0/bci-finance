@@ -96,6 +96,9 @@
 
 ## 已完成
 
+**費用類型設定**（2026-05-23，Yumin）
+系統設定新增費用類型管理：Tab 式分類切換、自訂類別（新增/編輯/刪除）、各類別自訂欄位（文字/數字/下拉/日期）、費用項目資料管理；新增 fee_categories、fee_category_fields、fee_records 資料表，Server Actions fee.ts，頁面 /settings/fee
+
 **付款對象設定**（2026-05-23，Yumin）
 系統設定新增付款對象管理：Tab 式分類切換、自訂類別（新增/編輯/刪除）、各類別自訂欄位（文字/數字/下拉/日期）、實際付款對象資料管理；新增 payee_categories、payee_category_fields、payee_records 資料表，Server Actions payee.ts，頁面 /system-settings/payee-settings
 
