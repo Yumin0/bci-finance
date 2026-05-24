@@ -4,15 +4,33 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { FundsAllocation, FundsPayment } from '@/lib/types'
 import { buttonVariants } from '@/components/ui/button'
+import StatusBadge from '@/app/_components/StatusBadge'
+import type { StatusLabelConfig } from '@/lib/status-label-config'
 
-type Tab = 'funds' | 'payment'
+type Tab = 'funds' | 'payment' | 'voucher'
+
+type TempVoucherRow = {
+  id: number
+  funds_payment_id: number
+  date: string | null
+  amount: number | null
+  applicant: string | null
+  status: string
+  created_at: string
+}
+
+type WithStep<T> = T & { stepName: string | null }
 
 export default function HomeTabView({
   fundsRecords,
   paymentRecords,
+  voucherRecords,
+  labelConfig,
 }: {
-  fundsRecords: FundsAllocation[]
-  paymentRecords: FundsPayment[]
+  fundsRecords: WithStep<FundsAllocation>[]
+  paymentRecords: WithStep<FundsPayment>[]
+  voucherRecords: WithStep<TempVoucherRow>[]
+  labelConfig: StatusLabelConfig
 }) {
   const [tab, setTab] = useState<Tab>('funds')
 
@@ -53,6 +71,22 @@ export default function HomeTabView({
         >
           付款憑單申請單
         </button>
+        <button
+          onClick={() => setTab('voucher')}
+          style={{
+            padding: '8px 20px',
+            fontSize: 14,
+            fontWeight: 600,
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            borderBottom: tab === 'voucher' ? '2px solid #111827' : '2px solid transparent',
+            color: tab === 'voucher' ? '#111827' : '#6b7280',
+            marginBottom: -2,
+          }}
+        >
+          暫付款沖銷憑單
+        </button>
       </div>
 
       {tab === 'funds' && (
@@ -73,7 +107,7 @@ export default function HomeTabView({
               )}
               {fundsRecords.map((r) => (
                 <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <td style={td}>{r.status}</td>
+                  <td style={td}><StatusBadge module="funds_allocation" status={r.status} stepName={r.stepName} labelConfig={labelConfig} /></td>
                   <td style={td}>{r.apply_division ?? '-'}</td>
                   <td style={td}>{r.apply_section ?? '-'}</td>
                   <td style={td}>{r.applicant ?? '-'}</td>
@@ -112,13 +146,47 @@ export default function HomeTabView({
               )}
               {paymentRecords.map((r) => (
                 <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <td style={td}>{r.status}</td>
+                  <td style={td}><StatusBadge module="payment_voucher" status={r.status} stepName={r.stepName} labelConfig={labelConfig} /></td>
                   <td style={td}>{r.expense_item ?? '-'}</td>
                   <td style={td}>{r.name}</td>
                   <td style={td}>{r.payment_method ?? '-'}</td>
                   <td style={td}>{r.amount}</td>
                   <td style={td}>
                     <Link href={`/funds-payment/my-payment/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                      檢視
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {tab === 'voucher' && (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
+                {['狀態', '申請人', '日期', '金額', ''].map((col, i) => (
+                  <th key={i} style={th}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {voucherRecords.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={empty}>尚無暫付款沖銷憑單</td>
+                </tr>
+              )}
+              {voucherRecords.map((r) => (
+                <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <td style={td}><StatusBadge module="temp_voucher" status={r.status} stepName={r.stepName} labelConfig={labelConfig} /></td>
+                  <td style={td}>{r.applicant ?? '-'}</td>
+                  <td style={td}>{r.date ?? '-'}</td>
+                  <td style={td}>{r.amount ?? '-'}</td>
+                  <td style={td}>
+                    <Link href={`/funds-voucher/my-voucher/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                       檢視
                     </Link>
                   </td>
