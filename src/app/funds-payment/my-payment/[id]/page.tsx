@@ -114,6 +114,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   const [payeeFullRecords, setPayeeFullRecords] = useState<Record<string, Array<{ label: string; searchKey: string; fieldValuesByLabel: Record<string, string> }>>>({})
   const [payeeSearch, setPayeeSearch] = useState<Record<string, string>>({})
   const [openPayeeId, setOpenPayeeId] = useState<string | null>(null)
+  // 受款人自動帶入的欄位 label 集合（只能由選取受款人填入，不可手動輸入）
+  const [payeeAutoFillLabels, setPayeeAutoFillLabels] = useState<Set<string>>(new Set())
 
   function setField(fieldId: string, value: string) {
     setFieldValues(prev => ({ ...prev, [fieldId]: value }))
@@ -171,13 +173,45 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           ALLOCATION_READONLY_FIELDS.has(slot.fieldId) ||
           ALLOCATION_READONLY_LABELS.has(slot.label)
 
-        // 從已存資料初始化欄位值，allocation extra_data 作為 fallback（補足舊資料）
-        // 注意：使用 || 而非 ?? ，因為舊資料存入的是空字串 '' 而非 null/undefined
+        // 在建 initial 之前先查出所有 payee auto-fill label（第 2 個欄位起），
+        // 才能在初始化時跳過 allocExtra fallback（避免 allocation 選過受款人的值污染）
+        const payeeAutoFillLabelSet = new Set<string>()
+        const payeeCatIds = new Set<number>()
+        for (const slot of allSlots) {
+          if (!isReadonlySlot(slot) && slot.dataSource?.startsWith('payee_records:')) {
+            payeeCatIds.add(Number(slot.dataSource.replace('payee_records:', '')))
+          }
+        }
+        for (const catId of payeeCatIds) {
+          const { data: pFields } = await supabase
+            .from('payee_category_fields').select('label').eq('category_id', catId).order('sort_order')
+          if (pFields && pFields.length > 1) pFields.slice(1).forEach(f => payeeAutoFillLabelSet.add(f.label))
+        }
+        setPayeeAutoFillLabels(payeeAutoFillLabelSet)
+
+        // 從已存資料初始化欄位值。
+        // 其他欄位：|| 而非 ?? ，因為舊資料存入的是空字串 '' 而非 null/undefined
         const initial: Record<string, string> = { payment_method: rec.payment_method ?? '' }
         for (const slot of allSlots) {
           if (isReadonlySlot(slot) || slot.fieldId === 'payment_method') continue
-          initial[slot.fieldId] = rec.extra_data?.[slot.label] || allocExtra?.[slot.label] || ''
+          if (payeeAutoFillLabelSet.has(slot.label)) {
+            initial[slot.fieldId] = rec.extra_data?.[slot.label] || ''
+          } else {
+            initial[slot.fieldId] = rec.extra_data?.[slot.label] || allocExtra?.[slot.label] || ''
+          }
         }
+
+        // 受款人 combobox 為空時，清除所有 auto-fill 欄位（避免歷史存檔污染顯示）
+        for (const slot of allSlots) {
+          if (!isReadonlySlot(slot) && slot.dataSource?.startsWith('payee_records:')) {
+            if (!initial[slot.fieldId]) {
+              for (const s of allSlots) {
+                if (payeeAutoFillLabelSet.has(s.label)) initial[s.fieldId] = ''
+              }
+            }
+          }
+        }
+
         setFieldValues(initial)
 
         // 收集需要的資料來源（只針對可編輯欄位）
@@ -237,7 +271,9 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
               }
             }
             setDynamicSelectOptions(prev => ({ ...prev, [src]: options }))
-            if (isPayee) setPayeeFullRecords(prev => ({ ...prev, [src]: fullRecords }))
+            if (isPayee) {
+              setPayeeFullRecords(prev => ({ ...prev, [src]: fullRecords }))
+            }
           })())
         }
 
@@ -344,6 +380,11 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           ))}
         </div>
       )
+    }
+
+    // 受款人自動帶入欄位：唯讀，只能由選取受款人後填入
+    if (payeeAutoFillLabels.has(slot.label)) {
+      return <Input value={fieldValues[fieldId] ?? ''} readOnly className={readonlyCls} />
     }
 
     if (type === 'select') {

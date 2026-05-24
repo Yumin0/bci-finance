@@ -46,6 +46,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   const [payeeFullRecords, setPayeeFullRecords] = useState<Record<string, Array<{ label: string; searchKey: string; fieldValuesByLabel: Record<string, string> }>>>({})
   const [payeeSearch, setPayeeSearch] = useState<Record<string, string>>({})
   const [openPayeeId, setOpenPayeeId] = useState<string | null>(null)
+  const [payeeAutoFillLabels, setPayeeAutoFillLabels] = useState<Set<string>>(new Set())
 
   const setField = useCallback((id: string, val: string) => {
     setFieldValues(prev => ({ ...prev, [id]: val }))
@@ -128,7 +129,11 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
                 }
               }
               setDynamicSelectOptions(prev => ({ ...prev, [src]: options }))
-              if (isPayee) setPayeeFullRecords(prev => ({ ...prev, [src]: fullRecords }))
+              if (isPayee) {
+                setPayeeFullRecords(prev => ({ ...prev, [src]: fullRecords }))
+                const autoFillLabels = fields.slice(1).map(f => f.label)
+                if (autoFillLabels.length) setPayeeAutoFillLabels(prev => new Set([...prev, ...autoFillLabels]))
+              }
             })()
           )
         }
@@ -140,7 +145,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
     load()
   }, [params])
 
-  function handlePayeeSelect(fieldId: string, src: string, chosen: { label: string; fieldValuesByLabel: Record<string, string> }) {
+  function handlePayeeSelect(fieldId: string, chosen: { label: string; fieldValuesByLabel: Record<string, string> }) {
     setField(fieldId, chosen.label)
     setPayeeSearch(prev => ({ ...prev, [fieldId]: chosen.label }))
     setOpenPayeeId(null)
@@ -183,7 +188,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
             {filtered.map((r, i) => (
               <div
                 key={i}
-                onMouseDown={() => handlePayeeSelect(slot.fieldId, src, r)}
+                onMouseDown={() => handlePayeeSelect(slot.fieldId, r)}
                 style={{ padding: '8px 12px', fontSize: 14, cursor: 'pointer' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sidebar)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'white')}
@@ -223,6 +228,11 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
           ))}
         </div>
       )
+    }
+
+    // 受款人自動帶入欄位：唯讀，只能由選取受款人後填入
+    if (payeeAutoFillLabels.has(slot.label)) {
+      return <Input value={fieldValues[fieldId] ?? ''} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
     if (type === 'select') {
