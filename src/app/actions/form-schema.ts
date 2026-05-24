@@ -21,15 +21,38 @@ const FALLBACK_DATA_SOURCES: FormDataSourceDef[] = [
 ]
 
 export async function getFormDataSources(): Promise<FormDataSourceDef[]> {
+  let baseSources: FormDataSourceDef[]
   try {
     const { data, error } = await supabase
       .from('form_data_sources')
       .select('*')
       .order('sort_order')
-    if (error || !data?.length) return FALLBACK_DATA_SOURCES
-    return data as FormDataSourceDef[]
+    baseSources = (error || !data?.length) ? FALLBACK_DATA_SOURCES : data as FormDataSourceDef[]
   } catch {
-    return FALLBACK_DATA_SOURCES
+    baseSources = FALLBACK_DATA_SOURCES
+  }
+
+  try {
+    const [feeResult, payeeResult] = await Promise.all([
+      supabase.from('fee_categories').select('id, name').order('sort_order'),
+      supabase.from('payee_categories').select('id, name').order('sort_order'),
+    ])
+    const maxId = Math.max(...baseSources.map(s => s.id), 100)
+    const maxOrder = Math.max(...baseSources.map(s => s.sort_order), 0)
+    let idCounter = maxId + 1
+    let orderCounter = maxOrder + 10
+    const dynamicSources: FormDataSourceDef[] = []
+    for (const cat of (feeResult.data ?? [])) {
+      dynamicSources.push({ id: idCounter++, label: `${cat.name}（費用類型設定）`, source_key: `fee_records:${cat.id}`, applicable_types: ['select'], is_static_options: false, sort_order: orderCounter })
+      orderCounter += 10
+    }
+    for (const cat of (payeeResult.data ?? [])) {
+      dynamicSources.push({ id: idCounter++, label: `${cat.name}（付款對象設定）`, source_key: `payee_records:${cat.id}`, applicable_types: ['select'], is_static_options: false, sort_order: orderCounter })
+      orderCounter += 10
+    }
+    return [...baseSources, ...dynamicSources]
+  } catch {
+    return baseSources
   }
 }
 

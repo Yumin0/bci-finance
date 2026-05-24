@@ -511,10 +511,26 @@ export default function FormSettingsClient({
                 ))}
               </div>
 
+              {isCustomField && (
+                <>
+                  <p style={panelLabel}>欄位類型</p>
+                  <select
+                    value={selectedSlot.type}
+                    onChange={e => {
+                      const t = e.target.value as FormFieldType
+                      const defaultDs = (t === 'select' || t === 'radio') ? 'static' : t === 'textarea' ? 'none' : 'none'
+                      updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, { type: t, dataSource: defaultDs, staticOptions: undefined })
+                    }}
+                    style={{ ...panelInput, marginBottom: 14, cursor: 'pointer' }}>
+                    {CUSTOM_FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </>
+              )}
+
               {selectedSlot.type !== 'textarea' && (
                 <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
                   <p style={{ ...panelLabel, marginBottom: 4 }}>資料來源</p>
-                  {isCustomField ? (
+                  {(isCustomField || selectedSlot.type === 'select' || selectedSlot.type === 'radio') ? (
                     <>
                       <select
                         value={selectedSlot.dataSource}
@@ -544,23 +560,9 @@ export default function FormSettingsClient({
                       )}
                     </>
                   ) : (
-                    <>
-                      <p style={{ fontSize: 13, color: 'var(--text-body)', margin: 0 }}>
-                        {selectedCatalogDef?.dataSourceLabel ?? '—'}
-                      </p>
-                      {dataSources.find(ds => ds.source_key === selectedSlot.dataSource)?.is_static_options && selectedSlot.staticOptions && (
-                        <>
-                          <p style={{ ...panelLabel, marginTop: 8 }}>選項內容（每行一個）</p>
-                          <textarea
-                            value={selectedSlot.staticOptions.join('\n')}
-                            onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
-                              staticOptions: e.target.value.split('\n').map(s => s.trim()).filter(Boolean),
-                            })}
-                            rows={4}
-                            style={{ ...panelInput, resize: 'vertical', marginTop: 6 }} />
-                        </>
-                      )}
-                    </>
+                    <p style={{ fontSize: 13, color: 'var(--text-body)', margin: 0 }}>
+                      {selectedCatalogDef?.dataSourceLabel ?? '—'}
+                    </p>
                   )}
                 </div>
               )}

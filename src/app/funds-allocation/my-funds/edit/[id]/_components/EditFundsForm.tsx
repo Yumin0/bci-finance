@@ -44,6 +44,7 @@ export default function EditFundsForm({
   const [orgUnitRoles, setOrgUnitRoles] = useState<RoleRow[]>([])
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([])
+  const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
 
   const [divisionId, setDivisionId] = useState<number | null>(null)
   const [sectionId, setSectionId] = useState<number | null>(null)
@@ -143,6 +144,30 @@ export default function EditFundsForm({
       if (dropdownFields.length) fetches.push(loadDropdowns(dropdownFields))
       if (neededSources.has('expense_items')) fetches.push(loadExpenseItems())
 
+      const loadDynamicOptions = async (sourceKey: string) => {
+        const [table, idStr] = sourceKey.startsWith('fee_records:')
+          ? ['fee_records', sourceKey.replace('fee_records:', '')] as const
+          : ['payee_records', sourceKey.replace('payee_records:', '')] as const
+        const fieldsTable = table === 'fee_records' ? 'fee_category_fields' : 'payee_category_fields'
+        const categoryId = Number(idStr)
+        const [fieldsRes, recordsRes] = await Promise.all([
+          supabase.from(fieldsTable).select('id, sort_order').eq('category_id', categoryId).order('sort_order'),
+          supabase.from(table).select('field_values').eq('category_id', categoryId).order('sort_order'),
+        ])
+        const fieldIds = (fieldsRes.data ?? []).map(f => String(f.id))
+        const options = (recordsRes.data ?? []).map(r => {
+          const vals = fieldIds.map(fId => (r.field_values as Record<string, string>)[fId]).filter(Boolean)
+          const label = vals.join(' ')
+          return { value: label, label }
+        }).filter(o => o.label)
+        setDynamicSelectOptions(prev => ({ ...prev, [sourceKey]: options }))
+      }
+      for (const src of neededSources) {
+        if (src.startsWith('fee_records:') || src.startsWith('payee_records:')) {
+          fetches.push(loadDynamicOptions(src))
+        }
+      }
+
       await Promise.all(fetches)
 
       const catalogMap: Record<string, string> = {
@@ -240,6 +265,8 @@ export default function EditFundsForm({
       else if (dataSource === 'expense_items') options = expenseItems.map(i => ({ value: i.label, label: i.label }))
       else if (dataSource.startsWith('dropdown_options:')) {
         options = (dropdownOptions[dataSource.replace('dropdown_options:', '')] ?? []).map(o => ({ value: o.label, label: o.label }))
+      } else if (dataSource.startsWith('fee_records:') || dataSource.startsWith('payee_records:')) {
+        options = dynamicSelectOptions[dataSource] ?? []
       }
       return (
         <select value={fieldValues[fieldId] ?? ''} disabled={disabled}
