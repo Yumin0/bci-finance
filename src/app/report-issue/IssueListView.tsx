@@ -61,7 +61,32 @@ export default function IssueListView({
   const [priorityValue, setPriorityValue] = useState<string>('medium')
   const [moduleValue, setModuleValue] = useState<string>('')
 
+  // 欄位篩選
+  const [filterPriority, setFilterPriority] = useState<string>('')
+  const [filterStatus, setFilterStatus] = useState<string>('')
+  const [filterCreator, setFilterCreator] = useState<string>('')
+  const [filterAssignee, setFilterAssignee] = useState<string>('')
+
   const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]))
+
+  // 切換 Tab 時重置篩選
+  useEffect(() => {
+    setFilterPriority('')
+    setFilterStatus('')
+    setFilterCreator('')
+    setFilterAssignee('')
+  }, [activeTab])
+
+  const filteredIssues = issues
+    .filter((issue) => issue.type === activeTab)
+    .filter((issue) => !filterPriority || issue.priority === filterPriority)
+    .filter((issue) => !filterStatus || issue.status === filterStatus)
+    .filter((issue) => !filterCreator || String(issue.created_by) === filterCreator)
+    .filter((issue) => {
+      if (!filterAssignee) return true
+      if (filterAssignee === '__unassigned__') return !issue.assigned_to
+      return String(issue.assigned_to) === filterAssignee
+    })
 
   useEffect(() => {
     if (state?.success) {
@@ -351,24 +376,80 @@ export default function IssueListView({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-              {['影響模組', '標題', '優先級', '狀態', '建立者', '建立日期', '承接開發者', '完成日期', ''].map((col) => (
-                <th key={col} style={th}>{col}</th>
-              ))}
+              <th style={th}>影響模組</th>
+              <th style={th}>標題</th>
+              <th style={th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span>優先級</span>
+                  <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} style={filterSelectStyle}>
+                    <option value="">全部</option>
+                    <option value="low">低</option>
+                    <option value="medium">中</option>
+                    <option value="high">高</option>
+                    <option value="critical">緊急</option>
+                  </select>
+                </div>
+              </th>
+              <th style={th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span>狀態</span>
+                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={filterSelectStyle}>
+                    <option value="">全部</option>
+                    <option value="pending">待處理</option>
+                    <option value="in_progress">進行中</option>
+                    <option value="completed">已完成</option>
+                    <option value="on_hold">暫緩</option>
+                    <option value="rejected">已拒絕</option>
+                  </select>
+                </div>
+              </th>
+              <th style={th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span>建立者</span>
+                  <select value={filterCreator} onChange={(e) => setFilterCreator(e.target.value)} style={filterSelectStyle}>
+                    <option value="">全部</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={String(u.id)}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </th>
+              <th style={th}>建立日期</th>
+              <th style={th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span>承接開發者</span>
+                  <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)} style={filterSelectStyle}>
+                    <option value="">全部</option>
+                    <option value="__unassigned__">未指派</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={String(u.id)}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </th>
+              <th style={th}>完成日期</th>
+              <th style={th}></th>
             </tr>
           </thead>
           <tbody>
-            {issues.filter((issue) => issue.type === activeTab).length === 0 && (
+            {filteredIssues.length === 0 && (
               <tr>
                 <td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
                   尚無任何回報紀錄
                 </td>
               </tr>
             )}
-            {issues.filter((issue) => issue.type === activeTab).map((issue) => (
+            {filteredIssues.map((issue) => (
               <tr key={issue.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={{ ...td, color: 'var(--text-muted)' }}>{issue.module ?? '-'}</td>
                 <td style={{ ...td, maxWidth: 260, fontWeight: 500 }}>
-                  {issue.title}
+                  <Link
+                    href={`/report-issue/${issue.id}`}
+                    style={{ color: 'inherit', textDecoration: 'none' }}
+                    className="hover:underline"
+                  >
+                    {issue.title}
+                  </Link>
                   {issue.description && (
                     <div style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2, fontWeight: 400 }}>
                       {issue.description.slice(0, 60)}{issue.description.length > 60 ? '…' : ''}
@@ -477,4 +558,16 @@ const td: React.CSSProperties = {
   padding: '10px 14px',
   color: 'var(--text-title)',
   verticalAlign: 'top',
+}
+
+const filterSelectStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 400,
+  color: 'var(--text-body)',
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border-color)',
+  borderRadius: 4,
+  padding: '2px 4px',
+  cursor: 'pointer',
+  width: '100%',
 }
