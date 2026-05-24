@@ -9,6 +9,19 @@ import Link from 'next/link'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
+import { Input } from '@/components/ui/input'
+
+// 搜尋欄位設定：要新增或移除搜尋欄位只改這裡
+const PENDING_SEARCH: Array<(r: PendingItem) => string | null | undefined> = [
+  (r) => r.apply_section,
+  (r) => r.applicant,
+  (r) => r.name,
+]
+const HISTORY_SEARCH: Array<(r: HistoryItem) => string | null | undefined> = [
+  (r) => r.funds_allocation?.apply_section,
+  (r) => r.funds_allocation?.applicant,
+  (r) => r.funds_allocation?.name,
+]
 
 type Tab = 'pending' | 'history'
 
@@ -24,6 +37,9 @@ export default function ReviewPage() {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([])
   const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
+
+  useEffect(() => { setQuery('') }, [tab])
 
   useEffect(() => {
     async function load() {
@@ -81,11 +97,26 @@ export default function ReviewPage() {
     color: tab === t ? 'var(--text-title)' : 'var(--text-muted)',
   })
 
+  const filteredPending = query.trim()
+    ? pendingItems.filter(r => PENDING_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
+    : pendingItems
+  const filteredHistory = query.trim()
+    ? historyItems.filter(r => HISTORY_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
+    : historyItems
+
   return (
     <div>
-      <div style={{ marginBottom: 8 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700 }}>審核管理</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>資金分配申請的審核任務與歷史記錄</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>審核管理</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>資金分配申請的審核任務與歷史記錄</p>
+        </div>
+        <Input
+          placeholder="搜尋申請課別、申請人、項目名稱…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          style={{ width: 260, fontSize: 13 }}
+        />
       </div>
 
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border-color)', marginBottom: 24 }}>
@@ -105,9 +136,9 @@ export default function ReviewPage() {
       {loading ? (
         <p style={{ color: 'var(--text-muted)' }}>載入中...</p>
       ) : tab === 'pending' ? (
-        <PendingList items={pendingItems} labelConfig={labelConfig} />
+        <PendingList items={filteredPending} labelConfig={labelConfig} />
       ) : (
-        <HistoryList items={historyItems} labelConfig={labelConfig} />
+        <HistoryList items={filteredHistory} labelConfig={labelConfig} />
       )}
     </div>
   )
