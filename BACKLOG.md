@@ -101,6 +101,9 @@
 
 ## 已完成
 
+**表單設定資料來源動態化**（2026-05-24，Yumin）
+費用類型設定與付款對象設定的各分類可作為表單欄位資料來源；表單設定右側面板開放 select/radio 欄位修改資料來源，自訂欄位新增欄位類型選擇器；AddFundsForm / EditFundsForm 支援 fee_records:* 與 payee_records:* 資料來源
+
 **費用類型設定**（2026-05-23，Yumin）
 系統設定新增費用類型管理：Tab 式分類切換、自訂類別（新增/編輯/刪除）、各類別自訂欄位（文字/數字/下拉/日期）、費用項目資料管理；新增 fee_categories、fee_category_fields、fee_records 資料表，Server Actions fee.ts，頁面 /settings/fee
 
