@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
 const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
 
-function getFieldValue(fieldId: string, record: FundsPayment): string {
+function getFieldValue(slot: NonNullable<FormSlot>, record: FundsPayment): string {
   const map: Record<string, unknown> = {
     purchase_order_number: record.purchase_order_number,
     date: record.date,
@@ -22,13 +22,18 @@ function getFieldValue(fieldId: string, record: FundsPayment): string {
     note: record.note,
     payment_method: record.payment_method,
   }
-  const val = map[fieldId]
-  if (val == null || val === '') return '-'
-  return String(val)
+  const val = map[slot.fieldId]
+  if (val != null && val !== '') return String(val)
+  // Custom / extra fields stored by label
+  if (record.extra_data) {
+    const extra = record.extra_data[slot.label]
+    if (extra != null && extra !== '') return extra
+  }
+  return '-'
 }
 
 function renderSlot(slot: NonNullable<FormSlot>, record: FundsPayment) {
-  const value = getFieldValue(slot.fieldId, record)
+  const value = getFieldValue(slot, record)
   if (slot.type === 'textarea') {
     return <Textarea value={value} readOnly rows={4} className={readonlyCls} />
   }

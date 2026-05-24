@@ -101,6 +101,9 @@
 
 ## 已完成
 
+**付款憑單動態表單 + 受款人搜尋自動帶入**（2026-05-24，Yumin）
+付款憑單新增頁改為全動態 schema 驅動渲染（對齊 AddFundsForm）；新增 extra_data jsonb 欄位儲存自訂欄位值；受款人欄位（payee_records:* 資料來源）改為可搜尋 combobox，選取後自動帶入受款銀行、分行、帳戶、Email 等關聯欄位；表單設定新增 slot 層級條件顯示（showWhen 多選值），移除舊 block 層級條件顯示 UI
+
 **表單設定資料來源動態化**（2026-05-24，Yumin）
 費用類型設定與付款對象設定的各分類可作為表單欄位資料來源；表單設定右側面板開放 select/radio 欄位修改資料來源，自訂欄位新增欄位類型選擇器；AddFundsForm / EditFundsForm 支援 fee_records:* 與 payee_records:* 資料來源
 

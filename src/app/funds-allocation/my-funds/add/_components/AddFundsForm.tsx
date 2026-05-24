@@ -390,7 +390,7 @@ export default function AddFundsForm({
       {error && <p style={errorStyle}>送出失敗：{error}</p>}
 
       <form onSubmit={handleSubmit}>
-        {schema.map(block => (
+        {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
           <div key={block.id} style={{
             marginBottom: 16,
             border: '1px solid var(--border-color)',
@@ -418,17 +418,22 @@ export default function AddFundsForm({
                     marginBottom: 20,
                   }}
                 >
-                  {row.slots.map((slot, idx) => slot ? (
-                    <div key={idx}>
-                      <label style={labelStyle}>
-                        {slot.label}
-                        {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
-                      </label>
-                      {renderField(slot)}
-                    </div>
-                  ) : (
-                    <div key={idx} />
-                  ))}
+                  {row.slots.map((slot, idx) => {
+                    if (slot && slot.showWhen && !slot.showWhen.values.includes(fieldValues[slot.showWhen.fieldId] ?? '')) {
+                      return <div key={idx} />
+                    }
+                    return slot ? (
+                      <div key={idx}>
+                        <label style={labelStyle}>
+                          {slot.label}
+                          {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                        </label>
+                        {renderField(slot)}
+                      </div>
+                    ) : (
+                      <div key={idx} />
+                    )
+                  })}
                 </div>
               ))}
             </div>

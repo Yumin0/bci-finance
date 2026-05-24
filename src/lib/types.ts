@@ -17,6 +17,7 @@ export type FundsPayment = {
   apply_role: string | null
   payment_method: string | null
   purchase_order_number: string | null
+  extra_data: Record<string, string> | null
   created_by: string
   created_at: string
   status: PaymentStatus
@@ -167,6 +168,7 @@ export type FormSlot = {
   type: FormFieldType
   dataSource: string
   staticOptions?: string[]
+  showWhen?: { fieldId: string; values: string[] }
 } | null
 
 export type FormSchemaRow = {
@@ -179,6 +181,7 @@ export type FormBlock = {
   id: string
   title: string | null
   rows: FormSchemaRow[]
+  showWhen?: { fieldId: string; value: string }
 }
 
 export type ExpenseItem = {

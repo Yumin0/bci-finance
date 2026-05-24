@@ -390,7 +390,7 @@ export default function EditFundsForm({
       {error && <p style={errorStyle}>錯誤：{error}</p>}
 
       <form onSubmit={isDraft ? handleSubmitFromDraft : handleSaveChanges}>
-        {schema.map(block => (
+        {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
           <div key={block.id} style={{ marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
             {block.title && (
               <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border-color)' }}>
@@ -400,15 +400,20 @@ export default function EditFundsForm({
             <div style={{ padding: '20px 20px 4px' }}>
               {block.rows.map(row => (
                 <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
-                  {row.slots.map((slot, idx) => slot ? (
-                    <div key={idx}>
-                      <label style={labelStyle}>
-                        {slot.label}
-                        {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
-                      </label>
-                      {renderField(slot)}
-                    </div>
-                  ) : <div key={idx} />)}
+                  {row.slots.map((slot, idx) => {
+                    if (slot && slot.showWhen && !slot.showWhen.values.includes(fieldValues[slot.showWhen.fieldId] ?? '')) {
+                      return <div key={idx} />
+                    }
+                    return slot ? (
+                      <div key={idx}>
+                        <label style={labelStyle}>
+                          {slot.label}
+                          {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                        </label>
+                        {renderField(slot)}
+                      </div>
+                    ) : <div key={idx} />
+                  })}
                 </div>
               ))}
             </div>

@@ -76,6 +76,7 @@ function fieldPlaceholder(type: FormFieldType): string {
 }
 
 type Selection =
+  | { kind: 'block'; blockId: string }
   | { kind: 'row';  blockId: string; rowId: string }
   | { kind: 'slot'; blockId: string; rowId: string; slotIdx: number }
   | null
@@ -133,7 +134,7 @@ export default function FormSettingsClient({
 
   function deleteRow(blockId: string, rowId: string) {
     setBlockRows(blockId, prev => prev.filter(r => r.id !== rowId))
-    if (selection?.rowId === rowId) setSelection(null)
+    if (selection && 'rowId' in selection && selection.rowId === rowId) setSelection(null)
   }
 
   function setRowCols(blockId: string, rowId: string, cols: FormColCount) {
@@ -250,10 +251,14 @@ export default function FormSettingsClient({
   const availableFields = catalog.filter(f => !placedFieldIds.has(f.id))
 
   const selectedBlock = selection ? (blocks.find(b => b.id === selection.blockId) ?? null) : null
-  const selectedRow   = selection ? (selectedBlock?.rows.find(r => r.id === selection.rowId) ?? null) : null
+  const selectedRow   = (selection && 'rowId' in selection) ? (selectedBlock?.rows.find(r => r.id === selection.rowId) ?? null) : null
   const selectedSlot  = selection?.kind === 'slot' ? (selectedRow?.slots[selection.slotIdx] ?? null) : null
   const selectedCatalogDef = selectedSlot ? catalog.find(f => f.id === selectedSlot.fieldId) : null
   const isCustomField = selectedSlot ? selectedSlot.fieldId.startsWith('custom_') : false
+
+  const allSelectSlots = blocks.flatMap(b =>
+    b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null && (s.type === 'select' || s.type === 'radio')))
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -284,19 +289,23 @@ export default function FormSettingsClient({
       <div style={{ display: 'flex', gap: 0, minHeight: 500 }}>
         {/* Canvas */}
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: 20 }}>
-          {blocks.map((block, blockIdx) => (
+          {blocks.map((block, blockIdx) => {
+            const isBlockSel = selection?.kind === 'block' && selection.blockId === block.id
+            return (
             <div key={block.id} style={{
               marginBottom: 16,
-              border: '1.5px solid var(--border-color)',
+              border: `1.5px solid ${isBlockSel ? '#2563eb' : 'var(--border-color)'}`,
               borderRadius: 10,
               overflow: 'hidden',
             }}>
               {/* Block header */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                background: '#f3f4f6', borderBottom: '1px solid var(--border-color)',
+                background: isBlockSel ? '#eff6ff' : '#f3f4f6', borderBottom: '1px solid var(--border-color)',
               }}>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                <span
+                  onClick={() => setSelection({ kind: 'block', blockId: block.id })}
+                  style={{ fontSize: 12, color: isBlockSel ? '#2563eb' : 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>
                   第 {blockIdx + 1} 區塊
                 </span>
                 <input
@@ -319,7 +328,7 @@ export default function FormSettingsClient({
               {/* Rows inside block */}
               <div style={{ padding: '8px 10px' }}>
                 {block.rows.map((row, rowIdx) => {
-                  const isRowSel = selection?.rowId === row.id && selection.blockId === block.id
+                  const isRowSel = selection?.kind === 'row' && selection.rowId === row.id && selection.blockId === block.id
                   return (
                     <div key={row.id} style={{ marginBottom: 8, border: `1.5px solid ${isRowSel ? '#2563eb' : '#e5e7eb'}`, borderRadius: 7, overflow: 'hidden' }}>
                       {/* Row header */}
@@ -353,6 +362,7 @@ export default function FormSettingsClient({
                                 <>
                                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
                                     {slot.label}{slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                                    {slot.showWhen && <span style={{ fontSize: 10, marginLeft: 5, padding: '1px 5px', background: '#fef3c7', color: '#92400e', borderRadius: 3 }}>條件</span>}
                                   </div>
                                   <div style={{ padding: '5px 10px', border: '1px solid var(--btn-border)', borderRadius: 5,
                                     fontSize: 13, color: 'var(--text-subtle)', background: slot.type === 'readonly' ? '#f3f4f6' : 'white' }}>
@@ -385,7 +395,8 @@ export default function FormSettingsClient({
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
 
           {/* Add block button */}
           <button onClick={addBlock}
@@ -403,6 +414,18 @@ export default function FormSettingsClient({
               點選欄位或列<br />可在此編輯設定
             </div>
           )}
+
+          {/* Block settings */}
+          {selection?.kind === 'block' && (() => {
+            const block = blocks.find(b => b.id === selection.blockId)
+            if (!block) return null
+            return (
+              <div>
+                <p style={panelTitle}>區塊設定</p>
+                <button onClick={() => deleteBlock(selection.blockId)} style={btnDanger}>刪除此區塊</button>
+              </div>
+            )
+          })()}
 
           {/* Row settings */}
           {selection?.kind === 'row' && selectedRow && selectedBlock && (
@@ -511,14 +534,14 @@ export default function FormSettingsClient({
                 ))}
               </div>
 
-              {isCustomField && (
+              {(!selectedCatalogDef || selectedCatalogDef.type !== 'readonly') && (
                 <>
                   <p style={panelLabel}>欄位類型</p>
                   <select
                     value={selectedSlot.type}
                     onChange={e => {
                       const t = e.target.value as FormFieldType
-                      const defaultDs = (t === 'select' || t === 'radio') ? 'static' : t === 'textarea' ? 'none' : 'none'
+                      const defaultDs = (t === 'select' || t === 'radio') ? 'static' : 'none'
                       updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, { type: t, dataSource: defaultDs, staticOptions: undefined })
                     }}
                     style={{ ...panelInput, marginBottom: 14, cursor: 'pointer' }}>
@@ -530,7 +553,7 @@ export default function FormSettingsClient({
               {selectedSlot.type !== 'textarea' && (
                 <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
                   <p style={{ ...panelLabel, marginBottom: 4 }}>資料來源</p>
-                  {(isCustomField || selectedSlot.type === 'select' || selectedSlot.type === 'radio') ? (
+                  {(!selectedCatalogDef || selectedSlot.type === 'select' || selectedSlot.type === 'radio' || selectedCatalogDef.type !== 'readonly') ? (
                     <>
                       <select
                         value={selectedSlot.dataSource}
@@ -566,6 +589,64 @@ export default function FormSettingsClient({
                   )}
                 </div>
               )}
+
+              {/* 條件顯示 */}
+              <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
+                <p style={{ ...panelLabel, marginBottom: 6 }}>條件顯示</p>
+                <select
+                  value={selectedSlot.showWhen?.fieldId ?? ''}
+                  onChange={e => {
+                    const fId = e.target.value
+                    updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
+                      showWhen: fId ? { fieldId: fId, values: [] } : undefined,
+                    })
+                  }}
+                  style={{ ...panelInput, marginBottom: 6, cursor: 'pointer' }}>
+                  <option value="">永遠顯示</option>
+                  {allSelectSlots
+                    .filter(s => s.fieldId !== selectedSlot.fieldId)
+                    .map(s => <option key={s.fieldId} value={s.fieldId}>{s.label}</option>)}
+                </select>
+                {selectedSlot.showWhen?.fieldId && (() => {
+                  const triggerSlot = allSelectSlots.find(s => s.fieldId === selectedSlot.showWhen?.fieldId)
+                  const checkedValues = selectedSlot.showWhen.values
+                  return (
+                    <>
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>當上述欄位等於（可多選）</p>
+                      {triggerSlot?.staticOptions?.length ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {triggerSlot.staticOptions.map(o => (
+                            <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={checkedValues.includes(o)}
+                                onChange={e => {
+                                  const newValues = e.target.checked
+                                    ? [...checkedValues, o]
+                                    : checkedValues.filter(v => v !== o)
+                                  updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
+                                    showWhen: { fieldId: selectedSlot.showWhen!.fieldId, values: newValues },
+                                  })
+                                }}
+                              />
+                              {o}
+                            </label>
+                          ))}
+                        </div>
+                      ) : (
+                        <textarea
+                          value={checkedValues.join('\n')}
+                          onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
+                            showWhen: { fieldId: selectedSlot.showWhen!.fieldId, values: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) },
+                          })}
+                          placeholder={'觸發值一\n觸發值二'}
+                          rows={3}
+                          style={{ ...panelInput, resize: 'vertical' }} />
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
 
               <p style={panelLabel}>調整位置</p>
               <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
