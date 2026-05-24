@@ -212,6 +212,7 @@ export type FundsAllocation = {
   apply_section: string | null
   apply_role: string | null
   serial_number: string | null
+  extra_data: Record<string, string> | null
   // 舊欄位保留中（過渡期備份，確認無誤後可刪除）
   step1_decision: StepDecision
   step1_comment: string | null

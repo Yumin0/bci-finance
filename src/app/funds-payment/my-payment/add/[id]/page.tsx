@@ -43,7 +43,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
-  const [payeeFullRecords, setPayeeFullRecords] = useState<Record<string, Array<{ label: string; fieldValuesByLabel: Record<string, string> }>>>({})
+  const [payeeFullRecords, setPayeeFullRecords] = useState<Record<string, Array<{ label: string; searchKey: string; fieldValuesByLabel: Record<string, string> }>>>({})
   const [payeeSearch, setPayeeSearch] = useState<Record<string, string>>({})
   const [openPayeeId, setOpenPayeeId] = useState<string | null>(null)
 
@@ -110,11 +110,12 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
               const fields = (fieldsRes.data ?? []) as { id: number; label: string }[]
               const fieldIds = fields.map(f => String(f.id))
               const options: { value: string; label: string }[] = []
-              const fullRecords: Array<{ label: string; fieldValuesByLabel: Record<string, string> }> = []
+              const fullRecords: Array<{ label: string; searchKey: string; fieldValuesByLabel: Record<string, string> }> = []
               for (const r of recordsRes.data ?? []) {
                 const fv = r.field_values as Record<string, string>
                 const vals = fieldIds.map(fId => fv[fId]).filter(Boolean)
-                const label = vals.join(' ')
+                const searchKey = vals.join(' ')
+                const label = fv[fieldIds[0]] ?? vals[0] ?? ''
                 if (!label) continue
                 options.push({ value: label, label })
                 if (isPayee) {
@@ -123,7 +124,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
                     const v = fv[String(f.id)]
                     if (v) fieldValuesByLabel[f.label] = v
                   }
-                  fullRecords.push({ label, fieldValuesByLabel })
+                  fullRecords.push({ label, searchKey, fieldValuesByLabel })
                 }
               }
               setDynamicSelectOptions(prev => ({ ...prev, [src]: options }))
@@ -156,7 +157,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   function renderPayeeCombobox(slot: NonNullable<FormSlot>, src: string) {
     const records = payeeFullRecords[src] ?? []
     const searchText = payeeSearch[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
-    const filtered = records.filter(r => r.label.toLowerCase().includes(searchText.toLowerCase()))
+    const filtered = records.filter(r => r.searchKey.toLowerCase().includes(searchText.toLowerCase()))
     const isOpen = openPayeeId === slot.fieldId
     return (
       <div style={{ position: 'relative' }}>

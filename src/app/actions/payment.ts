@@ -75,12 +75,35 @@ export async function createPayment(
     apply_role: record.apply_role,
     payment_method: paymentMethod || null,
     purchase_order_number: record.serial_number ? `${record.serial_number}001` : null,
-    extra_data: Object.keys(extraData).length > 0 ? extraData : null,
+    extra_data: { ...(record.extra_data ?? {}), ...extraData },
     created_by: String(session.userId),
     status: PAYMENT_STATUS.DRAFT,
     flow_template_id: flowTemplateId,
     current_step: null,
   })
+
+  if (error) return { error: error.message }
+  return { error: null }
+}
+
+export async function updateDraftPayment(
+  id: number,
+  paymentMethod: string,
+  extraData: Record<string, string>
+): Promise<{ error: string | null }> {
+  const session = await getSession()
+  if (!session) return { error: '請先登入' }
+
+  const { error } = await supabase
+    .from('funds_payment')
+    .update({
+      payment_method: paymentMethod || null,
+      extra_data: Object.keys(extraData).length > 0 ? extraData : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('created_by', String(session.userId))
+    .eq('status', PAYMENT_STATUS.DRAFT)
 
   if (error) return { error: error.message }
   return { error: null }
