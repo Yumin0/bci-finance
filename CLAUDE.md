@@ -161,6 +161,44 @@ src/
    完成後告知：「已合併到 main，Riku 現在可以 git pull 拿到最新版。」
    **不得只推 feature 分支就結束**，協作者 pull 的是 main，feature 分支不 merge 對方看不到。
 
+# 橫切關注點完成確認規則
+
+當功能屬於「改變全站共用顯示方式或資料讀取方式」時（例如：新增共用元件、改狀態顯示邏輯、改查詢欄位），完成前必須執行以下流程，**不得只驗收功能本身**：
+
+1. **grep 確認影響範圍**：在 commit 前用 grep 找出所有相關的使用點，逐一確認沒有遺漏。
+
+   常用指令範例：
+   ```bash
+   # 找所有顯示 status 的地方（確認都有套用 StatusBadge）
+   grep -rn "\.status" --include="*.tsx" src/app/
+
+   # 找所有用 MOCK_USER_ID 的地方（確認查詢使用者一致）
+   grep -rn "MOCK_USER_ID" --include="*.tsx" src/
+
+   # 找所有直接讀取某欄位的地方
+   grep -rn "r\.amount\|r\.name" --include="*.tsx" src/app/
+   ```
+
+2. **BACKLOG 任務加「影響範圍」欄位**：凡是橫切關注點類型的任務，登記時必須列出所有會受影響的頁面，完成時逐項打勾後才能移到已完成：
+
+   ```
+   **自定義狀態標籤名稱**（Yumin）
+   分支：`feature/yumin-status-labels`
+   開始：2026-05-XX
+   影響範圍確認：
+   - [x] /funds-allocation/my-funds
+   - [x] /funds-allocation/all
+   - [x] /funds-payment/my-payment
+   - [x] /funds-payment/all
+   - [x] /funds-voucher
+   - [x] / (首頁)
+   ```
+
+3. **判斷是否為橫切關注點**：符合以下任一條件即屬此類，需執行上述流程：
+   - 新增或修改「全站共用元件」（如 StatusBadge、DatePicker）
+   - 修改「全站共用的查詢條件或欄位」（如 created_by、session 使用方式）
+   - 新增「需要各頁面同步套用的顯示邏輯」（如步驟名稱、金額格式）
+
 # 方案確認規則
 
 遇到以下情況時，**先用 2–3 句話說明打算怎麼做，等使用者確認後才執行**：
