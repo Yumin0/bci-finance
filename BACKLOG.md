@@ -7,8 +7,8 @@
 
 ## 進行中
 
-**問題回報列表優化**（Riku）
-分支：`feature/riku-issue-filter`
+**各頁面搜尋功能**（Riku）
+分支：`feature/riku-page-search`
 開始：2026-05-24
 
 ---
