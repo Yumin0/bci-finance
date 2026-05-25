@@ -4,12 +4,13 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MOCK_USER_ID } from '@/lib/constants'
-import { FundsAllocation, ApprovalRecord, StepDecision, FormBlock } from '@/lib/types'
+import { FundsAllocation, ApprovalRecord, StepDecision, FormBlock, FundAttachment } from '@/lib/types'
 import { submitApprovalDecision } from '@/app/actions/approval-flow'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import FundsAllocationDetail from '@/app/funds-allocation/_components/FundsAllocationDetail'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
+import { getAttachmentsByAllocationId } from '@/app/actions/attachments'
 import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/dateUtils'
 
@@ -37,6 +38,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
   const [schema, setSchema] = useState<FormBlock[]>([])
+  const [attachments, setAttachments] = useState<FundAttachment[]>([])
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -74,6 +76,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         setRecord({ ...allocation, approval_flow_templates: null })
       }
 
+      getAttachmentsByAllocationId(numId).then(setAttachments)
       setLoading(false)
     }
     load()
@@ -128,6 +131,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         record={record}
         labelConfig={labelConfig}
         stepName={steps.find(s => s.step_number === (record.current_step ?? 0))?.step_name ?? null}
+        attachments={attachments}
       />
 
       {/* 審核步驟進度 */}

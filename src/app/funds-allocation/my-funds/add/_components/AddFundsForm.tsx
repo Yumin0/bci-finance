@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
+import { saveAttachments } from '@/app/actions/attachments'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
@@ -63,6 +65,9 @@ export default function AddFundsForm({
   // 審核流程（根據出款帳號自動帶入）
   const [flowTemplateId, setFlowTemplateId] = useState<number | null>(null)
   const [flowTemplateName, setFlowTemplateName] = useState<string | null>(null)
+
+  // 附件（key = slot.label）
+  const [pendingAttachments, setPendingAttachments] = useState<Record<string, AttachmentItem[]>>({})
 
   // Collect which data sources are needed
   const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
@@ -302,6 +307,18 @@ export default function AddFundsForm({
       )
     }
 
+    if (type === 'attachment') {
+      const items = pendingAttachments[slot.label] ?? []
+      return (
+        <AttachmentUpload
+          slotLabel={slot.label}
+          attachments={items}
+          onAdd={item => setPendingAttachments(prev => ({ ...prev, [slot.label]: [...(prev[slot.label] ?? []), item] }))}
+          onRemove={item => setPendingAttachments(prev => ({ ...prev, [slot.label]: (prev[slot.label] ?? []).filter(a => a.storagePath !== item.storagePath) }))}
+        />
+      )
+    }
+
     if (type === 'textarea') {
       return (
         <Textarea
@@ -366,11 +383,22 @@ export default function AddFundsForm({
     }
   }
 
+  async function savePendingAttachments(allocationId: number) {
+    const items = Object.values(pendingAttachments).flat()
+    if (!items.length) return
+    await saveAttachments(allocationId, null, items.map(i => ({
+      slotLabel: i.slotLabel, fileName: i.fileName,
+      storagePath: i.storagePath, fileType: i.fileType,
+      uploadedBy: MOCK_USER_ID,
+    })))
+  }
+
   async function handleSaveDraft() {
     setSavingDraft(true); setError(null)
-    const { error: insertError } = await supabase.from('funds_allocation').insert(buildPayload('draft'))
+    const { data, error: insertError } = await supabase.from('funds_allocation').insert(buildPayload('draft')).select('id').single()
     setSavingDraft(false)
     if (insertError) { setError(insertError.message); return }
+    if (data?.id) await savePendingAttachments(data.id)
     router.push('/funds-allocation/my-funds')
   }
 
@@ -378,8 +406,9 @@ export default function AddFundsForm({
     e.preventDefault()
     setSubmitting(true); setError(null)
     const serialNumber = await generateSerialNumber()
-    const { error: insertError } = await supabase.from('funds_allocation').insert({ ...buildPayload('pending'), serial_number: serialNumber })
+    const { data, error: insertError } = await supabase.from('funds_allocation').insert({ ...buildPayload('pending'), serial_number: serialNumber }).select('id').single()
     if (insertError) { setError(insertError.message); setSubmitting(false); return }
+    if (data?.id) await savePendingAttachments(data.id)
     router.push('/funds-allocation/my-funds')
   }
 

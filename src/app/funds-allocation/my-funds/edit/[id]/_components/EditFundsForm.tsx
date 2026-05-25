@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
+import { getAttachmentsByAllocationId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
@@ -52,6 +54,11 @@ export default function EditFundsForm({
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
   const [approvalDecision, setApprovalDecision] = useState<StepDecision>(null)
   const [approvalComment, setApprovalComment] = useState('')
+
+  // 附件
+  const [existingAttachments, setExistingAttachments] = useState<AttachmentItem[]>([])
+  const [newAttachments, setNewAttachments] = useState<AttachmentItem[]>([])
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<number[]>([])
 
   // 草稿送出時需要的審核流程資訊
   const [flowTemplateId, setFlowTemplateId] = useState<number | null>(record.flow_template_id ?? null)
@@ -191,6 +198,12 @@ export default function EditFundsForm({
         }
       }
       setFieldValues({ ...catalogMap, ...customValues })
+
+      const attachments = await getAttachmentsByAllocationId(record.id)
+      setExistingAttachments(attachments.map(a => ({
+        id: a.id, fileName: a.file_name, storagePath: a.storage_path,
+        fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label,
+      })))
     }
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -283,6 +296,27 @@ export default function EditFundsForm({
       )
     }
 
+    if (type === 'attachment') {
+      const existing = existingAttachments.filter(a => a.slotLabel === slot.label && !deletedAttachmentIds.includes(a.id ?? -1))
+      const added = newAttachments.filter(a => a.slotLabel === slot.label)
+      const all = [...existing, ...added]
+      return (
+        <AttachmentUpload
+          slotLabel={slot.label}
+          attachments={all}
+          readOnly={disabled}
+          onAdd={item => setNewAttachments(prev => [...prev, item])}
+          onRemove={item => {
+            if (item.id) {
+              setDeletedAttachmentIds(prev => [...prev, item.id!])
+            } else {
+              setNewAttachments(prev => prev.filter(a => a.storagePath !== item.storagePath))
+            }
+          }}
+        />
+      )
+    }
+
     if (type === 'textarea') {
       return (
         <Textarea value={fieldValues[fieldId] ?? ''} disabled={disabled}
@@ -329,6 +363,17 @@ export default function EditFundsForm({
     }
   }
 
+  async function persistAttachmentChanges() {
+    await Promise.all(deletedAttachmentIds.map(id => deleteAttachmentRecord(id)))
+    if (newAttachments.length) {
+      await saveAttachments(record.id, null, newAttachments.map(a => ({
+        slotLabel: a.slotLabel, fileName: a.fileName,
+        storagePath: a.storagePath, fileType: a.fileType,
+        uploadedBy: MOCK_USER_ID,
+      })))
+    }
+  }
+
   async function handleDelete() {
     if (!confirm('確定要刪除此單據嗎？此操作無法復原。')) return
     setSubmitting(true)
@@ -344,6 +389,7 @@ export default function EditFundsForm({
       .eq('id', record.id)
     setSavingDraft(false)
     if (updateError) { setError(updateError.message); return }
+    await persistAttachmentChanges()
     router.push('/funds-allocation/my-funds')
   }
 
@@ -354,6 +400,7 @@ export default function EditFundsForm({
       .update({ ...buildUpdates(), status: 'pending', flow_template_id: flowTemplateId, current_step: 1 })
       .eq('id', record.id)
     if (updateError) { setError(updateError.message); setSubmitting(false); return }
+    await persistAttachmentChanges()
     router.push('/funds-allocation/my-funds')
   }
 
@@ -362,6 +409,7 @@ export default function EditFundsForm({
     setSubmitting(true); setError(null)
     const { error: updateError } = await supabase.from('funds_allocation').update(buildUpdates()).eq('id', record.id)
     if (updateError) { setError(updateError.message); setSubmitting(false); return }
+    await persistAttachmentChanges()
     router.push('/funds-allocation/my-funds')
   }
 

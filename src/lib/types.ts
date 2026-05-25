@@ -159,7 +159,20 @@ export type FundsAllocationTemplate = {
   updated_at: string | null
 }
 
-export type FormFieldType = 'text' | 'date' | 'select' | 'number' | 'textarea' | 'readonly' | 'radio'
+export type FormFieldType = 'text' | 'date' | 'select' | 'number' | 'textarea' | 'readonly' | 'radio' | 'attachment'
+
+export type FundAttachment = {
+  id: number
+  funds_allocation_id: number | null
+  funds_payment_id: number | null
+  slot_label: string
+  file_name: string
+  storage_path: string
+  file_type: string
+  uploaded_by: string | null
+  created_at: string
+  url?: string
+}
 export type FormColCount = 1 | 2 | 3
 export type FormType = 'funds_allocation' | 'payment_voucher' | 'temp_voucher'
 export type FormDataSourceDef = {

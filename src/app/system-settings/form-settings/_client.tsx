@@ -56,23 +56,25 @@ const FIELD_CATALOG: Record<FormType, FieldDef[]> = {
 }
 
 const CUSTOM_FIELD_TYPES: { value: FormFieldType; label: string }[] = [
-  { value: 'text',     label: '單行文字' },
-  { value: 'number',   label: '數字' },
-  { value: 'date',     label: '日期' },
-  { value: 'select',   label: '下拉選單' },
-  { value: 'radio',    label: '單選按鈕（Radio）' },
-  { value: 'textarea', label: '多行文字' },
+  { value: 'text',       label: '單行文字' },
+  { value: 'number',     label: '數字' },
+  { value: 'date',       label: '日期' },
+  { value: 'select',     label: '下拉選單' },
+  { value: 'radio',      label: '單選按鈕（Radio）' },
+  { value: 'textarea',   label: '多行文字' },
+  { value: 'attachment', label: '附件上傳' },
 ]
 
 function fieldPlaceholder(type: FormFieldType): string {
   switch (type) {
-    case 'date':     return '年 / 月 / 日'
-    case 'select':   return '請選擇'
-    case 'number':   return '0'
-    case 'textarea': return '備註內容...'
-    case 'radio':    return '○ 一般  ○ 預支'
-    case 'readonly': return '（自動填入）'
-    default:         return '請輸入'
+    case 'date':       return '年 / 月 / 日'
+    case 'select':     return '請選擇'
+    case 'number':     return '0'
+    case 'textarea':   return '備註內容...'
+    case 'radio':      return '○ 一般  ○ 預支'
+    case 'readonly':   return '（自動填入）'
+    case 'attachment': return '📎 選擇檔案（PDF / JPG / PNG）'
+    default:           return '請輸入'
   }
 }
 
@@ -496,7 +498,7 @@ export default function FormSettingsClient({
                   style={{ ...panelInput, marginBottom: 8, cursor: 'pointer' }}>
                   {CUSTOM_FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
-                {customType !== 'textarea' && (
+                {customType !== 'textarea' && customType !== 'attachment' && (
                   <>
                     <p style={{ ...panelLabel }}>資料來源</p>
                     <select value={customDs}
@@ -567,7 +569,7 @@ export default function FormSettingsClient({
                 </>
               )}
 
-              {selectedSlot.type !== 'textarea' && (
+              {selectedSlot.type !== 'textarea' && selectedSlot.type !== 'attachment' && (
                 <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
                   <p style={{ ...panelLabel, marginBottom: 4 }}>資料來源</p>
                   {(!selectedCatalogDef || selectedSlot.type === 'select' || selectedSlot.type === 'radio' || selectedCatalogDef.type !== 'readonly') ? (

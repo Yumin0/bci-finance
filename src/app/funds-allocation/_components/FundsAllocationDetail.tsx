@@ -1,8 +1,9 @@
-import { FundsAllocation } from '@/lib/types'
+import { FundsAllocation, FundAttachment } from '@/lib/types'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
+import AttachmentUpload from '@/app/_components/AttachmentUpload'
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
 const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
@@ -24,10 +25,12 @@ export default function FundsAllocationDetail({
   record,
   labelConfig,
   stepName,
+  attachments,
 }: {
   record: FundsAllocation
   labelConfig?: StatusLabelConfig
   stepName?: string | null
+  attachments?: FundAttachment[]
 }) {
   return (
     <div style={{ marginBottom: 32 }}>
@@ -83,6 +86,36 @@ export default function FundsAllocationDetail({
           </div>
         </div>
       </div>
+
+      {/* 附件 */}
+      {attachments && attachments.length > 0 && (() => {
+        const bySlot = attachments.reduce<Record<string, FundAttachment[]>>((acc, a) => {
+          if (!acc[a.slot_label]) acc[a.slot_label] = []
+          acc[a.slot_label].push(a)
+          return acc
+        }, {})
+        return (
+          <div style={blockStyle}>
+            <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0' }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>附件</span>
+            </div>
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {Object.entries(bySlot).map(([label, items]) => (
+                <div key={label}>
+                  <label style={labelStyle}>{label}</label>
+                  <AttachmentUpload
+                    slotLabel={label}
+                    attachments={items.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
+                    onAdd={() => {}}
+                    onRemove={() => {}}
+                    readOnly
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

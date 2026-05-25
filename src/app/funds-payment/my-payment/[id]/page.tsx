@@ -4,14 +4,16 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsPayment, ApprovalRecord, FormBlock, FormSlot, DropdownOption } from '@/lib/types'
+import { FundsPayment, ApprovalRecord, FormBlock, FormSlot, DropdownOption, FundAttachment } from '@/lib/types'
 import { PAYMENT_STATUS } from '@/lib/constants'
 import { submitMyPayment, updateDraftPayment } from '@/app/actions/payment'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
+import { getAttachmentsByAllocationId, getAttachmentsByPaymentId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
 import StatusBadge from '@/app/_components/StatusBadge'
+import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -116,6 +118,12 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   const [openPayeeId, setOpenPayeeId] = useState<string | null>(null)
   // 受款人自動帶入的欄位 label 集合（只能由選取受款人填入，不可手動輸入）
   const [payeeAutoFillLabels, setPayeeAutoFillLabels] = useState<Set<string>>(new Set())
+
+  // 附件
+  const [inheritedAttachments, setInheritedAttachments] = useState<FundAttachment[]>([])
+  const [ownAttachments, setOwnAttachments] = useState<AttachmentItem[]>([])
+  const [newPaymentAttachments, setNewPaymentAttachments] = useState<AttachmentItem[]>([])
+  const [deletedPaymentAttachmentIds, setDeletedPaymentAttachmentIds] = useState<number[]>([])
 
   function setField(fieldId: string, value: string) {
     setFieldValues(prev => ({ ...prev, [fieldId]: value }))
@@ -280,6 +288,14 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         await Promise.all(fetches)
       }
 
+      // 載入附件
+      if (rec.funds_allocation_id) {
+        getAttachmentsByAllocationId(rec.funds_allocation_id).then(setInheritedAttachments)
+      }
+      getAttachmentsByPaymentId(numId).then(items => {
+        setOwnAttachments(items.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label })))
+      })
+
       setLoading(false)
     }
     load()
@@ -441,12 +457,23 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     return extraData
   }
 
+  async function persistPaymentAttachments(paymentId: number) {
+    await Promise.all(deletedPaymentAttachmentIds.map(id => deleteAttachmentRecord(id)))
+    if (newPaymentAttachments.length) {
+      await saveAttachments(null, paymentId, newPaymentAttachments.map(a => ({
+        slotLabel: a.slotLabel, fileName: a.fileName,
+        storagePath: a.storagePath, fileType: a.fileType,
+      })))
+    }
+  }
+
   async function handleSave() {
     if (!record) return
     setSaving(true)
     setError(null)
     const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData())
-    if (saveError) setError(saveError)
+    if (saveError) { setError(saveError); setSaving(false); return }
+    await persistPaymentAttachments(record.id)
     setSaving(false)
   }
 
@@ -456,6 +483,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     setError(null)
     const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData())
     if (saveError) { setError(saveError); setSubmitting(false); return }
+    await persistPaymentAttachments(record.id)
     const { error: submitError } = await submitMyPayment(record.id)
     if (submitError) { setError(submitError); setSubmitting(false); return }
     router.push('/funds-payment/my-payment')
@@ -564,6 +592,43 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
             <Button onClick={handleSubmit} disabled={submitting || saving}>
               {submitting ? '送出中...' : '確定送出'}
             </Button>
+          </div>
+        )}
+
+        {/* 附件區塊 */}
+        {(inheritedAttachments.length > 0 || ownAttachments.length > 0 || newPaymentAttachments.length > 0 || isDraft) && (
+          <div style={{ marginTop: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>附件</span>
+            </div>
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {inheritedAttachments.length > 0 && (
+                <div>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>來自申請單的附件</p>
+                  <AttachmentUpload
+                    slotLabel="inherited"
+                    attachments={inheritedAttachments.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
+                    onAdd={() => {}} onRemove={() => {}} readOnly
+                  />
+                </div>
+              )}
+              <div>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>本憑單附件</p>
+                <AttachmentUpload
+                  slotLabel="payment"
+                  attachments={[
+                    ...ownAttachments.filter(a => !deletedPaymentAttachmentIds.includes(a.id ?? -1)),
+                    ...newPaymentAttachments,
+                  ]}
+                  readOnly={!isDraft}
+                  onAdd={item => setNewPaymentAttachments(prev => [...prev, item])}
+                  onRemove={item => {
+                    if (item.id) setDeletedPaymentAttachmentIds(prev => [...prev, item.id!])
+                    else setNewPaymentAttachments(prev => prev.filter(a => a.storagePath !== item.storagePath))
+                  }}
+                />
+              </div>
+            </div>
           </div>
         )}
 
