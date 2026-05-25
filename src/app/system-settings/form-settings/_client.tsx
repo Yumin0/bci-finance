@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { saveFormSchema } from '@/app/actions/form-schema'
 import { FormBlock, FormSchemaRow, FormSlot, FormColCount, FormType, FormFieldType, FormDataSourceDef } from '@/lib/types'
+import TemplateManagementTab from './_template-tab'
 
 type FieldDef = {
   id: string
@@ -88,7 +89,9 @@ export default function FormSettingsClient({
   initialSchemas: Record<FormType, FormBlock[]>
   dataSources: FormDataSourceDef[]
 }) {
+  const [activeTab, setActiveTab] = useState<FormType | 'templates'>('funds_allocation')
   const [formType, setFormType]   = useState<FormType>('funds_allocation')
+  const [newTemplateTrigger, setNewTemplateTrigger] = useState(0)
   const [schemas,  setSchemas]    = useState<Record<FormType, FormBlock[]>>(initialSchemas)
   const [selection, setSelection] = useState<Selection>(null)
   const [saving,    setSaving]    = useState(false)
@@ -238,7 +241,7 @@ export default function FormSettingsClient({
 
   async function handleSave() {
     setSaving(true); setSavedMsg(null)
-    const { error } = await saveFormSchema(formType, blocks)
+    const { error } = await saveFormSchema(formType, schemas[formType])
     setSaving(false)
     if (error) { setSavedMsg(error) } else { setSavedMsg('已儲存'); setTimeout(() => setSavedMsg(null), 3000) }
   }
@@ -254,7 +257,6 @@ export default function FormSettingsClient({
   const selectedRow   = (selection && 'rowId' in selection) ? (selectedBlock?.rows.find(r => r.id === selection.rowId) ?? null) : null
   const selectedSlot  = selection?.kind === 'slot' ? (selectedRow?.slots[selection.slotIdx] ?? null) : null
   const selectedCatalogDef = selectedSlot ? catalog.find(f => f.id === selectedSlot.fieldId) : null
-  const isCustomField = selectedSlot ? selectedSlot.fieldId.startsWith('custom_') : false
 
   const allSelectSlots = blocks.flatMap(b =>
     b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null && (s.type === 'select' || s.type === 'radio')))
@@ -265,28 +267,43 @@ export default function FormSettingsClient({
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>表單設定</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {savedMsg && <span style={{ fontSize: 13, color: savedMsg === '已儲存' ? '#16a34a' : '#dc2626' }}>{savedMsg}</span>}
-          <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-            {saving ? '儲存中...' : '儲存設定'}
+        {activeTab !== 'templates' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {savedMsg && <span style={{ fontSize: 13, color: savedMsg === '已儲存' ? '#16a34a' : '#dc2626' }}>{savedMsg}</span>}
+            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+              {saving ? '儲存中...' : '儲存設定'}
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setNewTemplateTrigger(c => c + 1)} style={btnPrimary}>
+            ＋ 新增範本
           </button>
-        </div>
+        )}
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: 20 }}>
         {(['funds_allocation', 'payment_voucher', 'temp_voucher'] as FormType[]).map(ft => (
-          <button key={ft} onClick={() => { setFormType(ft); setSelection(null) }}
+          <button key={ft} onClick={() => { setActiveTab(ft); setFormType(ft); setSelection(null) }}
             style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
-              borderBottom: formType === ft ? '2px solid #111827' : '2px solid transparent',
-              marginBottom: -1, cursor: 'pointer', color: formType === ft ? '#111827' : '#6b7280' }}>
+              borderBottom: activeTab === ft ? '2px solid #111827' : '2px solid transparent',
+              marginBottom: -1, cursor: 'pointer', color: activeTab === ft ? '#111827' : '#6b7280' }}>
             {ft === 'funds_allocation' ? '資金分配申請單' : ft === 'payment_voucher' ? '付款憑單' : '暫付款沖銷憑單'}
           </button>
         ))}
+        <button onClick={() => { setActiveTab('templates'); setSelection(null) }}
+          style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
+            borderBottom: activeTab === 'templates' ? '2px solid #111827' : '2px solid transparent',
+            marginBottom: -1, cursor: 'pointer', color: activeTab === 'templates' ? '#111827' : '#6b7280' }}>
+          範本管理
+        </button>
       </div>
 
+      {/* Templates tab */}
+      {activeTab === 'templates' && <TemplateManagementTab newTrigger={newTemplateTrigger} />}
+
       {/* Main layout */}
-      <div style={{ display: 'flex', gap: 0, minHeight: 500 }}>
+      {activeTab !== 'templates' && <div style={{ display: 'flex', gap: 0, minHeight: 500 }}>
         {/* Canvas */}
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: 20 }}>
           {blocks.map((block, blockIdx) => {
@@ -692,7 +709,7 @@ export default function FormSettingsClient({
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

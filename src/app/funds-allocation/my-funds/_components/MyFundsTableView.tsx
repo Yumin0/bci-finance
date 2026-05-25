@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { FundsAllocation } from '@/lib/types'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
+import TemplateModal from './TemplateModal'
 
 type AllocationRow = FundsAllocation & {
   approval_flow_templates: {
@@ -49,6 +50,7 @@ export default function MyFundsTableView({
   labelConfig: StatusLabelConfig
 }) {
   const [query, setQuery] = useState('')
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
 
   const filtered = query.trim()
     ? records.filter(r => SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
@@ -56,6 +58,7 @@ export default function MyFundsTableView({
 
   return (
     <div>
+      {showTemplateModal && <TemplateModal onClose={() => setShowTemplateModal(false)} />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>我的資金分配申請</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -65,6 +68,12 @@ export default function MyFundsTableView({
             onChange={e => setQuery(e.target.value)}
             style={{ width: 260, fontSize: 13 }}
           />
+          <button
+            onClick={() => setShowTemplateModal(true)}
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            選取範本
+          </button>
           <Link
             href="/funds-allocation/my-funds/add"
             className={buttonVariants({ variant: 'default', size: 'sm' })}

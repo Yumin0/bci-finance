@@ -149,6 +149,16 @@ export type SystemRole = {
   created_at: string
 }
 
+export type FundsAllocationTemplate = {
+  id: number
+  name: string
+  is_shared: boolean
+  created_by: string | null
+  field_values: Record<string, string>
+  created_at: string
+  updated_at: string | null
+}
+
 export type FormFieldType = 'text' | 'date' | 'select' | 'number' | 'textarea' | 'readonly' | 'radio'
 export type FormColCount = 1 | 2 | 3
 export type FormType = 'funds_allocation' | 'payment_voucher' | 'temp_voucher'

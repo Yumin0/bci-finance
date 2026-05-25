@@ -24,10 +24,12 @@ export default function AddFundsForm({
   applicantName,
   userId,
   schema,
+  initialValues,
 }: {
   applicantName: string
   userId: number | null
   schema: FormBlock[]
+  initialValues?: Record<string, string>
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
@@ -42,12 +44,21 @@ export default function AddFundsForm({
   const [userPositionRoleIds, setUserPositionRoleIds] = useState<number[]>([])
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
 
-  // Cascade state for org units
-  const [divisionId, setDivisionId] = useState<number | null>(null)
-  const [sectionId, setSectionId] = useState<number | null>(null)
+  // Cascade state for org units — initialised from template if provided
+  const [divisionId, setDivisionId] = useState<number | null>(() =>
+    Number(initialValues?.apply_division) || null
+  )
+  const [sectionId, setSectionId] = useState<number | null>(() =>
+    Number(initialValues?.apply_section) || null
+  )
 
-  // Generic field values (for non-cascade fields)
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
+  // Generic field values — initialised from template, excluding cascade ID keys
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => {
+    if (!initialValues) return {}
+    const { apply_division, apply_section, ...rest } = initialValues
+    void apply_division; void apply_section
+    return rest
+  })
 
   // 審核流程（根據出款帳號自動帶入）
   const [flowTemplateId, setFlowTemplateId] = useState<number | null>(null)
@@ -192,7 +203,7 @@ export default function AddFundsForm({
   const sections = orgUnits.filter(u => u.level === '課' && u.parent_id === divisionId)
   const availableRoles = orgUnitRoles
     .filter(r => r.org_unit_id === sectionId)
-    .map(r => r.display_name ?? `${unitLabel(unitMap.get(r.org_unit_id)!)} ${r.role_types.name}`)
+    .map(r => r.display_name ?? (unitMap.get(r.org_unit_id) ? `${unitLabel(unitMap.get(r.org_unit_id)!)} ${r.role_types.name}` : r.role_types.name))
 
   async function generateSerialNumber(): Promise<string> {
     const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }).replace(/-/g, '')

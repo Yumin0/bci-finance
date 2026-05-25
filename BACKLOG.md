@@ -95,6 +95,9 @@
 
 ## 已完成
 
+**預選範本（資金分配）**（2026-05-27，Riku）
+資金分配申請新增「選取範本」功能：Admin 在表單設定→範本管理 Tab 維護共用範本；使用者在我的申請列表頁點選「選取範本」，從 Modal 選取共用範本或個人範本（支援另存為我的版本、改名、刪除）；選取後跳轉至新增頁並自動帶入欄位值；新增 `funds_allocation_templates` 資料表、`fund-templates.ts` Server Actions、`TemplateModal` 組件、`_template-tab.tsx` 管理頁
+
 **下拉選單搜尋功能**（2026-05-25，Riku）
 資金分配申請單（新增/編輯）與付款憑單（新增/詳細頁）的所有 `type === 'select'` 欄位改為可搜尋 combobox；新增通用組件 `SearchableSelect`；修正卡片容器 `overflow: hidden` 裁切下拉清單問題
 
