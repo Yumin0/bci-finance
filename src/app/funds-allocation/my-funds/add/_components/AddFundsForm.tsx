@@ -8,6 +8,7 @@ import { DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSlot } from '@/lib
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
@@ -216,43 +217,34 @@ export default function AddFundsForm({
     }
     if (fieldId === 'apply_division') {
       return (
-        <select
-          value={divisionId ?? ''}
-          onChange={e => { setDivisionId(Number(e.target.value) || null); setSectionId(null); setField('apply_role', '') }}
+        <SearchableSelect
+          value={String(divisionId ?? '')}
+          onChange={v => { setDivisionId(Number(v) || null); setSectionId(null); setField('apply_role', '') }}
+          options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
           required={required}
-          style={selectStyle}
-        >
-          <option value="">請選擇</option>
-          {divisions.map(u => <option key={u.id} value={u.id}>{unitLabel(u)}</option>)}
-        </select>
+        />
       )
     }
     if (fieldId === 'apply_section') {
       return (
-        <select
-          value={sectionId ?? ''}
-          onChange={e => { setSectionId(Number(e.target.value) || null); setField('apply_role', '') }}
+        <SearchableSelect
+          value={String(sectionId ?? '')}
+          onChange={v => { setSectionId(Number(v) || null); setField('apply_role', '') }}
+          options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
           disabled={!divisionId}
           required={required}
-          style={selectStyle}
-        >
-          <option value="">請選擇</option>
-          {sections.map(u => <option key={u.id} value={u.id}>{unitLabel(u)}</option>)}
-        </select>
+        />
       )
     }
     if (fieldId === 'apply_role') {
       return (
-        <select
+        <SearchableSelect
           value={fieldValues.apply_role ?? ''}
-          onChange={e => setField('apply_role', e.target.value)}
+          onChange={v => setField('apply_role', v)}
+          options={availableRoles.map(name => ({ value: name, label: name }))}
           disabled={!sectionId}
           required={required}
-          style={selectStyle}
-        >
-          <option value="">請選擇</option>
-          {availableRoles.map(name => <option key={name} value={name}>{name}</option>)}
-        </select>
+        />
       )
     }
 
@@ -290,16 +282,12 @@ export default function AddFundsForm({
         options = dynamicSelectOptions[dataSource] ?? []
       }
       return (
-        <select
-          name={fieldId}
+        <SearchableSelect
           value={fieldValues[fieldId] ?? ''}
-          onChange={e => setField(fieldId, e.target.value)}
+          onChange={v => setField(fieldId, v)}
+          options={options}
           required={required}
-          style={selectStyle}
-        >
-          <option value="">請選擇</option>
-          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        />
       )
     }
 
@@ -395,7 +383,6 @@ export default function AddFundsForm({
             marginBottom: 16,
             border: '1px solid var(--border-color)',
             borderRadius: 10,
-            overflow: 'hidden',
             background: 'var(--bg-card)',
           }}>
             {block.title && (
@@ -403,6 +390,7 @@ export default function AddFundsForm({
                 padding: '10px 20px',
                 background: 'var(--bg-sidebar)',
                 borderBottom: '1px solid var(--border-color)',
+                borderRadius: '9px 9px 0 0',
               }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
               </div>
@@ -470,5 +458,4 @@ export default function AddFundsForm({
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 12 }

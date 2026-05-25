@@ -15,10 +15,10 @@ import StatusBadge from '@/app/_components/StatusBadge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { formatDateTime } from '@/lib/dateUtils'
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
 const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
 
 // 從 allocation 複製過來的直接欄位，付款憑單階段不可修改
@@ -401,14 +401,11 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         options = dynamicSelectOptions[dataSource] ?? []
       }
       return (
-        <select
+        <SearchableSelect
           value={fieldValues[fieldId] ?? ''}
-          onChange={e => setField(fieldId, e.target.value)}
-          style={selectStyle}
-        >
-          <option value="">請選擇</option>
-          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+          onChange={v => setField(fieldId, v)}
+          options={options}
+        />
       )
     }
 
@@ -515,7 +512,6 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                   marginBottom: 16,
                   border: '1px solid var(--border-color)',
                   borderRadius: 10,
-                  overflow: 'hidden',
                   background: 'var(--bg-card)',
                 }}>
                   {block.title && (
@@ -523,6 +519,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                       padding: '10px 20px',
                       background: 'var(--bg-sidebar)',
                       borderBottom: '1px solid var(--border-color)',
+                      borderRadius: '9px 9px 0 0',
                     }}>
                       <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
                     </div>

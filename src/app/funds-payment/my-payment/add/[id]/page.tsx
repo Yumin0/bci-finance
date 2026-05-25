@@ -9,6 +9,7 @@ import { getFormSchemas } from '@/app/actions/form-schema'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 
 function getAllocFieldValue(fieldId: string, record: FundsAllocation): string {
@@ -249,15 +250,12 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
         options = dynamicSelectOptions[dataSource] ?? []
       }
       return (
-        <select
+        <SearchableSelect
           value={fieldValues[fieldId] ?? ''}
-          onChange={e => setField(fieldId, e.target.value)}
+          onChange={v => setField(fieldId, v)}
+          options={options}
           required={required}
-          style={selectStyle}
-        >
-          <option value="">請選擇</option>
-          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        />
       )
     }
 
@@ -326,7 +324,6 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
               marginBottom: 16,
               border: '1px solid var(--border-color)',
               borderRadius: 10,
-              overflow: 'hidden',
               background: 'var(--bg-card)',
             }}>
               {block.title && (
@@ -334,6 +331,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
                   padding: '10px 20px',
                   background: 'var(--bg-sidebar)',
                   borderBottom: '1px solid var(--border-color)',
+                  borderRadius: '9px 9px 0 0',
                 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
                 </div>
@@ -381,5 +379,4 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 8 }

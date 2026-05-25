@@ -11,6 +11,7 @@ import StatusBadge from '@/app/_components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
@@ -214,32 +215,35 @@ export default function EditFundsForm({
     }
     if (fieldId === 'apply_division') {
       return (
-        <select value={divisionId ?? ''} disabled={disabled}
-          onChange={e => { setDivisionId(Number(e.target.value) || null); setSectionId(null); setField('apply_role', '') }}
-          required={required} style={disabled ? readonlyStyle : selectStyle}>
-          <option value="">請選擇</option>
-          {divisions.map(u => <option key={u.id} value={u.id}>{unitLabel(u)}</option>)}
-        </select>
+        <SearchableSelect
+          value={String(divisionId ?? '')}
+          onChange={v => { setDivisionId(Number(v) || null); setSectionId(null); setField('apply_role', '') }}
+          options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+          disabled={disabled}
+          required={required}
+        />
       )
     }
     if (fieldId === 'apply_section') {
       return (
-        <select value={sectionId ?? ''} disabled={disabled || !divisionId}
-          onChange={e => { setSectionId(Number(e.target.value) || null); setField('apply_role', '') }}
-          required={required} style={disabled ? readonlyStyle : selectStyle}>
-          <option value="">請選擇</option>
-          {sections.map(u => <option key={u.id} value={u.id}>{unitLabel(u)}</option>)}
-        </select>
+        <SearchableSelect
+          value={String(sectionId ?? '')}
+          onChange={v => { setSectionId(Number(v) || null); setField('apply_role', '') }}
+          options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+          disabled={disabled || !divisionId}
+          required={required}
+        />
       )
     }
     if (fieldId === 'apply_role') {
       return (
-        <select value={fieldValues.apply_role ?? ''} disabled={disabled || !sectionId}
-          onChange={e => setField('apply_role', e.target.value)}
-          required={required} style={disabled ? readonlyStyle : selectStyle}>
-          <option value="">請選擇</option>
-          {availableRoles.map(name => <option key={name} value={name}>{name}</option>)}
-        </select>
+        <SearchableSelect
+          value={fieldValues.apply_role ?? ''}
+          onChange={v => setField('apply_role', v)}
+          options={availableRoles.map(name => ({ value: name, label: name }))}
+          disabled={disabled || !sectionId}
+          required={required}
+        />
       )
     }
 
@@ -269,12 +273,13 @@ export default function EditFundsForm({
         options = dynamicSelectOptions[dataSource] ?? []
       }
       return (
-        <select value={fieldValues[fieldId] ?? ''} disabled={disabled}
-          onChange={e => setField(fieldId, e.target.value)}
-          required={required} style={disabled ? readonlyStyle : selectStyle}>
-          <option value="">請選擇</option>
-          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <SearchableSelect
+          value={fieldValues[fieldId] ?? ''}
+          onChange={v => setField(fieldId, v)}
+          options={options}
+          disabled={disabled}
+          required={required}
+        />
       )
     }
 
@@ -391,9 +396,9 @@ export default function EditFundsForm({
 
       <form onSubmit={isDraft ? handleSubmitFromDraft : handleSaveChanges}>
         {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
-          <div key={block.id} style={{ marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div key={block.id} style={{ marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, background: 'var(--bg-card)' }}>
             {block.title && (
-              <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border-color)' }}>
+              <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0' }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
               </div>
             )}
@@ -484,6 +489,4 @@ export default function EditFundsForm({
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'white', cursor: 'pointer' }
-const readonlyStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'var(--bg-page)', cursor: 'not-allowed' }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 12 }
