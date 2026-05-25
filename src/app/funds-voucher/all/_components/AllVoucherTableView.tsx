@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { formatDate } from '@/lib/dateUtils'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
+import ExportCsvButton from './ExportCsvButton'
 
 type TempVoucherRow = {
   id: number
@@ -50,9 +51,11 @@ function getStepName(r: TempVoucherRow): string | null {
 export default function AllVoucherTableView({
   records,
   labelConfig,
+  canExport,
 }: {
   records: TempVoucherRow[]
   labelConfig: StatusLabelConfig
+  canExport: boolean
 }) {
   const [query, setQuery] = useState('')
 
@@ -67,12 +70,15 @@ export default function AllVoucherTableView({
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>全部暫付款沖銷憑單</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>所有暫付款沖銷憑單的完整狀態覽表</p>
         </div>
-        <Input
-          placeholder="搜尋申請課別、申請人、審核流程…"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          style={{ width: 260, fontSize: 13 }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Input
+            placeholder="搜尋申請課別、申請人、審核流程…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            style={{ width: 260, fontSize: 13 }}
+          />
+          {canExport && <ExportCsvButton labelConfig={labelConfig} />}
+        </div>
       </div>
 
       <div style={{ overflowX: 'auto' }}>

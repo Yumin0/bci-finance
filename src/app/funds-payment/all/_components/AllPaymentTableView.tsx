@@ -7,6 +7,7 @@ import { FundsPayment } from '@/lib/types'
 import { formatDate } from '@/lib/dateUtils'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
+import ExportCsvButton from './ExportCsvButton'
 
 type PaymentRow = FundsPayment & {
   approval_flow_templates: {
@@ -43,9 +44,11 @@ function getStepName(r: PaymentRow): string | null {
 export default function AllPaymentTableView({
   records,
   labelConfig,
+  canExport,
 }: {
   records: PaymentRow[]
   labelConfig: StatusLabelConfig
+  canExport: boolean
 }) {
   const [query, setQuery] = useState('')
 
@@ -60,12 +63,15 @@ export default function AllPaymentTableView({
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>全部付款紀錄</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>所有付款憑單的完整狀態覽表</p>
         </div>
-        <Input
-          placeholder="搜尋申請課別、申請人、憑單名稱…"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          style={{ width: 260, fontSize: 13 }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Input
+            placeholder="搜尋申請課別、申請人、憑單名稱…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            style={{ width: 260, fontSize: 13 }}
+          />
+          {canExport && <ExportCsvButton labelConfig={labelConfig} />}
+        </div>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
