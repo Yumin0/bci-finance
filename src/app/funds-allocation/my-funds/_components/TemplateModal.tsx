@@ -3,11 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { FundsAllocationTemplate } from '@/lib/types'
-import { MOCK_USER_ID } from '@/lib/constants'
 import {
   getSharedFundTemplates,
   getUserFundTemplates,
-  saveUserFundTemplate,
   updateUserFundTemplateName,
   deleteUserFundTemplate,
 } from '@/app/actions/fund-templates'
@@ -30,11 +28,6 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
   const [mine, setMine] = useState<FundsAllocationTemplate[]>([])
   const [loading, setLoading] = useState(true)
 
-  // "另存" inline state: which shared template id is being saved
-  const [savingFromId, setSavingFromId] = useState<number | null>(null)
-  const [saveNameInput, setSaveNameInput] = useState('')
-  const [saveLoading, setSaveLoading] = useState(false)
-
   // Rename inline state
   const [renamingId, setRenamingId] = useState<number | null>(null)
   const [renameInput, setRenameInput] = useState('')
@@ -46,30 +39,13 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     Promise.all([
       getSharedFundTemplates(),
-      getUserFundTemplates(MOCK_USER_ID),
+      getUserFundTemplates(),
     ]).then(([s, m]) => { setShared(s); setMine(m); setLoading(false) })
   }, [])
 
   function applyTemplate(id: number) {
     onClose()
     router.push(`/funds-allocation/my-funds/add?templateId=${id}`)
-  }
-
-  function startSaveAs(t: FundsAllocationTemplate) {
-    setSavingFromId(t.id)
-    setSaveNameInput(t.name)
-  }
-
-  async function confirmSaveAs(t: FundsAllocationTemplate) {
-    if (!saveNameInput.trim()) return
-    setSaveLoading(true)
-    const { error } = await saveUserFundTemplate(saveNameInput.trim(), t.field_values, MOCK_USER_ID)
-    setSaveLoading(false)
-    if (!error) {
-      setSavingFromId(null)
-      const updated = await getUserFundTemplates(MOCK_USER_ID)
-      setMine(updated)
-    }
   }
 
   function startRename(t: FundsAllocationTemplate) {
@@ -80,7 +56,7 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
   async function confirmRename(id: number) {
     if (!renameInput.trim()) return
     setRenameLoading(true)
-    const { error } = await updateUserFundTemplateName(id, renameInput.trim(), MOCK_USER_ID)
+    const { error } = await updateUserFundTemplateName(id, renameInput.trim())
     setRenameLoading(false)
     if (!error) {
       setRenamingId(null)
@@ -90,7 +66,7 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
 
   async function handleDelete(id: number) {
     setDeletingId(id)
-    const { error } = await deleteUserFundTemplate(id, MOCK_USER_ID)
+    const { error } = await deleteUserFundTemplate(id)
     setDeletingId(null)
     if (!error) setMine(prev => prev.filter(t => t.id !== id))
   }
@@ -139,24 +115,6 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                       <button onClick={() => applyTemplate(t.id)} style={btnApply}>套用</button>
-                      {savingFromId === t.id ? (
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <input
-                            value={saveNameInput}
-                            onChange={e => setSaveNameInput(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && confirmSaveAs(t)}
-                            placeholder="範本名稱"
-                            style={{ padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 12, width: 120 }}
-                            autoFocus
-                          />
-                          <button onClick={() => confirmSaveAs(t)} disabled={saveLoading} style={btnConfirm}>
-                            {saveLoading ? '...' : '確認'}
-                          </button>
-                          <button onClick={() => setSavingFromId(null)} style={btnCancel}>取消</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => startSaveAs(t)} style={btnOutline}>另存為我的版本</button>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -167,7 +125,7 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
                 我的範本
               </p>
               {mine.length === 0 && (
-                <p style={{ fontSize: 13, color: '#9ca3af' }}>尚未儲存個人範本。從共用範本點「另存為我的版本」即可建立。</p>
+                <p style={{ fontSize: 13, color: '#9ca3af' }}>尚未儲存個人範本。填寫申請單後可從底部「另存為我的範本」建立。</p>
               )}
               {mine.map(t => (
                 <div key={t.id} style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '12px 14px', marginBottom: 8, background: 'var(--bg-page)' }}>

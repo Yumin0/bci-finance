@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import { saveAttachments } from '@/app/actions/attachments'
+import { saveUserFundTemplate } from '@/app/actions/fund-templates'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
@@ -37,6 +38,9 @@ export default function AddFundsForm({
   const [submitting, setSubmitting] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showSaveAs, setShowSaveAs] = useState(false)
+  const [saveAsName, setSaveAsName] = useState('')
+  const [savingTemplate, setSavingTemplate] = useState(false)
 
   // Data source state
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
@@ -393,6 +397,17 @@ export default function AddFundsForm({
     })))
   }
 
+  async function handleSaveAsTemplate() {
+    if (!saveAsName.trim()) return
+    setSavingTemplate(true)
+    const { error } = await saveUserFundTemplate(saveAsName.trim(), fieldValues)
+    setSavingTemplate(false)
+    if (!error) {
+      setShowSaveAs(false)
+      setSaveAsName('')
+    }
+  }
+
   async function handleSaveDraft() {
     setSavingDraft(true); setError(null)
     const { data, error: insertError } = await supabase.from('funds_allocation').insert(buildPayload('draft')).select('id').single()
@@ -483,7 +498,27 @@ export default function AddFundsForm({
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {showSaveAs ? (
+            <>
+              <input
+                value={saveAsName}
+                onChange={e => setSaveAsName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSaveAsTemplate()}
+                placeholder="輸入範本名稱"
+                style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, width: 160 }}
+                autoFocus
+              />
+              <Button type="button" variant="outline" onClick={handleSaveAsTemplate} disabled={savingTemplate || !saveAsName.trim()}>
+                {savingTemplate ? '儲存中...' : '確認'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => { setShowSaveAs(false); setSaveAsName('') }}>取消</Button>
+            </>
+          ) : (
+            <Button type="button" variant="outline" onClick={() => setShowSaveAs(true)} disabled={savingDraft || submitting}>
+              另存為我的範本
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
             {savingDraft ? '儲存中...' : '儲存草稿'}
           </Button>

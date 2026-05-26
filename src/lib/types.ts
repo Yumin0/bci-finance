@@ -153,7 +153,7 @@ export type FundsAllocationTemplate = {
   id: number
   name: string
   is_shared: boolean
-  created_by: string | null
+  created_by: number | null
   field_values: Record<string, string>
   created_at: string
   updated_at: string | null
