@@ -12,9 +12,38 @@ import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 
 
+// fieldId-based: known default fieldIds that are direct allocation columns → always readonly
+const ALLOCATION_READONLY_FIELD_IDS = new Set([
+  'purchase_order_number', 'date',
+  'apply_division', 'apply_section', 'applicant', 'apply_role',
+  'institution', 'payment_account', 'expense_item',
+  'amount', 'category',
+])
+
+// Label-based fallback: catches fields whose Supabase fieldId differs from the default
+// (e.g. 職稱/類型 in a customised schema). Also covers extra_data-only fields.
+const ALLOCATION_READONLY_LABEL_MAP: Record<string, (r: FundsAllocation) => string> = {
+  '採購單號':     r => r.serial_number ? `${r.serial_number}001` : '',
+  '申請日期':     r => r.date ?? '',
+  '日期':         r => r.date ?? '',
+  '申請處別':     r => r.apply_division ?? '',
+  '申請課別':     r => r.apply_section ?? '',
+  '申請人':       r => r.applicant ?? '',
+  '職稱':         r => r.apply_role ?? '',
+  '類型':         r => r.category ?? '',
+  '是否為國外費用？': r => r.extra_data?.['是否為國外費用？'] ?? '',
+  '機構':         r => r.institution ?? '',
+  '出款帳戶':     r => r.payment_account ?? '',
+  '費用項目':     r => r.expense_item ?? '',
+  '金額':         r => r.amount != null ? String(r.amount) : '',
+}
+
+// Fields to pre-fill as initial value but keep editable (by fieldId or by label)
+const ALLOCATION_PREFILL_FIELD_IDS = new Set(['name', 'note'])
+
 function getAllocFieldValue(fieldId: string, record: FundsAllocation): string {
   const map: Record<string, unknown> = {
-    purchase_order_number: record.serial_number ? `${record.serial_number}001` : '-',
+    purchase_order_number: record.serial_number ? `${record.serial_number}001` : '',
     date: record.date,
     apply_division: record.apply_division,
     apply_section: record.apply_section,
@@ -23,12 +52,13 @@ function getAllocFieldValue(fieldId: string, record: FundsAllocation): string {
     institution: record.institution,
     payment_account: record.payment_account,
     expense_item: record.expense_item,
-    name: record.name,
+    category: record.category,
     amount: record.amount,
+    name: record.name,
     note: record.note,
   }
   const val = map[fieldId]
-  if (val == null || val === '') return '-'
+  if (val == null || val === '') return ''
   return String(val)
 }
 
@@ -68,6 +98,25 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
 
       const paymentSchema = schemas.payment_voucher
       setSchema(paymentSchema)
+
+      const rec = data as FundsAllocation
+      const initValues: Record<string, string> = {}
+      paymentSchema.flatMap(b => b.rows.flatMap(r => r.slots)).forEach(slot => {
+        if (!slot) return
+        // Skip readonly fields (they read directly from rec, not from fieldValues)
+        if (ALLOCATION_READONLY_FIELD_IDS.has(slot.fieldId)) return
+        if (slot.label in ALLOCATION_READONLY_LABEL_MAP) return
+        // Pre-fill known editable fields by fieldId
+        if (ALLOCATION_PREFILL_FIELD_IDS.has(slot.fieldId)) {
+          const val = getAllocFieldValue(slot.fieldId, rec)
+          if (val) initValues[slot.fieldId] = val
+          return
+        }
+        // Pre-fill other editable fields from allocation.extra_data by label (e.g. 幣別, 會計科目)
+        const extraVal = rec.extra_data?.[slot.label]
+        if (extraVal) initValues[slot.fieldId] = extraVal
+      })
+      if (Object.keys(initValues).length > 0) setFieldValues(initValues)
 
       const allSlots: NonNullable<FormSlot>[] = paymentSchema.flatMap(b =>
         b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
@@ -206,9 +255,28 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   function renderField(slot: NonNullable<FormSlot>, rec: FundsAllocation) {
     const { fieldId, type, dataSource, staticOptions, required } = slot
 
-    // Only readonly type → auto-filled from allocation record
-    if (type === 'readonly') {
-      return <Input value={getAllocFieldValue(fieldId, rec)} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+    // Fields inherited from allocation: always readonly regardless of schema type
+    // Check by fieldId first, then fall back to label map (handles Supabase-customised schemas)
+    const isAllocReadonlyById = type === 'readonly' || ALLOCATION_READONLY_FIELD_IDS.has(fieldId)
+    const isAllocReadonlyByLabel = !isAllocReadonlyById && (slot.label in ALLOCATION_READONLY_LABEL_MAP)
+    if (isAllocReadonlyById || isAllocReadonlyByLabel) {
+      const allocVal = isAllocReadonlyById
+        ? getAllocFieldValue(fieldId, rec)
+        : ALLOCATION_READONLY_LABEL_MAP[slot.label](rec)
+      // Radio fields: keep radio UI but disabled
+      if (type === 'radio' && staticOptions?.length) {
+        return (
+          <div style={{ display: 'flex', gap: 20, padding: '8px 0' }}>
+            {staticOptions.map(opt => (
+              <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'not-allowed', opacity: allocVal === opt ? 1 : 0.45 }}>
+                <input type="radio" name={fieldId} value={opt} checked={allocVal === opt} disabled readOnly />
+                {opt}
+              </label>
+            ))}
+          </div>
+        )
+      }
+      return <Input value={allocVal} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
     if (type === 'radio') {
@@ -293,6 +361,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
       if (slot.type === 'readonly') continue
+      if (ALLOCATION_READONLY_FIELD_IDS.has(slot.fieldId)) continue
+      if (slot.label in ALLOCATION_READONLY_LABEL_MAP) continue
       if (slot.fieldId === 'payment_method') continue
       extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
     }
