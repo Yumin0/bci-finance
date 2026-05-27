@@ -1,14 +1,21 @@
 import { supabase } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
-import { FundsPayment } from '@/lib/types'
+import { FundsPayment, FormSlot } from '@/lib/types'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
+import { getFormSchemas } from '@/app/actions/form-schema'
 import MyPaymentTableView from './_components/MyPaymentTableView'
 
 export default async function MyPaymentPage() {
-  const [session, labelConfig] = await Promise.all([
+  const [session, labelConfig, schemas] = await Promise.all([
     getSession(),
     getStatusLabelConfig(),
+    getFormSchemas(),
   ])
+
+  const payeeLabel = schemas.payment_voucher
+    .flatMap(b => b.rows.flatMap(r => r.slots))
+    .find((s): s is NonNullable<FormSlot> => s !== null && s.dataSource?.startsWith('payee_records:') === true)
+    ?.label ?? null
 
   const { data, error } = await supabase
     .from('funds_payment')
@@ -31,7 +38,7 @@ export default async function MyPaymentPage() {
   return (
     <>
       {error && <p style={{ color: '#dc2626' }}>載入失敗：{error.message}</p>}
-      <MyPaymentTableView records={records} labelConfig={labelConfig} />
+      <MyPaymentTableView records={records} labelConfig={labelConfig} payeeLabel={payeeLabel} />
     </>
   )
 }

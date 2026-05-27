@@ -87,7 +87,7 @@ export default function MyFundsTableView({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
             <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-              {['狀態', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
+              {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
                 <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-body)', whiteSpace: 'nowrap' }}>
                   {col}
                 </th>
@@ -97,7 +97,7 @@ export default function MyFundsTableView({
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
+                <td colSpan={11} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
                   {query ? '找不到符合的紀錄' : '尚無申請紀錄'}
                 </td>
               </tr>
@@ -111,6 +111,14 @@ export default function MyFundsTableView({
                     stepName={getStepName(r)}
                     labelConfig={labelConfig}
                   />
+                </td>
+                <td style={td}>
+                  <Link
+                    href={`/funds-allocation/my-funds/edit/${r.id}`}
+                    style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}
+                  >
+                    {r.status === 'draft' ? '繼續編輯' : (r.serial_number ?? '-')}
+                  </Link>
                 </td>
                 <td style={td}>{r.apply_division ?? '-'}</td>
                 <td style={td}>{r.apply_section ?? '-'}</td>

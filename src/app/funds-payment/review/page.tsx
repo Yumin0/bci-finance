@@ -3,24 +3,25 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MOCK_USER_ID } from '@/lib/constants'
-import { FundsPayment, ApprovalRecord } from '@/lib/types'
-import { formatDateTime } from '@/lib/dateUtils'
+import { FundsPayment, ApprovalRecord, FormSlot } from '@/lib/types'
 import Link from 'next/link'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
+import { getFormSchemas } from '@/app/actions/form-schema'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import { Input } from '@/components/ui/input'
 
-// 搜尋欄位設定：要新增或移除搜尋欄位只改這裡
-const PENDING_SEARCH: Array<(r: PendingItem) => string | null | undefined> = [
-  (r) => r.apply_section,
-  (r) => r.applicant,
+const buildPendingSearch = (payeeLabel: string | null): Array<(r: PendingItem) => string | null | undefined> => [
+  (r) => r.purchase_order_number,
   (r) => r.name,
+  (r) => r.payment_method,
+  ...(payeeLabel ? [(r: PendingItem) => r.extra_data?.[payeeLabel]] : []),
 ]
-const HISTORY_SEARCH: Array<(r: HistoryItem) => string | null | undefined> = [
-  (r) => r.funds_payment?.apply_section,
-  (r) => r.funds_payment?.applicant,
+const buildHistorySearch = (payeeLabel: string | null): Array<(r: HistoryItem) => string | null | undefined> => [
+  (r) => r.funds_payment?.purchase_order_number,
   (r) => r.funds_payment?.name,
+  (r) => r.funds_payment?.payment_method,
+  ...(payeeLabel ? [(r: HistoryItem) => r.funds_payment?.extra_data?.[payeeLabel]] : []),
 ]
 
 type Tab = 'pending' | 'history'
@@ -28,7 +29,7 @@ type Tab = 'pending' | 'history'
 type PendingItem = FundsPayment & { step_name: string }
 
 type HistoryItem = ApprovalRecord & {
-  funds_payment: Pick<FundsPayment, 'id' | 'name' | 'amount' | 'applicant' | 'apply_section' | 'status'> | null
+  funds_payment: Pick<FundsPayment, 'id' | 'name' | 'amount' | 'status' | 'purchase_order_number' | 'payment_method' | 'extra_data'> | null
 }
 
 export default function PaymentReviewPage() {
@@ -36,6 +37,7 @@ export default function PaymentReviewPage() {
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([])
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([])
   const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
+  const [payeeLabel, setPayeeLabel] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
 
@@ -45,8 +47,9 @@ export default function PaymentReviewPage() {
     async function load() {
       setLoading(true)
 
-      const [config, pendingRes, historyRaw] = await Promise.all([
+      const [config, schemas, pendingRes, historyRaw] = await Promise.all([
         getStatusLabelConfig(),
+        getFormSchemas(),
         supabase
           .from('funds_payment')
           .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number))`)
@@ -54,13 +57,19 @@ export default function PaymentReviewPage() {
           .order('created_at', { ascending: true }),
         supabase
           .from('approval_records')
-          .select(`*, funds_payment:funds_payment_id(id, name, amount, applicant, apply_section, status)`)
+          .select(`*, funds_payment:funds_payment_id(id, name, amount, status, purchase_order_number, payment_method, extra_data)`)
           .eq('reviewer_id', MOCK_USER_ID)
           .not('decision', 'is', null)
           .not('funds_payment_id', 'is', null)
           .order('reviewed_at', { ascending: false })
           .limit(500),
       ])
+
+      const label = schemas.payment_voucher
+        .flatMap(b => b.rows.flatMap(r => r.slots))
+        .find((s): s is NonNullable<FormSlot> => s !== null && s.dataSource?.startsWith('payee_records:') === true)
+        ?.label ?? null
+      setPayeeLabel(label)
 
       setLabelConfig(config)
 
@@ -98,10 +107,10 @@ export default function PaymentReviewPage() {
   })
 
   const filteredPending = query.trim()
-    ? pendingItems.filter(r => PENDING_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
+    ? pendingItems.filter(r => buildPendingSearch(payeeLabel).some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
     : pendingItems
   const filteredHistory = query.trim()
-    ? historyItems.filter(r => HISTORY_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
+    ? historyItems.filter(r => buildHistorySearch(payeeLabel).some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
     : historyItems
 
   return (
@@ -112,7 +121,7 @@ export default function PaymentReviewPage() {
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>付款憑單的審核任務與歷史記錄</p>
         </div>
         <Input
-          placeholder="搜尋申請課別、申請人、憑單名稱…"
+          placeholder="搜尋採購單號、憑單名稱、付款方式、付款對象…"
           value={query}
           onChange={e => setQuery(e.target.value)}
           style={{ width: 260, fontSize: 13 }}
@@ -132,20 +141,20 @@ export default function PaymentReviewPage() {
       </div>
 
       {loading ? <p style={{ color: 'var(--text-muted)' }}>載入中...</p>
-        : tab === 'pending' ? <PendingList items={filteredPending} labelConfig={labelConfig} />
-        : <HistoryList items={filteredHistory} labelConfig={labelConfig} />}
+        : tab === 'pending' ? <PendingList items={filteredPending} labelConfig={labelConfig} payeeLabel={payeeLabel} />
+        : <HistoryList items={filteredHistory} labelConfig={labelConfig} payeeLabel={payeeLabel} />}
     </div>
   )
 }
 
-function PendingList({ items, labelConfig }: { items: PendingItem[]; labelConfig: StatusLabelConfig }) {
+function PendingList({ items, labelConfig, payeeLabel }: { items: PendingItem[]; labelConfig: StatusLabelConfig; payeeLabel: string | null }) {
   if (items.length === 0) return <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>目前沒有待審核的憑單</p>
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['狀態', '申請課別', '申請人', '憑單名稱', '金額', ''].map((col, i) => (
+            {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => (
               <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
             ))}
           </tr>
@@ -156,9 +165,15 @@ function PendingList({ items, labelConfig }: { items: PendingItem[]; labelConfig
               <td style={td}>
                 <StatusBadge module="payment_voucher" status="pending" stepName={r.step_name} labelConfig={labelConfig} />
               </td>
-              <td style={td}>{r.apply_section ?? '-'}</td>
-              <td style={td}>{r.applicant ?? r.created_by}</td>
+              <td style={td}>
+                <Link href={`/funds-payment/review/check/${r.id}`}
+                  style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}>
+                  {r.purchase_order_number ?? '-'}
+                </Link>
+              </td>
               <td style={td}>{r.name}</td>
+              <td style={td}>{r.payment_method ?? '-'}</td>
+              <td style={td}>{payeeLabel ? (r.extra_data?.[payeeLabel] ?? '-') : '-'}</td>
               <td style={td}>{r.amount.toLocaleString()}</td>
               <td style={td}>
                 <Link href={`/funds-payment/review/check/${r.id}`}
@@ -174,14 +189,14 @@ function PendingList({ items, labelConfig }: { items: PendingItem[]; labelConfig
   )
 }
 
-function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig: StatusLabelConfig }) {
+function HistoryList({ items, labelConfig, payeeLabel }: { items: HistoryItem[]; labelConfig: StatusLabelConfig; payeeLabel: string | null }) {
   if (items.length === 0) return <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>尚無審核紀錄</p>
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['狀態', '申請課別', '申請人', '憑單名稱', '金額', '審核時間', ''].map((col, i) => (
+            {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => (
               <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
             ))}
           </tr>
@@ -197,11 +212,18 @@ function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig
                   labelConfig={labelConfig}
                 />
               </td>
-              <td style={td}>{r.funds_payment?.apply_section ?? '-'}</td>
-              <td style={td}>{r.funds_payment?.applicant ?? '-'}</td>
+              <td style={td}>
+                {r.funds_payment_id ? (
+                  <Link href={`/funds-payment/review/check/${r.funds_payment_id}`}
+                    style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}>
+                    {r.funds_payment?.purchase_order_number ?? '-'}
+                  </Link>
+                ) : (r.funds_payment?.purchase_order_number ?? '-')}
+              </td>
               <td style={td}>{r.funds_payment?.name ?? '-'}</td>
+              <td style={td}>{r.funds_payment?.payment_method ?? '-'}</td>
+              <td style={td}>{payeeLabel ? (r.funds_payment?.extra_data?.[payeeLabel] ?? '-') : '-'}</td>
               <td style={td}>{r.funds_payment?.amount?.toLocaleString() ?? '-'}</td>
-              <td style={td}>{r.reviewed_at ? formatDateTime(r.reviewed_at) : '-'}</td>
               <td style={td}>
                 {r.funds_payment_id && (
                   <Link href={`/funds-payment/review/check/${r.funds_payment_id}`}

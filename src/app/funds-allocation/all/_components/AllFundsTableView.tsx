@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { FundsAllocation } from '@/lib/types'
-import { formatDate } from '@/lib/dateUtils'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import ExportCsvButton from './ExportCsvButton'
@@ -17,12 +16,13 @@ type AllocationRow = FundsAllocation & {
   approval_records: Array<{ step_name: string; decision: string }>
 }
 
-// 搜尋欄位設定：要新增或移除搜尋欄位只改這裡
 const SEARCH_FIELDS: Array<(r: AllocationRow) => string | null | undefined> = [
+  (r) => r.serial_number,
+  (r) => r.apply_division,
   (r) => r.apply_section,
   (r) => r.applicant,
+  (r) => r.expense_item,
   (r) => r.name,
-  (r) => r.approval_flow_templates?.name,
 ]
 
 function getStepName(r: AllocationRow): string | null {
@@ -67,7 +67,7 @@ export default function AllFundsTableView({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Input
-            placeholder="搜尋申請課別、申請人、項目名稱…"
+            placeholder="搜尋單號、申請處別、申請課別、申請人、費用項目、項目名稱…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             style={{ width: 260, fontSize: 13 }}
@@ -80,7 +80,7 @@ export default function AllFundsTableView({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
             <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-              {['申請日期', '申請課別', '申請人', '項目名稱', '金額', '審核流程', '目前進度', ''].map((col, i) => (
+              {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
                 <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>
                   {col}
                 </th>
@@ -90,19 +90,13 @@ export default function AllFundsTableView({
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
+                <td colSpan={11} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
                   {query ? '找不到符合的紀錄' : '目前無申請紀錄'}
                 </td>
               </tr>
             )}
             {filtered.map(r => (
               <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={td}>{formatDate(r.created_at)}</td>
-                <td style={td}>{r.apply_section ?? '-'}</td>
-                <td style={td}>{r.applicant ?? r.created_by}</td>
-                <td style={td}>{r.name}</td>
-                <td style={td}>{r.amount.toLocaleString()}</td>
-                <td style={td}>{r.approval_flow_templates?.name ?? '-'}</td>
                 <td style={td}>
                   <StatusBadge
                     module="funds_allocation"
@@ -111,6 +105,22 @@ export default function AllFundsTableView({
                     labelConfig={labelConfig}
                   />
                 </td>
+                <td style={td}>
+                  <Link
+                    href={`/funds-allocation/my-funds/edit/${r.id}`}
+                    style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}
+                  >
+                    {r.status === 'draft' ? '繼續編輯' : (r.serial_number ?? '-')}
+                  </Link>
+                </td>
+                <td style={td}>{r.apply_division ?? '-'}</td>
+                <td style={td}>{r.apply_section ?? '-'}</td>
+                <td style={td}>{r.applicant ?? r.created_by}</td>
+                <td style={td}>{r.apply_role ?? '-'}</td>
+                <td style={td}>{r.amount.toLocaleString()}</td>
+                <td style={td}>{r.payment_account ?? '-'}</td>
+                <td style={td}>{r.expense_item ?? '-'}</td>
+                <td style={td}>{r.name}</td>
                 <td style={td}>
                   <Link
                     href={`/funds-allocation/my-funds/edit/${r.id}`}

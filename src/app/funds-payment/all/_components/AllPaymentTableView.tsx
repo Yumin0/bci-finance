@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Input } from '@/components/ui/input'
 import { FundsPayment } from '@/lib/types'
-import { formatDate } from '@/lib/dateUtils'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import ExportCsvButton from './ExportCsvButton'
@@ -17,12 +16,11 @@ type PaymentRow = FundsPayment & {
   approval_records: Array<{ step_name: string; decision: string }>
 }
 
-// 搜尋欄位設定：要新增或移除搜尋欄位只改這裡
-const SEARCH_FIELDS: Array<(r: PaymentRow) => string | null | undefined> = [
-  (r) => r.apply_section,
-  (r) => r.applicant,
+const buildSearchFields = (payeeLabel: string | null): Array<(r: PaymentRow) => string | null | undefined> => [
+  (r) => r.purchase_order_number,
   (r) => r.name,
-  (r) => r.approval_flow_templates?.name,
+  (r) => r.payment_method,
+  ...(payeeLabel ? [(r: PaymentRow) => r.extra_data?.[payeeLabel]] : []),
 ]
 
 function getStepName(r: PaymentRow): string | null {
@@ -45,15 +43,18 @@ export default function AllPaymentTableView({
   records,
   labelConfig,
   canExport,
+  payeeLabel,
 }: {
   records: PaymentRow[]
   labelConfig: StatusLabelConfig
   canExport: boolean
+  payeeLabel: string | null
 }) {
   const [query, setQuery] = useState('')
 
+  const searchFields = buildSearchFields(payeeLabel)
   const filtered = query.trim()
-    ? records.filter(r => SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
+    ? records.filter(r => searchFields.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
     : records
 
   return (
@@ -65,7 +66,7 @@ export default function AllPaymentTableView({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Input
-            placeholder="搜尋申請課別、申請人、憑單名稱…"
+            placeholder="搜尋採購單號、憑單名稱、付款方式、付款對象…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             style={{ width: 260, fontSize: 13 }}
@@ -78,7 +79,7 @@ export default function AllPaymentTableView({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
             <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-              {['申請日期', '申請課別', '申請人', '憑單名稱', '金額', '審核流程', '目前進度', ''].map((col, i) => (
+              {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => (
                 <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
               ))}
             </tr>
@@ -86,19 +87,13 @@ export default function AllPaymentTableView({
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
+                <td colSpan={7} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
                   {query ? '找不到符合的紀錄' : '目前無付款紀錄'}
                 </td>
               </tr>
             )}
             {filtered.map(r => (
               <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={td}>{formatDate(r.created_at)}</td>
-                <td style={td}>{r.apply_section ?? '-'}</td>
-                <td style={td}>{r.applicant ?? r.created_by}</td>
-                <td style={td}>{r.name}</td>
-                <td style={td}>{r.amount.toLocaleString()}</td>
-                <td style={td}>{r.approval_flow_templates?.name ?? '-'}</td>
                 <td style={td}>
                   <StatusBadge
                     module="payment_voucher"
@@ -107,6 +102,18 @@ export default function AllPaymentTableView({
                     labelConfig={labelConfig}
                   />
                 </td>
+                <td style={td}>
+                  <Link
+                    href={`/funds-payment/my-payment/${r.id}`}
+                    style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}
+                  >
+                    {r.status === 'draft' ? '繼續編輯' : (r.purchase_order_number ?? '-')}
+                  </Link>
+                </td>
+                <td style={td}>{r.name}</td>
+                <td style={td}>{r.payment_method ?? '-'}</td>
+                <td style={td}>{payeeLabel ? (r.extra_data?.[payeeLabel] ?? '-') : '-'}</td>
+                <td style={td}>{r.amount.toLocaleString()}</td>
                 <td style={td}>
                   <Link href={`/funds-payment/my-payment/${r.id}`}
                     style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>

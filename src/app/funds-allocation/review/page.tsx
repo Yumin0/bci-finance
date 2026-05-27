@@ -4,22 +4,26 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, ApprovalRecord } from '@/lib/types'
-import { formatDateTime } from '@/lib/dateUtils'
 import Link from 'next/link'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import { Input } from '@/components/ui/input'
 
-// 搜尋欄位設定：要新增或移除搜尋欄位只改這裡
 const PENDING_SEARCH: Array<(r: PendingItem) => string | null | undefined> = [
+  (r) => r.serial_number,
+  (r) => r.apply_division,
   (r) => r.apply_section,
   (r) => r.applicant,
+  (r) => r.expense_item,
   (r) => r.name,
 ]
 const HISTORY_SEARCH: Array<(r: HistoryItem) => string | null | undefined> = [
+  (r) => r.funds_allocation?.serial_number,
+  (r) => r.funds_allocation?.apply_division,
   (r) => r.funds_allocation?.apply_section,
   (r) => r.funds_allocation?.applicant,
+  (r) => r.funds_allocation?.expense_item,
   (r) => r.funds_allocation?.name,
 ]
 
@@ -28,7 +32,7 @@ type Tab = 'pending' | 'history'
 type PendingItem = FundsAllocation & { step_name: string }
 
 type HistoryItem = ApprovalRecord & {
-  funds_allocation: Pick<FundsAllocation, 'id' | 'name' | 'amount' | 'applicant' | 'apply_section' | 'status'> | null
+  funds_allocation: Pick<FundsAllocation, 'id' | 'name' | 'amount' | 'status' | 'serial_number' | 'apply_division' | 'apply_section' | 'applicant' | 'apply_role' | 'payment_account' | 'expense_item'> | null
 }
 
 export default function ReviewPage() {
@@ -54,7 +58,7 @@ export default function ReviewPage() {
           .order('created_at', { ascending: true }),
         supabase
           .from('approval_records')
-          .select(`*, funds_allocation:funds_allocation_id(id, name, amount, applicant, apply_section, status)`)
+          .select(`*, funds_allocation:funds_allocation_id(id, name, amount, status, serial_number, apply_division, apply_section, applicant, apply_role, payment_account, expense_item)`)
           .eq('reviewer_id', MOCK_USER_ID)
           .not('decision', 'is', null)
           .not('funds_allocation_id', 'is', null)
@@ -112,7 +116,7 @@ export default function ReviewPage() {
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>資金分配申請的審核任務與歷史記錄</p>
         </div>
         <Input
-          placeholder="搜尋申請課別、申請人、項目名稱…"
+          placeholder="搜尋單號、申請處別、申請課別、申請人、費用項目、項目名稱…"
           value={query}
           onChange={e => setQuery(e.target.value)}
           style={{ width: 260, fontSize: 13 }}
@@ -153,7 +157,7 @@ function PendingList({ items, labelConfig }: { items: PendingItem[]; labelConfig
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['狀態', '申請課別', '申請人', '項目名稱', '金額', ''].map((col, i) => (
+            {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
               <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
             ))}
           </tr>
@@ -164,10 +168,20 @@ function PendingList({ items, labelConfig }: { items: PendingItem[]; labelConfig
               <td style={td}>
                 <StatusBadge module="funds_allocation" status="pending" stepName={r.step_name} labelConfig={labelConfig} />
               </td>
+              <td style={td}>
+                <Link href={`/funds-allocation/review/check/${r.id}`}
+                  style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}>
+                  {r.serial_number ?? '-'}
+                </Link>
+              </td>
+              <td style={td}>{r.apply_division ?? '-'}</td>
               <td style={td}>{r.apply_section ?? '-'}</td>
               <td style={td}>{r.applicant ?? r.created_by}</td>
-              <td style={td}>{r.name}</td>
+              <td style={td}>{r.apply_role ?? '-'}</td>
               <td style={td}>{r.amount.toLocaleString()}</td>
+              <td style={td}>{r.payment_account ?? '-'}</td>
+              <td style={td}>{r.expense_item ?? '-'}</td>
+              <td style={td}>{r.name}</td>
               <td style={td}>
                 <Link
                   href={`/funds-allocation/review/check/${r.id}`}
@@ -193,7 +207,7 @@ function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['狀態', '申請課別', '申請人', '項目名稱', '金額', '審核時間', ''].map((col, i) => (
+            {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
               <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
             ))}
           </tr>
@@ -209,11 +223,22 @@ function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig
                   labelConfig={labelConfig}
                 />
               </td>
+              <td style={td}>
+                {r.funds_allocation_id ? (
+                  <Link href={`/funds-allocation/review/check/${r.funds_allocation_id}`}
+                    style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}>
+                    {r.funds_allocation?.serial_number ?? '-'}
+                  </Link>
+                ) : (r.funds_allocation?.serial_number ?? '-')}
+              </td>
+              <td style={td}>{r.funds_allocation?.apply_division ?? '-'}</td>
               <td style={td}>{r.funds_allocation?.apply_section ?? '-'}</td>
               <td style={td}>{r.funds_allocation?.applicant ?? '-'}</td>
-              <td style={td}>{r.funds_allocation?.name ?? '-'}</td>
+              <td style={td}>{r.funds_allocation?.apply_role ?? '-'}</td>
               <td style={td}>{r.funds_allocation?.amount?.toLocaleString() ?? '-'}</td>
-              <td style={td}>{r.reviewed_at ? formatDateTime(r.reviewed_at) : '-'}</td>
+              <td style={td}>{r.funds_allocation?.payment_account ?? '-'}</td>
+              <td style={td}>{r.funds_allocation?.expense_item ?? '-'}</td>
+              <td style={td}>{r.funds_allocation?.name ?? '-'}</td>
               <td style={td}>
                 {r.funds_allocation_id && (
                   <Link href={`/funds-allocation/review/check/${r.funds_allocation_id}`}
