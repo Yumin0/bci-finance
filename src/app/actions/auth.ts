@@ -1,7 +1,7 @@
 'use server'
 import bcrypt from 'bcryptjs'
 import { redirect } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { createSession, deleteSession } from '@/lib/session'
 
 export type LoginState =

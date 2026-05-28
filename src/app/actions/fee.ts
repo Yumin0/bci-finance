@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import type { FeeCategory, FeeSubcategory, FeeCategoryField, PayeeFieldType, FeeRecord } from '@/lib/types'
 
 export async function getFeeCategories(): Promise<FeeCategory[]> {

@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import type { PayeeCategory, PayeeCategoryField, PayeeFieldType, PayeeRecord } from '@/lib/types'
 
 export async function getPayeeCategories(): Promise<PayeeCategory[]> {

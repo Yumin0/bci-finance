@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 import { DevTracker, AppUser } from '@/lib/types'
 import IssueDetailView from './IssueDetailView'

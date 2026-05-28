@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { FundsAllocation, FundsPayment } from '@/lib/types'
 
 export type FundsAllocationExportRow = FundsAllocation & {

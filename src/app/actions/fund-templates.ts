@@ -1,5 +1,5 @@
 'use server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 import { FundsAllocationTemplate } from '@/lib/types'
 

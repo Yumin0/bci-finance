@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { FundAttachment } from '@/lib/types'
 
 function withPublicUrl(row: Omit<FundAttachment, 'url'>): FundAttachment {

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation } from '@/lib/types'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'

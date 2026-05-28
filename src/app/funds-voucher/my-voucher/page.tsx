@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import MyVoucherTableView from './_components/MyVoucherTableView'

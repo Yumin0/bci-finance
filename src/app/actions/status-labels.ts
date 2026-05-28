@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import {
   DEFAULT_STATUS_LABEL_CONFIG,
   mergeStatusLabelConfig,

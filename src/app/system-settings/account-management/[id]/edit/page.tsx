@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import EditAccountForm from './_components/EditAccountForm'
 import type { SystemRole } from '@/lib/types'
 
