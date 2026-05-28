@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { formatDate } from '@/lib/dateUtils'
 import { buttonVariants } from '@/components/ui/button'
 

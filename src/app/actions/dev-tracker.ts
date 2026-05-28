@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { Block } from '@/lib/types'
 

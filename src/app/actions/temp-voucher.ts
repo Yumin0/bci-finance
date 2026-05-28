@@ -1,6 +1,6 @@
 'use server'
 
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 
 export async function createTempVoucher(

@@ -1,6 +1,6 @@
 'use server'
 
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { FundsPayment, FundsAllocation } from '@/lib/types'
 import { PAYMENT_STATUS } from '@/lib/constants'

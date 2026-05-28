@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'

@@ -1,4 +1,4 @@
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { getUserAllowedItemIds } from '@/app/actions/sidebar-config'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'

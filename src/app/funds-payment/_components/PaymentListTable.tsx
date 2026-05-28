@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { FundsPayment } from '@/lib/types'
 
 export default async function PaymentListTable({ title }: { title: string }) {

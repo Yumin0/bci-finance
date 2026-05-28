@@ -1,6 +1,6 @@
 'use server'
 
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { FormBlock, FormSchemaRow, FormType, FormDataSourceDef } from '@/lib/types'
 
 const FALLBACK_DATA_SOURCES: FormDataSourceDef[] = [

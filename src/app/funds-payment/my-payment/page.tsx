@@ -1,4 +1,4 @@
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { FundsPayment, FormSlot } from '@/lib/types'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'

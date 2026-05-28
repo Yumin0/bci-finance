@@ -1,7 +1,7 @@
 'use server'
 import bcrypt from 'bcryptjs'
 import { redirect } from 'next/navigation'
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
 type UpdateState =
   | { errors?: { name?: string[]; email?: string[]; password?: string[] }; message?: string }
