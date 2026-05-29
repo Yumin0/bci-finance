@@ -13,6 +13,8 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import { saveAttachments } from '@/app/actions/attachments'
 import { saveUserFundTemplate } from '@/app/actions/fund-templates'
+import DateCyclePicker from '@/app/_components/DateCyclePicker'
+import { ApplicationCycleConfig } from '@/app/actions/application-cycle'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
@@ -29,11 +31,13 @@ export default function AddFundsForm({
   userId,
   schema,
   initialValues,
+  cycleConfig,
 }: {
   applicantName: string
   userId: number | null
   schema: FormBlock[]
   initialValues?: Record<string, string>
+  cycleConfig?: ApplicationCycleConfig
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
@@ -357,6 +361,19 @@ export default function AddFundsForm({
         : dataSource === 'current_user_id' ? String(userId ?? '')
         : values[fieldId] ?? ''
       return <Input value={autoVal} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+    }
+
+    if (type === 'date' && fieldId === 'date' && cycleConfig && cycleConfig.allowed_weekdays.length > 0) {
+      return (
+        <DateCyclePicker
+          name={fieldId}
+          value={values[fieldId] ?? ''}
+          onChange={v => onChange(fieldId, v)}
+          allowedWeekdays={cycleConfig.allowed_weekdays}
+          weeksAhead={cycleConfig.weeks_ahead}
+          required={required}
+        />
+      )
     }
 
     const inputType = type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'

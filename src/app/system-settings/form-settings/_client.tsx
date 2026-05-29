@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { saveFormSchema } from '@/app/actions/form-schema'
 import { FormBlock, FormSchemaRow, FormSlot, FormColCount, FormType, FormFieldType, FormDataSourceDef } from '@/lib/types'
 import TemplateManagementTab from './_template-tab'
+import CycleTab from './_cycle-tab'
 
 type FieldDef = {
   id: string
@@ -91,7 +92,7 @@ export default function FormSettingsClient({
   initialSchemas: Record<FormType, FormBlock[]>
   dataSources: FormDataSourceDef[]
 }) {
-  const [activeTab, setActiveTab] = useState<FormType | 'templates'>('funds_allocation')
+  const [activeTab, setActiveTab] = useState<FormType | 'templates' | 'cycle'>('funds_allocation')
   const [formType, setFormType]   = useState<FormType>('funds_allocation')
   const [newTemplateTrigger, setNewTemplateTrigger] = useState(0)
   const [schemas,  setSchemas]    = useState<Record<FormType, FormBlock[]>>(initialSchemas)
@@ -273,18 +274,18 @@ export default function FormSettingsClient({
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>表單設定</h1>
-        {activeTab !== 'templates' ? (
+        {activeTab !== 'templates' && activeTab !== 'cycle' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {savedMsg && <span style={{ fontSize: 13, color: savedMsg === '已儲存' ? '#16a34a' : '#dc2626' }}>{savedMsg}</span>}
             <button onClick={handleSave} disabled={saving} style={btnPrimary}>
               {saving ? '儲存中...' : '儲存設定'}
             </button>
           </div>
-        ) : (
+        ) : activeTab === 'templates' ? (
           <button onClick={() => setNewTemplateTrigger(c => c + 1)} style={btnPrimary}>
             ＋ 新增範本
           </button>
-        )}
+        ) : null}
       </div>
 
       {/* Tabs */}
@@ -297,6 +298,12 @@ export default function FormSettingsClient({
             {ft === 'funds_allocation' ? '資金分配申請單' : ft === 'payment_voucher' ? '付款憑單' : '暫付款沖銷憑單'}
           </button>
         ))}
+        <button onClick={() => { setActiveTab('cycle'); setSelection(null) }}
+          style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
+            borderBottom: activeTab === 'cycle' ? '2px solid #111827' : '2px solid transparent',
+            marginBottom: -1, cursor: 'pointer', color: activeTab === 'cycle' ? '#111827' : '#6b7280' }}>
+          申請週期
+        </button>
         <button onClick={() => { setActiveTab('templates'); setSelection(null) }}
           style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
             borderBottom: activeTab === 'templates' ? '2px solid #111827' : '2px solid transparent',
@@ -305,11 +312,14 @@ export default function FormSettingsClient({
         </button>
       </div>
 
+      {/* Cycle tab */}
+      {activeTab === 'cycle' && <CycleTab />}
+
       {/* Templates tab */}
       {activeTab === 'templates' && <TemplateManagementTab newTrigger={newTemplateTrigger} />}
 
       {/* Main layout */}
-      {activeTab !== 'templates' && <div style={{ display: 'flex', gap: 0, minHeight: 500 }}>
+      {activeTab !== 'templates' && activeTab !== 'cycle' && <div style={{ display: 'flex', gap: 0, minHeight: 500 }}>
         {/* Canvas */}
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: 20 }}>
           {blocks.map((block, blockIdx) => {
