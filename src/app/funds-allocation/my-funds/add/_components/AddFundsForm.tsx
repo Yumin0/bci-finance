@@ -3,8 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
-import { DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSlot } from '@/lib/types'
+import { MOCK_USER_ID } from '@/lib/constants'
+import { createFundsAllocation, generateSerialNumber as genSerialNumber } from '@/app/actions/funds-allocation'
+import { DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSchemaRow, FormSlot } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -73,15 +74,42 @@ export default function AddFundsForm({
   // 附件（key = slot.label）
   const [pendingAttachments, setPendingAttachments] = useState<Record<string, AttachmentItem[]>>({})
 
+  // 可重複列資料（key = rowId, value = 每筆的欄位值陣列）
+  const [repeatableValues, setRepeatableValues] = useState<Record<string, Record<string, string>[]>>({})
+
   // Collect which data sources are needed
   const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
     b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
+  )
+  const allRows = schema.flatMap(b => b.rows)
+  const repeatableSlotFieldIds = new Set(
+    allRows.filter(r => r.repeatable).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId))
   )
   const neededSources = new Set(allSlots.map(s => s.dataSource))
 
   const setField = useCallback((id: string, val: string) => {
     setFieldValues(prev => ({ ...prev, [id]: val }))
   }, [])
+
+  function getRepeatableInstances(rowId: string) {
+    return repeatableValues[rowId] ?? [{}]
+  }
+  function setRepeatableField(rowId: string, idx: number, fieldId: string, val: string) {
+    setRepeatableValues(prev => {
+      const instances = [...(prev[rowId] ?? [{}])]
+      instances[idx] = { ...instances[idx], [fieldId]: val }
+      return { ...prev, [rowId]: instances }
+    })
+  }
+  function addRepeatableInstance(rowId: string) {
+    setRepeatableValues(prev => ({ ...prev, [rowId]: [...(prev[rowId] ?? [{}]), {}] }))
+  }
+  function removeRepeatableInstance(rowId: string, idx: number) {
+    setRepeatableValues(prev => {
+      const instances = (prev[rowId] ?? [{}]).filter((_, i) => i !== idx)
+      return { ...prev, [rowId]: instances.length ? instances : [{}] }
+    })
+  }
 
   // 當出款帳號改變時，自動查找對應的審核流程範本
   useEffect(() => {
@@ -214,73 +242,64 @@ export default function AddFundsForm({
     .filter(r => r.org_unit_id === sectionId)
     .map(r => r.display_name ?? (unitMap.get(r.org_unit_id) ? `${unitLabel(unitMap.get(r.org_unit_id)!)} ${r.role_types.name}` : r.role_types.name))
 
-  async function generateSerialNumber(): Promise<string> {
-    const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }).replace(/-/g, '')
-    const { count } = await supabase
-      .from('funds_allocation')
-      .select('id', { count: 'exact', head: true })
-      .like('serial_number', `${dateStr}%`)
-    const seq = ((count ?? 0) + 1).toString().padStart(3, '0')
-    return `${dateStr}${seq}`
-  }
+  function renderFieldFor(
+    slot: NonNullable<FormSlot>,
+    values: Record<string, string>,
+    onChange: (fieldId: string, val: string) => void,
+    isRepeatable = false,
+  ) {
+    const { fieldId, required, type, dataSource, staticOptions } = slot
 
-  function renderField(slot: NonNullable<FormSlot>) {
-    const { fieldId, label: _label, required, type, dataSource, staticOptions } = slot
-
-    if (fieldId === 'serial_number') {
-      return <Input value="（送出後自動產生）" readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-    }
-
-    // Catalog fields with special behavior
-    if (fieldId === 'applicant' || dataSource === 'current_user_name') {
-      return <Input value={applicantName} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-    }
-    if (fieldId === 'apply_division') {
-      return (
-        <SearchableSelect
-          value={String(divisionId ?? '')}
-          onChange={v => { setDivisionId(Number(v) || null); setSectionId(null); setField('apply_role', '') }}
-          options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
-          required={required}
-        />
-      )
-    }
-    if (fieldId === 'apply_section') {
-      return (
-        <SearchableSelect
-          value={String(sectionId ?? '')}
-          onChange={v => { setSectionId(Number(v) || null); setField('apply_role', '') }}
-          options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
-          disabled={!divisionId}
-          required={required}
-        />
-      )
-    }
-    if (fieldId === 'apply_role') {
-      return (
-        <SearchableSelect
-          value={fieldValues.apply_role ?? ''}
-          onChange={v => setField('apply_role', v)}
-          options={availableRoles.map(name => ({ value: name, label: name }))}
-          disabled={!sectionId}
-          required={required}
-        />
-      )
+    if (!isRepeatable) {
+      if (fieldId === 'serial_number') {
+        return <Input value="（送出後自動產生）" readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+      }
+      if (fieldId === 'applicant' || dataSource === 'current_user_name') {
+        return <Input value={applicantName} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+      }
+      if (fieldId === 'apply_division') {
+        return (
+          <SearchableSelect
+            value={String(divisionId ?? '')}
+            onChange={v => { setDivisionId(Number(v) || null); setSectionId(null); setField('apply_role', '') }}
+            options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+            required={required}
+          />
+        )
+      }
+      if (fieldId === 'apply_section') {
+        return (
+          <SearchableSelect
+            value={String(sectionId ?? '')}
+            onChange={v => { setSectionId(Number(v) || null); setField('apply_role', '') }}
+            options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+            disabled={!divisionId}
+            required={required}
+          />
+        )
+      }
+      if (fieldId === 'apply_role') {
+        return (
+          <SearchableSelect
+            value={fieldValues.apply_role ?? ''}
+            onChange={v => setField('apply_role', v)}
+            options={availableRoles.map(name => ({ value: name, label: name }))}
+            disabled={!sectionId}
+            required={required}
+          />
+        )
+      }
     }
 
-    // Generic rendering by type
     if (type === 'radio') {
       return (
         <div style={{ display: 'flex', gap: 20, padding: '8px 0' }}>
           {(staticOptions ?? []).map(opt => (
             <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name={fieldId}
-                value={opt}
-                checked={fieldValues[fieldId] === opt}
-                onChange={e => setField(fieldId, e.target.value)}
-                required={required && !fieldValues[fieldId]}
+              <input type="radio" name={fieldId} value={opt}
+                checked={values[fieldId] === opt}
+                onChange={e => onChange(fieldId, e.target.value)}
+                required={required && !values[fieldId]}
               />
               {opt}
             </label>
@@ -303,15 +322,15 @@ export default function AddFundsForm({
       }
       return (
         <SearchableSelect
-          value={fieldValues[fieldId] ?? ''}
-          onChange={v => setField(fieldId, v)}
+          value={values[fieldId] ?? ''}
+          onChange={v => onChange(fieldId, v)}
           options={options}
           required={required}
         />
       )
     }
 
-    if (type === 'attachment') {
+    if (type === 'attachment' && !isRepeatable) {
       const items = pendingAttachments[slot.label] ?? []
       return (
         <AttachmentUpload
@@ -325,12 +344,9 @@ export default function AddFundsForm({
 
     if (type === 'textarea') {
       return (
-        <Textarea
-          name={fieldId}
-          value={fieldValues[fieldId] ?? ''}
-          onChange={e => setField(fieldId, e.target.value)}
-          required={required}
-          rows={4}
+        <Textarea name={fieldId} value={values[fieldId] ?? ''}
+          onChange={e => onChange(fieldId, e.target.value)}
+          required={required} rows={4}
         />
       )
     }
@@ -339,23 +355,66 @@ export default function AddFundsForm({
       const autoVal = dataSource === 'today_date' ? today()
         : dataSource === 'current_user_name' ? applicantName
         : dataSource === 'current_user_id' ? String(userId ?? '')
-        : fieldValues[fieldId] ?? ''
+        : values[fieldId] ?? ''
       return <Input value={autoVal} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
-    // text / number / date
     const inputType = type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'
     const autoVal = dataSource === 'today_date' ? today() : undefined
     return (
-      <Input
-        type={inputType}
-        name={fieldId}
-        value={autoVal ?? fieldValues[fieldId] ?? ''}
-        onChange={e => setField(fieldId, e.target.value)}
-        readOnly={!!autoVal}
-        required={required}
+      <Input type={inputType} name={fieldId}
+        value={autoVal ?? values[fieldId] ?? ''}
+        onChange={e => onChange(fieldId, e.target.value)}
+        readOnly={!!autoVal} required={required}
         className={autoVal ? 'bg-[var(--bg-page)] cursor-not-allowed' : ''}
       />
+    )
+  }
+
+  function renderField(slot: NonNullable<FormSlot>) {
+    return renderFieldFor(slot, fieldValues, setField)
+  }
+
+  function renderRepeatableRow(row: FormSchemaRow) {
+    const instances = getRepeatableInstances(row.id)
+    return (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr) 56px`, gap: 12, marginBottom: 6 }}>
+          {row.slots.map((slot, idx) =>
+            slot ? (
+              <label key={idx} style={labelStyle}>
+                {slot.label}{slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+              </label>
+            ) : <div key={idx} />
+          )}
+          <div />
+        </div>
+        {instances.map((instValues, instIdx) => (
+          <div key={instIdx} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr) 56px`, gap: 12, marginBottom: 8, alignItems: 'center' }}>
+            {row.slots.map((slot, slotIdx) =>
+              slot ? (
+                <div key={slotIdx}>
+                  {renderFieldFor(slot, instValues, (fid, val) => setRepeatableField(row.id, instIdx, fid, val), true)}
+                </div>
+              ) : <div key={slotIdx} />
+            )}
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              {instances.length > 1 && (
+                <button type="button" onClick={() => removeRepeatableInstance(row.id, instIdx)}
+                  style={{ padding: '4px 8px', fontSize: 12, border: '1px solid #fca5a5',
+                    borderRadius: 6, background: 'white', color: '#dc2626', cursor: 'pointer' }}>
+                  刪除
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        <button type="button" onClick={() => addRepeatableInstance(row.id)}
+          style={{ padding: '6px 14px', fontSize: 13, border: '1.5px dashed #d1d5db',
+            borderRadius: 6, background: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginTop: 4 }}>
+          ＋ 新增項目
+        </button>
+      </div>
     )
   }
 
@@ -364,7 +423,20 @@ export default function AddFundsForm({
     const secUnit = orgUnits.find(u => u.id === sectionId)
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
-      if (slot.fieldId.startsWith('custom_')) extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
+      if (slot.fieldId.startsWith('custom_') && !repeatableSlotFieldIds.has(slot.fieldId)) {
+        extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
+      }
+    }
+    for (const row of allRows.filter(r => r.repeatable)) {
+      const instances = repeatableValues[row.id] ?? [{}]
+      const labeled = instances.map(inst => {
+        const obj: Record<string, string> = {}
+        for (const slot of row.slots) {
+          if (slot) obj[slot.label] = inst[slot.fieldId] ?? ''
+        }
+        return obj
+      })
+      extraData[`__repeatable_${row.id}`] = JSON.stringify(labeled)
     }
     return {
       date: fieldValues.date || today(),
@@ -410,19 +482,19 @@ export default function AddFundsForm({
 
   async function handleSaveDraft() {
     setSavingDraft(true); setError(null)
-    const { data, error: insertError } = await supabase.from('funds_allocation').insert(buildPayload('draft')).select('id').single()
+    const { data, error: insertError } = await createFundsAllocation(buildPayload('draft'))
     setSavingDraft(false)
-    if (insertError) { setError(insertError.message); return }
+    if (insertError) { setError(insertError); return }
     if (data?.id) await savePendingAttachments(data.id)
     router.push('/funds-allocation/my-funds')
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true); setError(null)
-    const serialNumber = await generateSerialNumber()
-    const { data, error: insertError } = await supabase.from('funds_allocation').insert({ ...buildPayload('pending'), serial_number: serialNumber }).select('id').single()
-    if (insertError) { setError(insertError.message); setSubmitting(false); return }
+    const serialNumber = await genSerialNumber()
+    const { data, error: insertError } = await createFundsAllocation({ ...buildPayload('pending'), serial_number: serialNumber })
+    if (insertError) { setError(insertError); setSubmitting(false); return }
     if (data?.id) await savePendingAttachments(data.id)
     router.push('/funds-allocation/my-funds')
   }
@@ -451,34 +523,28 @@ export default function AddFundsForm({
               </div>
             )}
             <div style={{ padding: '20px 20px 4px' }}>
-              {block.rows.map(row => (
-                <div
-                  key={row.id}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
-                    gap: 20,
-                    marginBottom: 20,
-                  }}
-                >
-                  {row.slots.map((slot, idx) => {
-                    if (slot && slot.showWhen && !slot.showWhen.values.includes(fieldValues[slot.showWhen.fieldId] ?? '')) {
-                      return <div key={idx} />
-                    }
-                    return slot ? (
-                      <div key={idx}>
-                        <label style={labelStyle}>
-                          {slot.label}
-                          {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
-                        </label>
-                        {renderField(slot)}
-                      </div>
-                    ) : (
-                      <div key={idx} />
-                    )
-                  })}
-                </div>
-              ))}
+              {block.rows.map(row =>
+                row.repeatable ? (
+                  <div key={row.id}>{renderRepeatableRow(row)}</div>
+                ) : (
+                  <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
+                    {row.slots.map((slot, idx) => {
+                      if (slot && slot.showWhen && !slot.showWhen.values.includes(fieldValues[slot.showWhen.fieldId] ?? '')) {
+                        return <div key={idx} />
+                      }
+                      return slot ? (
+                        <div key={idx}>
+                          <label style={labelStyle}>
+                            {slot.label}
+                            {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                          </label>
+                          {renderField(slot)}
+                        </div>
+                      ) : <div key={idx} />
+                    })}
+                  </div>
+                )
+              )}
             </div>
           </div>
         ))}

@@ -87,6 +87,48 @@ export default function FundsAllocationDetail({
         </div>
       </div>
 
+      {/* 多列明細（repeatable rows） */}
+      {(() => {
+        const extraData = record.extra_data ?? {}
+        const repeatableEntries = Object.entries(extraData).filter(([k]) => k.startsWith('__repeatable_'))
+        if (!repeatableEntries.length) return null
+        return repeatableEntries.map(([key, raw]) => {
+          let rows: Record<string, string>[] = []
+          try { rows = JSON.parse(raw) } catch { return null }
+          if (!rows.length) return null
+          const headers = Object.keys(rows[0])
+          return (
+            <div key={key} style={blockStyle}>
+              <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>明細項目</span>
+              </div>
+              <div style={{ padding: '0 20px 4px', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginTop: 12 }}>
+                  <thead>
+                    <tr>
+                      {headers.map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '6px 12px 6px 0', fontWeight: 500, color: 'var(--text-body)', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => (
+                      <tr key={i}>
+                        {headers.map(h => (
+                          <td key={h} style={{ padding: '8px 12px 8px 0', borderBottom: i < rows.length - 1 ? '1px solid var(--border-color)' : 'none', color: 'var(--text-body)' }}>
+                            {row[h] || '—'}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        })
+      })()}
+
       {/* 附件 */}
       {attachments && attachments.length > 0 && (() => {
         const bySlot = attachments.reduce<Record<string, FundAttachment[]>>((acc, a) => {

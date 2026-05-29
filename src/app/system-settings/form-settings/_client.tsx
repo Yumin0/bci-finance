@@ -142,6 +142,10 @@ export default function FormSettingsClient({
     if (selection && 'rowId' in selection && selection.rowId === rowId) setSelection(null)
   }
 
+  function setRowRepeatable(blockId: string, rowId: string, value: boolean) {
+    setBlockRows(blockId, prev => prev.map(r => r.id === rowId ? { ...r, repeatable: value } : r))
+  }
+
   function setRowCols(blockId: string, rowId: string, cols: FormColCount) {
     setBlockRows(blockId, prev => prev.map(r => {
       if (r.id !== rowId) return r
@@ -459,6 +463,18 @@ export default function FormSettingsClient({
                       background: selectedRow.cols === c ? '#2563eb' : 'white',
                       color: selectedRow.cols === c ? 'white' : '#374151', cursor: 'pointer' }}>
                     {c} 欄
+                  </button>
+                ))}
+              </div>
+              <p style={panelLabel}>允許新增多列</p>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+                {[true, false].map(val => (
+                  <button key={String(val)} onClick={() => setRowRepeatable(selectedBlock.id, selectedRow.id, val)}
+                    style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid',
+                      borderColor: (selectedRow.repeatable ?? false) === val ? '#2563eb' : '#d1d5db', borderRadius: 6,
+                      background: (selectedRow.repeatable ?? false) === val ? '#2563eb' : 'white',
+                      color: (selectedRow.repeatable ?? false) === val ? 'white' : '#374151', cursor: 'pointer' }}>
+                    {val ? '是' : '否'}
                   </button>
                 ))}
               </div>

@@ -198,6 +198,7 @@ export type FormSchemaRow = {
   id: string
   cols: FormColCount
   slots: FormSlot[]
+  repeatable?: boolean
 }
 
 export type FormBlock = {

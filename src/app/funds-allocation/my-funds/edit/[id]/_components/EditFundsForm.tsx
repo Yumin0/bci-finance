@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
-import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSlot, StepDecision } from '@/lib/types'
+import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSchemaRow, FormSlot, StepDecision } from '@/lib/types'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
 import ApprovalPanel from '@/app/funds-allocation/_components/ApprovalPanel'
 import StatusBadge from '@/app/_components/StatusBadge'
@@ -70,10 +70,36 @@ export default function EditFundsForm({
   const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
     b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
   )
+  const allRows = schema.flatMap(b => b.rows)
+  const repeatableSlotFieldIds = new Set(
+    allRows.filter(r => r.repeatable).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId))
+  )
   const neededSources = new Set(allSlots.map(s => s.dataSource))
+
+  const [repeatableValues, setRepeatableValues] = useState<Record<string, Record<string, string>[]>>({})
 
   function setField(id: string, val: string) {
     setFieldValues(prev => ({ ...prev, [id]: val }))
+  }
+
+  function getRepeatableInstances(rowId: string) {
+    return repeatableValues[rowId] ?? [{}]
+  }
+  function setRepeatableField(rowId: string, idx: number, fieldId: string, val: string) {
+    setRepeatableValues(prev => {
+      const instances = [...(prev[rowId] ?? [{}])]
+      instances[idx] = { ...instances[idx], [fieldId]: val }
+      return { ...prev, [rowId]: instances }
+    })
+  }
+  function addRepeatableInstance(rowId: string) {
+    setRepeatableValues(prev => ({ ...prev, [rowId]: [...(prev[rowId] ?? [{}]), {}] }))
+  }
+  function removeRepeatableInstance(rowId: string, idx: number) {
+    setRepeatableValues(prev => {
+      const instances = (prev[rowId] ?? [{}]).filter((_, i) => i !== idx)
+      return { ...prev, [rowId]: instances.length ? instances : [{}] }
+    })
   }
 
   // 草稿狀態下，出款帳號改變時自動帶入審核流程
@@ -193,11 +219,30 @@ export default function EditFundsForm({
       const extraData = (record as FundsAllocation & { extra_data?: Record<string, string> }).extra_data ?? {}
       const customValues: Record<string, string> = {}
       for (const slot of allSlots) {
-        if (slot.fieldId.startsWith('custom_') && extraData[slot.label]) {
+        if (slot.fieldId.startsWith('custom_') && !repeatableSlotFieldIds.has(slot.fieldId) && extraData[slot.label]) {
           customValues[slot.fieldId] = extraData[slot.label]
         }
       }
       setFieldValues({ ...catalogMap, ...customValues })
+
+      const loadedRepeatable: Record<string, Record<string, string>[]> = {}
+      for (const row of allRows.filter(r => r.repeatable)) {
+        const raw = extraData[`__repeatable_${row.id}`]
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as Record<string, string>[]
+            const byFieldId = parsed.map(labeledObj => {
+              const inst: Record<string, string> = {}
+              for (const slot of row.slots) {
+                if (slot) inst[slot.fieldId] = labeledObj[slot.label] ?? ''
+              }
+              return inst
+            })
+            loadedRepeatable[row.id] = byFieldId
+          } catch { /* ignore */ }
+        }
+      }
+      if (Object.keys(loadedRepeatable).length) setRepeatableValues(loadedRepeatable)
 
       const attachments = await getAttachmentsByAllocationId(record.id)
       setExistingAttachments(attachments.map(a => ({
@@ -216,48 +261,52 @@ export default function EditFundsForm({
     .filter(r => r.org_unit_id === sectionId)
     .map(r => r.display_name ?? `${unitLabel(unitMap.get(r.org_unit_id)!)} ${r.role_types.name}`)
 
-  function renderField(slot: NonNullable<FormSlot>) {
+  function renderFieldFor(
+    slot: NonNullable<FormSlot>,
+    values: Record<string, string>,
+    onChange: (fieldId: string, val: string) => void,
+    isRepeatable = false,
+  ) {
     const { fieldId, required, type, dataSource, staticOptions } = slot
     const disabled = !canEdit
 
-    if (fieldId === 'serial_number') {
-      return <Input value={record.serial_number ?? '（自動產生）'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-    }
-    if (fieldId === 'applicant' || dataSource === 'current_user_name') {
-      return <Input value={record.applicant ?? applicantName} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-    }
-    if (fieldId === 'apply_division') {
-      return (
-        <SearchableSelect
-          value={String(divisionId ?? '')}
-          onChange={v => { setDivisionId(Number(v) || null); setSectionId(null); setField('apply_role', '') }}
-          options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
-          disabled={disabled}
-          required={required}
-        />
-      )
-    }
-    if (fieldId === 'apply_section') {
-      return (
-        <SearchableSelect
-          value={String(sectionId ?? '')}
-          onChange={v => { setSectionId(Number(v) || null); setField('apply_role', '') }}
-          options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
-          disabled={disabled || !divisionId}
-          required={required}
-        />
-      )
-    }
-    if (fieldId === 'apply_role') {
-      return (
-        <SearchableSelect
-          value={fieldValues.apply_role ?? ''}
-          onChange={v => setField('apply_role', v)}
-          options={availableRoles.map(name => ({ value: name, label: name }))}
-          disabled={disabled || !sectionId}
-          required={required}
-        />
-      )
+    if (!isRepeatable) {
+      if (fieldId === 'serial_number') {
+        return <Input value={record.serial_number ?? '（自動產生）'} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+      }
+      if (fieldId === 'applicant' || dataSource === 'current_user_name') {
+        return <Input value={record.applicant ?? applicantName} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+      }
+      if (fieldId === 'apply_division') {
+        return (
+          <SearchableSelect
+            value={String(divisionId ?? '')}
+            onChange={v => { setDivisionId(Number(v) || null); setSectionId(null); setField('apply_role', '') }}
+            options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+            disabled={disabled} required={required}
+          />
+        )
+      }
+      if (fieldId === 'apply_section') {
+        return (
+          <SearchableSelect
+            value={String(sectionId ?? '')}
+            onChange={v => { setSectionId(Number(v) || null); setField('apply_role', '') }}
+            options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+            disabled={disabled || !divisionId} required={required}
+          />
+        )
+      }
+      if (fieldId === 'apply_role') {
+        return (
+          <SearchableSelect
+            value={fieldValues.apply_role ?? ''}
+            onChange={v => setField('apply_role', v)}
+            options={availableRoles.map(name => ({ value: name, label: name }))}
+            disabled={disabled || !sectionId} required={required}
+          />
+        )
+      }
     }
 
     if (type === 'radio') {
@@ -266,9 +315,9 @@ export default function EditFundsForm({
           {(staticOptions ?? []).map(opt => (
             <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: disabled ? 'not-allowed' : 'pointer' }}>
               <input type="radio" name={fieldId} value={opt}
-                checked={fieldValues[fieldId] === opt}
-                onChange={e => !disabled && setField(fieldId, e.target.value)}
-                disabled={disabled} required={required && !fieldValues[fieldId]} />
+                checked={values[fieldId] === opt}
+                onChange={e => !disabled && onChange(fieldId, e.target.value)}
+                disabled={disabled} required={required && !values[fieldId]} />
               {opt}
             </label>
           ))}
@@ -286,32 +335,20 @@ export default function EditFundsForm({
         options = dynamicSelectOptions[dataSource] ?? []
       }
       return (
-        <SearchableSelect
-          value={fieldValues[fieldId] ?? ''}
-          onChange={v => setField(fieldId, v)}
-          options={options}
-          disabled={disabled}
-          required={required}
-        />
+        <SearchableSelect value={values[fieldId] ?? ''} onChange={v => onChange(fieldId, v)}
+          options={options} disabled={disabled} required={required} />
       )
     }
 
-    if (type === 'attachment') {
+    if (type === 'attachment' && !isRepeatable) {
       const existing = existingAttachments.filter(a => a.slotLabel === slot.label && !deletedAttachmentIds.includes(a.id ?? -1))
       const added = newAttachments.filter(a => a.slotLabel === slot.label)
-      const all = [...existing, ...added]
       return (
-        <AttachmentUpload
-          slotLabel={slot.label}
-          attachments={all}
-          readOnly={disabled}
+        <AttachmentUpload slotLabel={slot.label} attachments={[...existing, ...added]} readOnly={disabled}
           onAdd={item => setNewAttachments(prev => [...prev, item])}
           onRemove={item => {
-            if (item.id) {
-              setDeletedAttachmentIds(prev => [...prev, item.id!])
-            } else {
-              setNewAttachments(prev => prev.filter(a => a.storagePath !== item.storagePath))
-            }
+            if (item.id) setDeletedAttachmentIds(prev => [...prev, item.id!])
+            else setNewAttachments(prev => prev.filter(a => a.storagePath !== item.storagePath))
           }}
         />
       )
@@ -319,23 +356,71 @@ export default function EditFundsForm({
 
     if (type === 'textarea') {
       return (
-        <Textarea value={fieldValues[fieldId] ?? ''} disabled={disabled}
-          onChange={e => setField(fieldId, e.target.value)}
-          required={required} rows={4}
-          className={disabled ? 'bg-[var(--bg-page)]' : ''} />
+        <Textarea value={values[fieldId] ?? ''} disabled={disabled}
+          onChange={e => onChange(fieldId, e.target.value)}
+          required={required} rows={4} className={disabled ? 'bg-[var(--bg-page)]' : ''} />
       )
     }
 
     if (type === 'readonly') {
-      return <Input value={fieldValues[fieldId] ?? ''} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+      return <Input value={values[fieldId] ?? ''} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
     const inputType = type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'
     return (
-      <Input type={inputType} value={fieldValues[fieldId] ?? ''} disabled={disabled}
-        onChange={e => setField(fieldId, e.target.value)}
-        required={required}
-        className={disabled ? 'bg-[var(--bg-page)]' : ''} />
+      <Input type={inputType} value={values[fieldId] ?? ''} disabled={disabled}
+        onChange={e => onChange(fieldId, e.target.value)}
+        required={required} className={disabled ? 'bg-[var(--bg-page)]' : ''} />
+    )
+  }
+
+  function renderField(slot: NonNullable<FormSlot>) {
+    return renderFieldFor(slot, fieldValues, setField)
+  }
+
+  function renderRepeatableRow(row: FormSchemaRow) {
+    const instances = getRepeatableInstances(row.id)
+    const disabled = !canEdit
+    return (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr) 56px`, gap: 12, marginBottom: 6 }}>
+          {row.slots.map((slot, idx) =>
+            slot ? (
+              <label key={idx} style={labelStyle}>
+                {slot.label}{slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+              </label>
+            ) : <div key={idx} />
+          )}
+          <div />
+        </div>
+        {instances.map((instValues, instIdx) => (
+          <div key={instIdx} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr) 56px`, gap: 12, marginBottom: 8, alignItems: 'center' }}>
+            {row.slots.map((slot, slotIdx) =>
+              slot ? (
+                <div key={slotIdx}>
+                  {renderFieldFor(slot, instValues, (fid, val) => setRepeatableField(row.id, instIdx, fid, val), true)}
+                </div>
+              ) : <div key={slotIdx} />
+            )}
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              {!disabled && instances.length > 1 && (
+                <button type="button" onClick={() => removeRepeatableInstance(row.id, instIdx)}
+                  style={{ padding: '4px 8px', fontSize: 12, border: '1px solid #fca5a5',
+                    borderRadius: 6, background: 'white', color: '#dc2626', cursor: 'pointer' }}>
+                  刪除
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        {!disabled && (
+          <button type="button" onClick={() => addRepeatableInstance(row.id)}
+            style={{ padding: '6px 14px', fontSize: 13, border: '1.5px dashed #d1d5db',
+              borderRadius: 6, background: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginTop: 4 }}>
+            ＋ 新增項目
+          </button>
+        )}
+      </div>
     )
   }
 
@@ -344,7 +429,20 @@ export default function EditFundsForm({
     const secUnit = orgUnits.find(u => u.id === sectionId)
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
-      if (slot.fieldId.startsWith('custom_')) extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
+      if (slot.fieldId.startsWith('custom_') && !repeatableSlotFieldIds.has(slot.fieldId)) {
+        extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
+      }
+    }
+    for (const row of allRows.filter(r => r.repeatable)) {
+      const instances = repeatableValues[row.id] ?? [{}]
+      const labeled = instances.map(inst => {
+        const obj: Record<string, string> = {}
+        for (const slot of row.slots) {
+          if (slot) obj[slot.label] = inst[slot.fieldId] ?? ''
+        }
+        return obj
+      })
+      extraData[`__repeatable_${row.id}`] = JSON.stringify(labeled)
     }
     return {
       date: fieldValues.date || record.date,
@@ -451,8 +549,11 @@ export default function EditFundsForm({
               </div>
             )}
             <div style={{ padding: '20px 20px 4px' }}>
-              {block.rows.map(row => (
-                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
+              {block.rows.map(row =>
+                row.repeatable ? (
+                  <div key={row.id}>{renderRepeatableRow(row)}</div>
+                ) : (
+                  <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
                   {row.slots.map((slot, idx) => {
                     if (slot && slot.showWhen && !slot.showWhen.values.includes(fieldValues[slot.showWhen.fieldId] ?? '')) {
                       return <div key={idx} />
