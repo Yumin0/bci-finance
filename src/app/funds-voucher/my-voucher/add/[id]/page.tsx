@@ -7,10 +7,12 @@ import { supabase } from '@/lib/supabase'
 import { FundsPayment, FormBlock, FormSlot } from '@/lib/types'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { createTempVoucher } from '@/app/actions/temp-voucher'
+import { saveAttachments } from '@/app/actions/attachments'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { buttonVariants } from '@/components/ui/button'
+import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 
 const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6,
@@ -43,6 +45,7 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
+  const [pendingAttachments, setPendingAttachments] = useState<Record<string, AttachmentItem[]>>({})
 
   useEffect(() => {
     async function load() {
@@ -87,6 +90,18 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
     const value = fieldValues[slot.fieldId] ?? ''
     const readonly = isReadonlyField(slot.fieldId) || slot.type === 'readonly'
 
+    if (slot.type === 'attachment') {
+      const items = pendingAttachments[slot.label] ?? []
+      return (
+        <AttachmentUpload
+          slotLabel={slot.label}
+          attachments={items}
+          onAdd={item => setPendingAttachments(prev => ({ ...prev, [slot.label]: [...(prev[slot.label] ?? []), item] }))}
+          onRemove={item => setPendingAttachments(prev => ({ ...prev, [slot.label]: (prev[slot.label] ?? []).filter(a => a.storagePath !== item.storagePath) }))}
+        />
+      )
+    }
+
     if (slot.type === 'textarea') {
       return (
         <Textarea
@@ -114,8 +129,14 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
     if (!paymentId) return
     setSubmitting(true)
     setError(null)
-    const { error: saveError } = await createTempVoucher(paymentId, fieldValues)
+    const { id: newVoucherId, error: saveError } = await createTempVoucher(paymentId, fieldValues)
     if (saveError) { setError(saveError); setSubmitting(false); return }
+
+    const allAttachments = Object.values(pendingAttachments).flat()
+    if (newVoucherId && allAttachments.length > 0) {
+      await saveAttachments(null, null, allAttachments, newVoucherId)
+    }
+
     router.push('/funds-voucher/my-voucher')
   }
 

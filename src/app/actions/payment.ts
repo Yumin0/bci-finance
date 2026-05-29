@@ -24,9 +24,9 @@ export async function createPayment(
   allocationId: number,
   paymentMethod: string,
   extraData: Record<string, string> = {}
-): Promise<{ error: string | null }> {
+): Promise<{ id: number | null; error: string | null }> {
   const session = await getSession()
-  if (!session) return { error: '請先登入' }
+  if (!session) return { id: null, error: '請先登入' }
 
   const { data: alloc, error: allocErr } = await supabase
     .from('funds_allocation')
@@ -34,7 +34,7 @@ export async function createPayment(
     .eq('id', allocationId)
     .single()
 
-  if (allocErr || !alloc) return { error: '找不到資金分配申請單' }
+  if (allocErr || !alloc) return { id: null, error: '找不到資金分配申請單' }
 
   const record = alloc as FundsAllocation
 
@@ -59,7 +59,7 @@ export async function createPayment(
     }
   }
 
-  const { error } = await supabase.from('funds_payment').insert({
+  const { data: inserted, error } = await supabase.from('funds_payment').insert({
     funds_allocation_id: record.id,
     name: record.name,
     amount: record.amount,
@@ -80,10 +80,10 @@ export async function createPayment(
     status: PAYMENT_STATUS.DRAFT,
     flow_template_id: flowTemplateId,
     current_step: null,
-  })
+  }).select('id').single()
 
-  if (error) return { error: error.message }
-  return { error: null }
+  if (error) return { id: null, error: error.message }
+  return { id: inserted.id, error: null }
 }
 
 export async function updateDraftPayment(

@@ -33,12 +33,14 @@ export async function getAttachmentsByPaymentId(paymentId: number): Promise<Fund
 export async function saveAttachments(
   allocationId: number | null,
   paymentId: number | null,
-  items: { slotLabel: string; fileName: string; storagePath: string; fileType: string; uploadedBy?: string }[]
+  items: { slotLabel: string; fileName: string; storagePath: string; fileType: string; uploadedBy?: string }[],
+  tempVoucherId?: number | null,
 ): Promise<{ error?: string }> {
   if (!items.length) return {}
   const rows = items.map(i => ({
     funds_allocation_id: allocationId,
     funds_payment_id: paymentId,
+    temp_voucher_id: tempVoucherId ?? null,
     slot_label: i.slotLabel,
     file_name: i.fileName,
     storage_path: i.storagePath,
@@ -48,6 +50,16 @@ export async function saveAttachments(
   const { error } = await supabase.from('fund_attachments').insert(rows)
   if (error) return { error: error.message }
   return {}
+}
+
+export async function getAttachmentsByTempVoucherId(tempVoucherId: number): Promise<FundAttachment[]> {
+  const { data, error } = await supabase
+    .from('fund_attachments')
+    .select('*')
+    .eq('temp_voucher_id', tempVoucherId)
+    .order('created_at')
+  if (error || !data) return []
+  return (data as Omit<FundAttachment, 'url'>[]).map(withPublicUrl)
 }
 
 export async function deleteAttachmentRecord(id: number): Promise<{ error?: string }> {

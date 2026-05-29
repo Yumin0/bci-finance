@@ -6,10 +6,12 @@ import { supabase } from '@/lib/supabase'
 import { FundsAllocation, FormBlock, FormSlot, DropdownOption } from '@/lib/types'
 import { createPayment } from '@/app/actions/payment'
 import { getFormSchemas } from '@/app/actions/form-schema'
+import { saveAttachments } from '@/app/actions/attachments'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 
 
 // fieldId-based: known default fieldIds that are direct allocation columns → always readonly
@@ -72,6 +74,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   const [error, setError] = useState<string | null>(null)
 
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
+  const [pendingAttachments, setPendingAttachments] = useState<Record<string, AttachmentItem[]>>({})
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
   const [payeeFullRecords, setPayeeFullRecords] = useState<Record<string, Array<{ label: string; searchKey: string; fieldValuesByLabel: Record<string, string> }>>>({})
@@ -327,6 +330,18 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       )
     }
 
+    if (type === 'attachment') {
+      const items = pendingAttachments[slot.label] ?? []
+      return (
+        <AttachmentUpload
+          slotLabel={slot.label}
+          attachments={items}
+          onAdd={item => setPendingAttachments(prev => ({ ...prev, [slot.label]: [...(prev[slot.label] ?? []), item] }))}
+          onRemove={item => setPendingAttachments(prev => ({ ...prev, [slot.label]: (prev[slot.label] ?? []).filter(a => a.storagePath !== item.storagePath) }))}
+        />
+      )
+    }
+
     if (type === 'textarea') {
       return (
         <Textarea
@@ -361,18 +376,25 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
       if (slot.type === 'readonly') continue
+      if (slot.type === 'attachment') continue
       if (ALLOCATION_READONLY_FIELD_IDS.has(slot.fieldId)) continue
       if (slot.label in ALLOCATION_READONLY_LABEL_MAP) continue
       if (slot.fieldId === 'payment_method') continue
       extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
     }
 
-    const { error: insertError } = await createPayment(
+    const { id: newPaymentId, error: insertError } = await createPayment(
       allocationId,
       fieldValues['payment_method'] ?? '',
       extraData,
     )
     if (insertError) { setError(insertError); setSubmitting(false); return }
+
+    const allAttachments = Object.values(pendingAttachments).flat()
+    if (newPaymentId && allAttachments.length > 0) {
+      await saveAttachments(null, newPaymentId, allAttachments)
+    }
+
     router.push('/funds-payment/my-payment')
   }
 
