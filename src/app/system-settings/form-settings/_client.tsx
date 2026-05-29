@@ -147,6 +147,18 @@ export default function FormSettingsClient({
     setBlockRows(blockId, prev => prev.map(r => r.id === rowId ? { ...r, repeatable: value } : r))
   }
 
+  function moveRow(blockId: string, rowId: string, dir: 'up' | 'down') {
+    setBlockRows(blockId, prev => {
+      const idx = prev.findIndex(r => r.id === rowId)
+      if (idx === -1) return prev
+      const swapIdx = dir === 'up' ? idx - 1 : idx + 1
+      if (swapIdx < 0 || swapIdx >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
+      return next
+    })
+  }
+
   function setRowCols(blockId: string, rowId: string, cols: FormColCount) {
     setBlockRows(blockId, prev => prev.map(r => {
       if (r.id !== rowId) return r
@@ -464,6 +476,24 @@ export default function FormSettingsClient({
           {selection?.kind === 'row' && selectedRow && selectedBlock && (
             <div>
               <p style={panelTitle}>列設定</p>
+              <p style={panelLabel}>移動列</p>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+                {([{ label: '↑ 上移', dir: 'up' as const }, { label: '↓ 下移', dir: 'down' as const }]).map(({ label, dir }) => {
+                  const rows = selectedBlock.rows
+                  const idx = rows.findIndex(r => r.id === selectedRow.id)
+                  const disabled = dir === 'up' ? idx <= 0 : idx >= rows.length - 1
+                  return (
+                    <button key={dir} onClick={() => moveRow(selectedBlock.id, selectedRow.id, dir)}
+                      disabled={disabled}
+                      style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid var(--btn-border)', borderRadius: 6,
+                        background: disabled ? '#f9fafb' : 'white',
+                        color: disabled ? '#d1d5db' : '#374151',
+                        cursor: disabled ? 'not-allowed' : 'pointer' }}>
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
               <p style={panelLabel}>欄數</p>
               <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
                 {([1, 2, 3] as FormColCount[]).map(c => (
