@@ -4,6 +4,12 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { OrgUnit, OrgLevel, RoleType, RoleLevel, OrgUnitRole, AppUser, UserPosition } from '@/lib/types'
 import { Button } from '@/components/ui/button'
+import {
+  addUserPosition, removeUserPosition,
+  insertOrgUnit, updateOrgUnit, deleteOrgUnit, reorderOrgUnits,
+  addOrgUnitRole, deleteOrgUnitRole,
+  addRoleType, updateRoleType, deleteRoleType,
+} from '@/app/actions/org-structure'
 
 const LEVEL_INDENT: Record<OrgLevel, number> = { '部門': 0, '處': 0, '課': 16, '科': 32 }
 const LEVEL_FONT_SIZE: Record<OrgLevel, number> = { '部門': 15, '處': 14, '課': 13, '科': 13 }
@@ -44,12 +50,8 @@ function RoleRow({
   async function handleAdd() {
     if (!selectedUserId) return
     setError(null)
-    const { error: e } = await supabase.from('user_positions').insert({
-      user_id: Number(selectedUserId),
-      org_unit_role_id: role.id,
-      is_primary: true,
-    })
-    if (e) { setError(e.message); return }
+    const err = await addUserPosition(Number(selectedUserId), role.id)
+    if (err) { setError(err); return }
     setAdding(false)
     setSelectedUserId('')
     onRefresh()
@@ -57,8 +59,8 @@ function RoleRow({
 
   async function handleRemove(positionId: number) {
     if (!confirm('確定移除此職位指派？')) return
-    const { error: e } = await supabase.from('user_positions').delete().eq('id', positionId)
-    if (e) { setError(e.message); return }
+    const err = await removeUserPosition(positionId)
+    if (err) { setError(err); return }
     onRefresh()
   }
 
@@ -189,11 +191,8 @@ function OrgNodeRows({
   async function handleEditSave() {
     if (!editName.trim()) return
     setError(null)
-    const { error: e } = await supabase.from('org_units').update({
-      code: editCode.trim() || null,
-      name: editName.trim(),
-    }).eq('id', unit.id)
-    if (e) { setError(e.message); return }
+    const err = await updateOrgUnit(unit.id, editCode.trim() || null, editName.trim())
+    if (err) { setError(err); return }
     setIsEditing(false)
     onRefresh()
   }
@@ -201,8 +200,8 @@ function OrgNodeRows({
   async function handleDelete() {
     if (!confirm(`確定刪除「${unit.name}」？若有子節點或職位將無法刪除。`)) return
     setError(null)
-    const { error: e } = await supabase.from('org_units').delete().eq('id', unit.id)
-    if (e) { setError(e.message); return }
+    const err = await deleteOrgUnit(unit.id)
+    if (err) { setError(err); return }
     onRefresh()
   }
 
@@ -212,14 +211,14 @@ function OrgNodeRows({
     const maxOrder = allUnits
       .filter(u => u.level === childLevel && u.parent_id === unit.id)
       .reduce((m, u) => Math.max(m, u.sort_order), -1)
-    const { error: e } = await supabase.from('org_units').insert({
+    const err = await insertOrgUnit({
       code: childCode.trim() || null,
       name: childName.trim(),
       level: childLevel,
-      parent_id: unit.id,
-      sort_order: maxOrder + 1,
+      parentId: unit.id,
+      sortOrder: maxOrder + 1,
     })
-    if (e) { setError(e.message); return }
+    if (err) { setError(err); return }
     setChildCode(''); setChildName(''); setIsAddingChild(false)
     onRefresh()
   }
@@ -230,13 +229,8 @@ function OrgNodeRows({
     const maxOrder = orgUnitRoles
       .filter(r => r.org_unit_id === unit.id)
       .reduce((m, r) => Math.max(m, r.sort_order), -1)
-    const { error: e } = await supabase.from('org_unit_roles').insert({
-      org_unit_id: unit.id,
-      role_type_id: Number(selectedRoleTypeId),
-      display_name: null,
-      sort_order: maxOrder + 1,
-    })
-    if (e) { setError(e.message); return }
+    const err = await addOrgUnitRole(unit.id, Number(selectedRoleTypeId), maxOrder + 1)
+    if (err) { setError(err); return }
     setSelectedRoleTypeId(''); setIsAddingRole(false)
     onRefresh()
   }
@@ -244,10 +238,8 @@ function OrgNodeRows({
   async function handleDeleteRole(roleId: number) {
     if (!confirm('確定刪除此職位？已指派的人員也會一併移除。')) return
     setError(null)
-    const { error: posErr } = await supabase.from('user_positions').delete().eq('org_unit_role_id', roleId)
-    if (posErr) { setError(posErr.message); return }
-    const { error: e } = await supabase.from('org_unit_roles').delete().eq('id', roleId)
-    if (e) { setError(e.message); return }
+    const err = await deleteOrgUnitRole(roleId)
+    if (err) { setError(err); return }
     onRefresh()
   }
 
@@ -413,8 +405,8 @@ function DeptBlock({
   async function handleEditSave() {
     if (!editName.trim()) return
     setError(null)
-    const { error: e } = await supabase.from('org_units').update({ name: editName.trim() }).eq('id', unit.id)
-    if (e) { setError(e.message); return }
+    const err = await updateOrgUnit(unit.id, null, editName.trim())
+    if (err) { setError(err); return }
     setIsEditing(false)
     onRefresh()
   }
@@ -422,8 +414,8 @@ function DeptBlock({
   async function handleDelete() {
     if (!confirm(`確定刪除「${unit.name}」？若有子處將無法刪除。`)) return
     setError(null)
-    const { error: e } = await supabase.from('org_units').delete().eq('id', unit.id)
-    if (e) { setError(e.message); return }
+    const err = await deleteOrgUnit(unit.id)
+    if (err) { setError(err); return }
     onRefresh()
   }
 
@@ -433,14 +425,14 @@ function DeptBlock({
     const maxOrder = allUnits
       .filter(u => u.level === '處' && u.parent_id === unit.id)
       .reduce((m, u) => Math.max(m, u.sort_order), -1)
-    const { error: e } = await supabase.from('org_units').insert({
+    const err = await insertOrgUnit({
       code: childCode.trim() || null,
       name: childName.trim(),
       level: '處',
-      parent_id: unit.id,
-      sort_order: maxOrder + 1,
+      parentId: unit.id,
+      sortOrder: maxOrder + 1,
     })
-    if (e) { setError(e.message); return }
+    if (err) { setError(err); return }
     setChildCode(''); setChildName(''); setIsAddingChild(false)
     onRefresh()
   }
@@ -574,28 +566,16 @@ function RoleTypeRow({
 
   async function handleSave() {
     if (!editName.trim()) return
-    const { error: e } = await supabase.from('role_types').update({
-      level: editLevel, name: editName.trim(),
-    }).eq('id', r.id)
-    if (e) { onError(e.message); return }
+    const err = await updateRoleType(r.id, editLevel, editName.trim())
+    if (err) { onError(err); return }
     setIsEditing(false)
     onRefresh()
   }
 
   async function handleDelete() {
     if (!confirm('確定刪除此職稱？所有使用此職稱的職位與人員指派也會一併移除。')) return
-    const { data: relatedRoles, error: fetchErr } = await supabase
-      .from('org_unit_roles').select('id').eq('role_type_id', r.id)
-    if (fetchErr) { onError(fetchErr.message); return }
-    if (relatedRoles && relatedRoles.length > 0) {
-      const roleIds = relatedRoles.map(x => x.id)
-      const { error: posErr } = await supabase.from('user_positions').delete().in('org_unit_role_id', roleIds)
-      if (posErr) { onError(posErr.message); return }
-      const { error: roleErr } = await supabase.from('org_unit_roles').delete().eq('role_type_id', r.id)
-      if (roleErr) { onError(roleErr.message); return }
-    }
-    const { error: e } = await supabase.from('role_types').delete().eq('id', r.id)
-    if (e) { onError(e.message); return }
+    const err = await deleteRoleType(r.id)
+    if (err) { onError(err); return }
     onRefresh()
   }
 
@@ -640,8 +620,8 @@ function RoleTypesPanel({ roleTypes, onRefresh }: { roleTypes: RoleType[]; onRef
     if (!name.trim()) return
     setError(null)
     const maxOrder = roleTypes.filter(r => r.level === level).reduce((m, r) => Math.max(m, r.sort_order), -1)
-    const { error: e } = await supabase.from('role_types').insert({ name: name.trim(), level, sort_order: maxOrder + 1 })
-    if (e) { setError(e.message); return }
+    const err = await addRoleType(name.trim(), level, maxOrder + 1)
+    if (err) { setError(err); return }
     setName('')
     onRefresh()
   }
@@ -752,9 +732,7 @@ export default function OrgStructurePage() {
     const [moved] = reordered.splice(fromIdx, 1)
     reordered.splice(toIdx, 0, moved)
 
-    await Promise.all(
-      reordered.map((u, i) => supabase.from('org_units').update({ sort_order: i }).eq('id', u.id))
-    )
+    await reorderOrgUnits(reordered.map((u, i) => ({ id: u.id, sortOrder: i })))
     setDraggedId(null); setDragOverId(null)
     loadAll()
   }
@@ -763,10 +741,10 @@ export default function OrgStructurePage() {
     if (!deptName.trim()) return
     setAddDeptError(null)
     const maxOrder = units.filter(u => u.level === '部門').reduce((m, u) => Math.max(m, u.sort_order), -1)
-    const { error: e } = await supabase.from('org_units').insert({
-      code: null, name: deptName.trim(), level: '部門', parent_id: null, sort_order: maxOrder + 1,
+    const err = await insertOrgUnit({
+      code: null, name: deptName.trim(), level: '部門', parentId: null, sortOrder: maxOrder + 1,
     })
-    if (e) { setAddDeptError(e.message); return }
+    if (err) { setAddDeptError(err); return }
     setDeptName(''); setIsAddingDept(false)
     loadAll()
   }
