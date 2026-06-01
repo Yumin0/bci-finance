@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsPayment, ApprovalRecord, FormBlock, FormSlot, DropdownOption, FundAttachment } from '@/lib/types'
+import { FundsPayment, ApprovalRecord, FormBlock, FormSlot, DropdownOption, FundAttachment, TaxRateOption } from '@/lib/types'
+import { computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
+import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { PAYMENT_STATUS } from '@/lib/constants'
 import { submitMyPayment, updateDraftPayment } from '@/app/actions/payment'
 import { getFormSchemas } from '@/app/actions/form-schema'
@@ -118,6 +120,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   const [openPayeeId, setOpenPayeeId] = useState<string | null>(null)
   // 受款人自動帶入的欄位 label 集合（只能由選取受款人填入，不可手動輸入）
   const [payeeAutoFillLabels, setPayeeAutoFillLabels] = useState<Set<string>>(new Set())
+  const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
 
   // 附件
   const [inheritedAttachments, setInheritedAttachments] = useState<FundAttachment[]>([])
@@ -285,6 +288,10 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           })())
         }
 
+        if (neededSources.has('tax_rates')) {
+          fetches.push(getTaxRateOptions().then(data => setTaxRateOptions(data)))
+        }
+
         await Promise.all(fetches)
       }
 
@@ -357,6 +364,16 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     )
   }
 
+  const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
+  for (const block of schema) {
+    const info = computeBlockTax(block, fieldValues, taxRateOptions)
+    if (info) blockTaxMap[block.id] = info
+  }
+  const computedTotals: Record<string, string> = {}
+  for (const info of Object.values(blockTaxMap)) {
+    if (info) computedTotals[info.totalFieldId] = String(Math.floor(info.total))
+  }
+
   function renderDraftField(slot: NonNullable<FormSlot>) {
     const { fieldId, type, dataSource, staticOptions } = slot
 
@@ -403,7 +420,20 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       return <Input value={fieldValues[fieldId] ?? ''} readOnly className={readonlyCls} />
     }
 
+    if (computedTotals[fieldId] !== undefined) {
+      return <Input value={computedTotals[fieldId]} readOnly className={readonlyCls} />
+    }
+
     if (type === 'select') {
+      if (dataSource === 'tax_rates') {
+        return (
+          <SearchableSelect
+            value={fieldValues[fieldId] ?? ''}
+            onChange={v => setField(fieldId, v)}
+            options={taxRateOptions.map(o => ({ value: o.label, label: o.label }))}
+          />
+        )
+      }
       if (dataSource.startsWith('payee_records:') && payeeFullRecords[dataSource]) {
         return renderPayeeCombobox(slot, dataSource)
       }
@@ -452,7 +482,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
       if (slot.type === 'readonly' || ALLOCATION_READONLY_FIELDS.has(slot.fieldId) || ALLOCATION_READONLY_LABELS.has(slot.label) || slot.fieldId === 'payment_method') continue
-      extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
+      extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
     }
     return extraData
   }
@@ -542,14 +572,18 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                   borderRadius: 10,
                   background: 'var(--bg-card)',
                 }}>
-                  {block.title && (
-                    <div style={{
-                      padding: '10px 20px',
-                      background: 'var(--bg-sidebar)',
-                      borderBottom: '1px solid var(--border-color)',
-                      borderRadius: '9px 9px 0 0',
-                    }}>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
+                  {(block.title || blockTaxMap[block.id]) && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0' }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
+                      {blockTaxMap[block.id] && (() => {
+                        const info = blockTaxMap[block.id]!
+                        return (
+                          <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                            <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxBase)}</strong></span>
+                            <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxAmount)}</strong></span>
+                          </div>
+                        )
+                      })()}
                     </div>
                   )}
                   <div style={{ padding: '20px 20px 4px' }}>

@@ -54,6 +54,7 @@
 - `fee_records`：實際費用項目資料（field_values jsonb 動態存欄位值，key 為 field id）
 - `funds_allocation_templates`：資金分配申請預選範本；`is_shared` 區分共用/個人，`created_by bigint` 關聯 `app_users(id)` 儲存建立者（個人範本隔離），`field_values jsonb` 儲存欄位預設值（apply_division/apply_section 存 org_unit id 字串，其餘存 label 字串）
 - `application_cycle_config`：申請週期設定（單列），`allowed_weekdays int[]`（0=日～6=六）、`weeks_ahead int`（預設 3）；空陣列代表不限制，僅套用於資金分配申請的申請日期欄位
+- `tax_rate_options`：稅額選項設定，`label` 名稱、`formula_steps jsonb`（步驟陣列，每步含 `op: +/-/*/\/` 與 `value: number`）、`sort_order`；搭配表單欄位 `dataSource: 'tax_rates'` 使用，支援多步驟連乘除計算
 - **Storage Bucket** `issue-images`：問題回報圖片（路徑：`{issueId}/{timestamp}.{ext}`）
 
 ## 目錄結構

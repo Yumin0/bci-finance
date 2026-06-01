@@ -5,7 +5,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MOCK_USER_ID } from '@/lib/constants'
 import { createFundsAllocation, generateSerialNumber as genSerialNumber } from '@/app/actions/funds-allocation'
-import { DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSchemaRow, FormSlot } from '@/lib/types'
+import { DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSchemaRow, FormSlot, TaxRateOption } from '@/lib/types'
+import { computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
+import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -80,6 +82,9 @@ export default function AddFundsForm({
 
   // 可重複列資料（key = rowId, value = 每筆的欄位值陣列）
   const [repeatableValues, setRepeatableValues] = useState<Record<string, Record<string, string>[]>>({})
+
+  // 稅額選項
+  const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
 
   // Collect which data sources are needed
   const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
@@ -189,6 +194,10 @@ export default function AddFundsForm({
 
       if (neededSources.has('expense_items')) fetches.push(loadExpenseItems())
 
+      if (neededSources.has('tax_rates')) {
+        fetches.push(getTaxRateOptions().then(data => setTaxRateOptions(data)))
+      }
+
       const loadDynamicOptions = async (sourceKey: string) => {
         const [table, idStr] = sourceKey.startsWith('fee_records:')
           ? ['fee_records', sourceKey.replace('fee_records:', '')] as const
@@ -246,6 +255,17 @@ export default function AddFundsForm({
     .filter(r => r.org_unit_id === sectionId)
     .map(r => r.display_name ?? (unitMap.get(r.org_unit_id) ? `${unitLabel(unitMap.get(r.org_unit_id)!)} ${r.role_types.name}` : r.role_types.name))
 
+  // 稅額計算（純 derived，每次 render 重新算，不放進 state 避免無限迴圈）
+  const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
+  for (const block of schema) {
+    const info = computeBlockTax(block, fieldValues, taxRateOptions)
+    if (info) blockTaxMap[block.id] = info
+  }
+  const computedTotals: Record<string, string> = {}
+  for (const info of Object.values(blockTaxMap)) {
+    if (info) computedTotals[info.totalFieldId] = String(Math.floor(info.total))
+  }
+
   function renderFieldFor(
     slot: NonNullable<FormSlot>,
     values: Record<string, string>,
@@ -293,6 +313,24 @@ export default function AddFundsForm({
           />
         )
       }
+    }
+
+    // 稅額選擇：從 taxRateOptions 取得選項
+    if (type === 'select' && dataSource === 'tax_rates') {
+      const options = taxRateOptions.map(o => ({ value: o.label, label: o.label }))
+      return (
+        <SearchableSelect
+          value={values[fieldId] ?? ''}
+          onChange={v => onChange(fieldId, v)}
+          options={options}
+          required={required}
+        />
+      )
+    }
+
+    // 總額欄位：自動計算，唯讀
+    if (computedTotals[fieldId] !== undefined) {
+      return <Input value={computedTotals[fieldId]} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
     if (type === 'radio') {
@@ -441,7 +479,7 @@ export default function AddFundsForm({
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
       if (slot.fieldId.startsWith('custom_') && !repeatableSlotFieldIds.has(slot.fieldId)) {
-        extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
+        extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
       }
     }
     for (const row of allRows.filter(r => r.repeatable)) {
@@ -529,14 +567,28 @@ export default function AddFundsForm({
             borderRadius: 10,
             background: 'var(--bg-card)',
           }}>
-            {block.title && (
+            {(block.title || blockTaxMap[block.id]) && (
               <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 20px',
                 background: 'var(--bg-sidebar)',
                 borderBottom: '1px solid var(--border-color)',
                 borderRadius: '9px 9px 0 0',
               }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
+                {blockTaxMap[block.id] && (() => {
+                  const info = blockTaxMap[block.id]!
+                  return (
+                    <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxBase)}</strong>
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxAmount)}</strong>
+                      </span>
+                    </div>
+                  )
+                })()}
               </div>
             )}
             <div style={{ padding: '20px 20px 4px' }}>

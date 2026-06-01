@@ -5,6 +5,7 @@ import { saveFormSchema } from '@/app/actions/form-schema'
 import { FormBlock, FormSchemaRow, FormSlot, FormColCount, FormType, FormFieldType, FormDataSourceDef } from '@/lib/types'
 import TemplateManagementTab from './_template-tab'
 import CycleTab from './_cycle-tab'
+import TaxTab from './_tax-tab'
 
 type FieldDef = {
   id: string
@@ -92,7 +93,7 @@ export default function FormSettingsClient({
   initialSchemas: Record<FormType, FormBlock[]>
   dataSources: FormDataSourceDef[]
 }) {
-  const [activeTab, setActiveTab] = useState<FormType | 'templates' | 'cycle'>('funds_allocation')
+  const [activeTab, setActiveTab] = useState<FormType | 'templates' | 'cycle' | 'tax'>('funds_allocation')
   const [formType, setFormType]   = useState<FormType>('funds_allocation')
   const [newTemplateTrigger, setNewTemplateTrigger] = useState(0)
   const [schemas,  setSchemas]    = useState<Record<FormType, FormBlock[]>>(initialSchemas)
@@ -281,12 +282,17 @@ export default function FormSettingsClient({
     b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null && (s.type === 'select' || s.type === 'radio')))
   )
 
+  // number slots in selected block (for taxConfig dropdowns)
+  const numberSlotsInSelectedBlock = selectedBlock
+    ? selectedBlock.rows.flatMap(r => r.slots).filter((s): s is NonNullable<FormSlot> => s !== null && s.type === 'number')
+    : []
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>表單設定</h1>
-        {activeTab !== 'templates' && activeTab !== 'cycle' ? (
+        {activeTab !== 'templates' && activeTab !== 'cycle' && activeTab !== 'tax' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {savedMsg && <span style={{ fontSize: 13, color: savedMsg === '已儲存' ? '#16a34a' : '#dc2626' }}>{savedMsg}</span>}
             <button onClick={handleSave} disabled={saving} style={btnPrimary}>
@@ -316,6 +322,12 @@ export default function FormSettingsClient({
             marginBottom: -1, cursor: 'pointer', color: activeTab === 'cycle' ? '#111827' : '#6b7280' }}>
           申請週期
         </button>
+        <button onClick={() => { setActiveTab('tax'); setSelection(null) }}
+          style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
+            borderBottom: activeTab === 'tax' ? '2px solid #111827' : '2px solid transparent',
+            marginBottom: -1, cursor: 'pointer', color: activeTab === 'tax' ? '#111827' : '#6b7280' }}>
+          稅額清單
+        </button>
         <button onClick={() => { setActiveTab('templates'); setSelection(null) }}
           style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
             borderBottom: activeTab === 'templates' ? '2px solid #111827' : '2px solid transparent',
@@ -327,11 +339,14 @@ export default function FormSettingsClient({
       {/* Cycle tab */}
       {activeTab === 'cycle' && <CycleTab />}
 
+      {/* Tax tab */}
+      {activeTab === 'tax' && <TaxTab />}
+
       {/* Templates tab */}
       {activeTab === 'templates' && <TemplateManagementTab newTrigger={newTemplateTrigger} />}
 
       {/* Main layout */}
-      {activeTab !== 'templates' && activeTab !== 'cycle' && <div style={{ display: 'flex', gap: 0, minHeight: 500 }}>
+      {activeTab !== 'templates' && activeTab !== 'cycle' && activeTab !== 'tax' && <div style={{ display: 'flex', gap: 0, minHeight: 500 }}>
         {/* Canvas */}
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: 20 }}>
           {blocks.map((block, blockIdx) => {
@@ -661,6 +676,40 @@ export default function FormSettingsClient({
                     <p style={{ fontSize: 13, color: 'var(--text-body)', margin: 0 }}>
                       {selectedCatalogDef?.dataSourceLabel ?? '—'}
                     </p>
+                  )}
+                </div>
+              )}
+
+              {/* taxConfig：稅額計算設定（只在 tax_rates 資料來源時顯示） */}
+              {selectedSlot.dataSource === 'tax_rates' && (
+                <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
+                  <p style={{ ...panelLabel, marginBottom: 6 }}>稅額計算設定</p>
+                  <p style={{ ...panelLabel, marginBottom: 4 }}>稅基欄位（費用）</p>
+                  <select
+                    value={selectedSlot.taxConfig?.baseFieldId ?? ''}
+                    onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
+                      taxConfig: { baseFieldId: e.target.value, totalFieldId: selectedSlot.taxConfig?.totalFieldId ?? '' }
+                    })}
+                    style={{ ...panelInput, marginBottom: 8, cursor: 'pointer' }}>
+                    <option value="">請選擇欄位</option>
+                    {numberSlotsInSelectedBlock
+                      .filter(s => s.fieldId !== selectedSlot.taxConfig?.totalFieldId)
+                      .map(s => <option key={s.fieldId} value={s.fieldId}>{s.label}</option>)}
+                  </select>
+                  <p style={{ ...panelLabel, marginBottom: 4 }}>總額欄位（自動加總）</p>
+                  <select
+                    value={selectedSlot.taxConfig?.totalFieldId ?? ''}
+                    onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
+                      taxConfig: { baseFieldId: selectedSlot.taxConfig?.baseFieldId ?? '', totalFieldId: e.target.value }
+                    })}
+                    style={{ ...panelInput, cursor: 'pointer' }}>
+                    <option value="">請選擇欄位</option>
+                    {numberSlotsInSelectedBlock
+                      .filter(s => s.fieldId !== selectedSlot.taxConfig?.baseFieldId)
+                      .map(s => <option key={s.fieldId} value={s.fieldId}>{s.label}</option>)}
+                  </select>
+                  {(!selectedSlot.taxConfig?.baseFieldId || !selectedSlot.taxConfig?.totalFieldId) && (
+                    <p style={{ fontSize: 11, color: '#f59e0b', margin: '4px 0 0' }}>請選擇稅基與總額欄位，計算才會生效。</p>
                   )}
                 </div>
               )}

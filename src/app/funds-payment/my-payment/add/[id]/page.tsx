@@ -3,7 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsAllocation, FormBlock, FormSlot, DropdownOption } from '@/lib/types'
+import { FundsAllocation, FormBlock, FormSlot, DropdownOption, TaxRateOption } from '@/lib/types'
+import { computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
+import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { createPayment } from '@/app/actions/payment'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { saveAttachments } from '@/app/actions/attachments'
@@ -81,6 +83,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   const [payeeSearch, setPayeeSearch] = useState<Record<string, string>>({})
   const [openPayeeId, setOpenPayeeId] = useState<string | null>(null)
   const [payeeAutoFillLabels, setPayeeAutoFillLabels] = useState<Set<string>>(new Set())
+  const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
 
   const setField = useCallback((id: string, val: string) => {
     setFieldValues(prev => ({ ...prev, [id]: val }))
@@ -192,6 +195,10 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
         }
       }
 
+      if (neededSources.has('tax_rates')) {
+        fetches.push(getTaxRateOptions().then(data => setTaxRateOptions(data)))
+      }
+
       await Promise.all(fetches)
       setLoading(false)
     }
@@ -255,6 +262,16 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
     )
   }
 
+  const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
+  for (const block of schema) {
+    const info = computeBlockTax(block, fieldValues, taxRateOptions)
+    if (info) blockTaxMap[block.id] = info
+  }
+  const computedTotals: Record<string, string> = {}
+  for (const info of Object.values(blockTaxMap)) {
+    if (info) computedTotals[info.totalFieldId] = String(Math.floor(info.total))
+  }
+
   function renderField(slot: NonNullable<FormSlot>, rec: FundsAllocation) {
     const { fieldId, type, dataSource, staticOptions, required } = slot
 
@@ -307,7 +324,21 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       return <Input value={fieldValues[fieldId] ?? ''} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
+    if (computedTotals[fieldId] !== undefined) {
+      return <Input value={computedTotals[fieldId]} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+    }
+
     if (type === 'select') {
+      if (dataSource === 'tax_rates') {
+        return (
+          <SearchableSelect
+            value={fieldValues[fieldId] ?? ''}
+            onChange={v => setField(fieldId, v)}
+            options={taxRateOptions.map(o => ({ value: o.label, label: o.label }))}
+            required={required}
+          />
+        )
+      }
       if (dataSource.startsWith('payee_records:') && payeeFullRecords[dataSource]) {
         return renderPayeeCombobox(slot, dataSource)
       }
@@ -380,7 +411,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       if (ALLOCATION_READONLY_FIELD_IDS.has(slot.fieldId)) continue
       if (slot.label in ALLOCATION_READONLY_LABEL_MAP) continue
       if (slot.fieldId === 'payment_method') continue
-      extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
+      extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
     }
 
     const { id: newPaymentId, error: insertError } = await createPayment(
@@ -418,14 +449,18 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
               borderRadius: 10,
               background: 'var(--bg-card)',
             }}>
-              {block.title && (
-                <div style={{
-                  padding: '10px 20px',
-                  background: 'var(--bg-sidebar)',
-                  borderBottom: '1px solid var(--border-color)',
-                  borderRadius: '9px 9px 0 0',
-                }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
+              {(block.title || blockTaxMap[block.id]) && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0' }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
+                  {blockTaxMap[block.id] && (() => {
+                    const info = blockTaxMap[block.id]!
+                    return (
+                      <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                        <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxBase)}</strong></span>
+                        <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxAmount)}</strong></span>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
               <div style={{ padding: '20px 20px 4px' }}>

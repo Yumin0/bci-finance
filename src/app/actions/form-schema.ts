@@ -18,6 +18,7 @@ const FALLBACK_DATA_SOURCES: FormDataSourceDef[] = [
   { id: 12, label: '組織單位（處）',       source_key: 'org_units:division',            applicable_types: ['select'],                        is_static_options: false, sort_order: 110 },
   { id: 13, label: '組織單位（課）',       source_key: 'org_units:section',             applicable_types: ['select'],                        is_static_options: false, sort_order: 120 },
   { id: 14, label: '組織職稱清單',         source_key: 'org_unit_roles',                applicable_types: ['select'],                        is_static_options: false, sort_order: 130 },
+  { id: 15, label: '稅額清單',             source_key: 'tax_rates',                     applicable_types: ['select'],                        is_static_options: false, sort_order: 140 },
 ]
 
 export async function getFormDataSources(): Promise<FormDataSourceDef[]> {
@@ -50,7 +51,15 @@ export async function getFormDataSources(): Promise<FormDataSourceDef[]> {
       dynamicSources.push({ id: idCounter++, label: `${cat.name}（付款對象設定）`, source_key: `payee_records:${cat.id}`, applicable_types: ['select'], is_static_options: false, sort_order: orderCounter })
       orderCounter += 10
     }
-    return [...baseSources, ...dynamicSources]
+    // 確保 tax_rates 永遠存在（不依賴 form_data_sources 資料表）
+    const allSources = [...baseSources, ...dynamicSources]
+    const hasTaxRates = allSources.some(s => s.source_key === 'tax_rates')
+    if (!hasTaxRates) {
+      const maxId2 = Math.max(...allSources.map(s => s.id), 100)
+      const maxOrder2 = Math.max(...allSources.map(s => s.sort_order), 0)
+      allSources.push({ id: maxId2 + 1, label: '稅額清單', source_key: 'tax_rates', applicable_types: ['select'], is_static_options: false, sort_order: maxOrder2 + 10 })
+    }
+    return allSources
   } catch {
     return baseSources
   }

@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
-import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSchemaRow, FormSlot, StepDecision } from '@/lib/types'
+import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSchemaRow, FormSlot, StepDecision, TaxRateOption } from '@/lib/types'
+import { computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
+import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
 import ApprovalPanel from '@/app/funds-allocation/_components/ApprovalPanel'
 import StatusBadge from '@/app/_components/StatusBadge'
@@ -77,6 +79,7 @@ export default function EditFundsForm({
   const neededSources = new Set(allSlots.map(s => s.dataSource))
 
   const [repeatableValues, setRepeatableValues] = useState<Record<string, Record<string, string>[]>>({})
+  const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
 
   function setField(id: string, val: string) {
     setFieldValues(prev => ({ ...prev, [id]: val }))
@@ -177,6 +180,9 @@ export default function EditFundsForm({
       if (neededSources.has('dropdown_options:payment_account')) dropdownFields.push('payment_account')
       if (dropdownFields.length) fetches.push(loadDropdowns(dropdownFields))
       if (neededSources.has('expense_items')) fetches.push(loadExpenseItems())
+      if (neededSources.has('tax_rates')) {
+        fetches.push(getTaxRateOptions().then(data => setTaxRateOptions(data)))
+      }
 
       const loadDynamicOptions = async (sourceKey: string) => {
         const [table, idStr] = sourceKey.startsWith('fee_records:')
@@ -261,6 +267,16 @@ export default function EditFundsForm({
     .filter(r => r.org_unit_id === sectionId)
     .map(r => r.display_name ?? `${unitLabel(unitMap.get(r.org_unit_id)!)} ${r.role_types.name}`)
 
+  const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
+  for (const block of schema) {
+    const info = computeBlockTax(block, fieldValues, taxRateOptions)
+    if (info) blockTaxMap[block.id] = info
+  }
+  const computedTotals: Record<string, string> = {}
+  for (const info of Object.values(blockTaxMap)) {
+    if (info) computedTotals[info.totalFieldId] = String(Math.floor(info.total))
+  }
+
   function renderFieldFor(
     slot: NonNullable<FormSlot>,
     values: Record<string, string>,
@@ -307,6 +323,23 @@ export default function EditFundsForm({
           />
         )
       }
+    }
+
+    if (type === 'select' && dataSource === 'tax_rates') {
+      const options = taxRateOptions.map(o => ({ value: o.label, label: o.label }))
+      return (
+        <SearchableSelect
+          value={values[fieldId] ?? ''}
+          onChange={v => onChange(fieldId, v)}
+          options={options}
+          required={required}
+          disabled={disabled}
+        />
+      )
+    }
+
+    if (computedTotals[fieldId] !== undefined) {
+      return <Input value={computedTotals[fieldId]} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
     if (type === 'radio') {
@@ -430,7 +463,7 @@ export default function EditFundsForm({
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
       if (slot.fieldId.startsWith('custom_') && !repeatableSlotFieldIds.has(slot.fieldId)) {
-        extraData[slot.label] = fieldValues[slot.fieldId] ?? ''
+        extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
       }
     }
     for (const row of allRows.filter(r => r.repeatable)) {
@@ -543,9 +576,18 @@ export default function EditFundsForm({
       <form onSubmit={isDraft ? handleSubmitFromDraft : handleSaveChanges}>
         {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
           <div key={block.id} style={{ marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, background: 'var(--bg-card)' }}>
-            {block.title && (
-              <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0' }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
+            {(block.title || blockTaxMap[block.id]) && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0', background: 'var(--bg-sidebar)' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
+                {blockTaxMap[block.id] && (() => {
+                  const info = blockTaxMap[block.id]!
+                  return (
+                    <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                      <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxBase)}</strong></span>
+                      <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxAmount)}</strong></span>
+                    </div>
+                  )
+                })()}
               </div>
             )}
             <div style={{ padding: '20px 20px 4px' }}>

@@ -161,6 +161,19 @@ export type FundsAllocationTemplate = {
 
 export type FormFieldType = 'text' | 'date' | 'select' | 'number' | 'textarea' | 'readonly' | 'radio' | 'attachment'
 
+export type TaxFormulaStep = {
+  op: '+' | '-' | '*' | '/'
+  value: number
+}
+
+export type TaxRateOption = {
+  id: number
+  label: string
+  formula_steps: TaxFormulaStep[]
+  sort_order: number
+  created_at: string
+}
+
 export type FundAttachment = {
   id: number
   funds_allocation_id: number | null
@@ -192,6 +205,7 @@ export type FormSlot = {
   dataSource: string
   staticOptions?: string[]
   showWhen?: { fieldId: string; values: string[] }
+  taxConfig?: { baseFieldId: string; totalFieldId: string }
 } | null
 
 export type FormSchemaRow = {
