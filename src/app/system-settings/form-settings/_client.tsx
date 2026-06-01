@@ -696,11 +696,23 @@ export default function FormSettingsClient({
                       .filter(s => s.fieldId !== selectedSlot.taxConfig?.totalFieldId)
                       .map(s => <option key={s.fieldId} value={s.fieldId}>{s.label}</option>)}
                   </select>
+                  <p style={{ ...panelLabel, marginBottom: 4 }}>稅額顯示欄位（選填）</p>
+                  <select
+                    value={selectedSlot.taxConfig?.taxAmountFieldId ?? ''}
+                    onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
+                      taxConfig: { baseFieldId: selectedSlot.taxConfig?.baseFieldId ?? '', totalFieldId: selectedSlot.taxConfig?.totalFieldId ?? '', taxAmountFieldId: e.target.value || undefined }
+                    })}
+                    style={{ ...panelInput, marginBottom: 8, cursor: 'pointer' }}>
+                    <option value="">不顯示</option>
+                    {numberSlotsInSelectedBlock
+                      .filter(s => s.fieldId !== selectedSlot.taxConfig?.baseFieldId && s.fieldId !== selectedSlot.taxConfig?.totalFieldId)
+                      .map(s => <option key={s.fieldId} value={s.fieldId}>{s.label}</option>)}
+                  </select>
                   <p style={{ ...panelLabel, marginBottom: 4 }}>總額欄位（自動加總）</p>
                   <select
                     value={selectedSlot.taxConfig?.totalFieldId ?? ''}
                     onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
-                      taxConfig: { baseFieldId: selectedSlot.taxConfig?.baseFieldId ?? '', totalFieldId: e.target.value }
+                      taxConfig: { baseFieldId: selectedSlot.taxConfig?.baseFieldId ?? '', totalFieldId: e.target.value, taxAmountFieldId: selectedSlot.taxConfig?.taxAmountFieldId }
                     })}
                     style={{ ...panelInput, cursor: 'pointer' }}>
                     <option value="">請選擇欄位</option>

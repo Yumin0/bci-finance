@@ -205,7 +205,7 @@ export type FormSlot = {
   dataSource: string
   staticOptions?: string[]
   showWhen?: { fieldId: string; values: string[] }
-  taxConfig?: { baseFieldId: string; totalFieldId: string }
+  taxConfig?: { baseFieldId: string; totalFieldId: string; taxAmountFieldId?: string }
 } | null
 
 export type FormSchemaRow = {

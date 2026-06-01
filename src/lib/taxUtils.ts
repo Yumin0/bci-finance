@@ -17,6 +17,7 @@ export type BlockTaxInfo = {
   taxSelectFieldId: string
   baseFieldId: string
   totalFieldId: string
+  taxAmountFieldId?: string
   taxBase: number
   taxAmount: number
   total: number
@@ -35,12 +36,18 @@ export function computeBlockTax(
   const selectedLabel = fieldValues[taxSelectSlot.fieldId] ?? ''
   const selectedOption = taxRateOptions.find(o => o.label === selectedLabel)
   const taxAmount = selectedOption ? applyTaxFormula(taxBase, selectedOption.formula_steps) : 0
-  const otherNumbers = allSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId)
+  const { taxAmountFieldId } = taxSelectSlot.taxConfig
+  const otherNumbers = allSlots.filter(s =>
+    s.type === 'number' &&
+    s.fieldId !== totalFieldId &&
+    (!taxAmountFieldId || s.fieldId !== taxAmountFieldId)
+  )
   const numbersSum = otherNumbers.reduce((sum, s) => sum + (parseFloat(fieldValues[s.fieldId] ?? '0') || 0), 0)
   return {
     taxSelectFieldId: taxSelectSlot.fieldId,
     baseFieldId,
     totalFieldId,
+    taxAmountFieldId,
     taxBase,
     taxAmount,
     total: numbersSum + taxAmount,

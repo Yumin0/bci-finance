@@ -273,8 +273,19 @@ export default function EditFundsForm({
     if (info) blockTaxMap[block.id] = info
   }
   const computedTotals: Record<string, string> = {}
-  for (const info of Object.values(blockTaxMap)) {
-    if (info) computedTotals[info.totalFieldId] = String(Math.floor(info.total))
+  const computedTotalHints: Record<string, string> = {}
+  for (const [blockId, info] of Object.entries(blockTaxMap)) {
+    if (!info) continue
+    computedTotals[info.totalFieldId] = String(Math.floor(info.total))
+    if (info.taxAmountFieldId) computedTotals[info.taxAmountFieldId] = String(Math.floor(info.taxAmount))
+    const blk = schema.find(b => b.id === blockId)
+    if (blk) {
+      const allBlockSlots = blk.rows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+      const sumParts = allBlockSlots
+        .filter(s => s.type === 'number' && s.fieldId !== info.totalFieldId && (!info.taxAmountFieldId || s.fieldId !== info.taxAmountFieldId))
+        .map(s => s.label)
+      if (sumParts.length > 0) computedTotalHints[info.totalFieldId] = `（${[...sumParts, '稅額'].join('＋')}）`
+    }
   }
 
   function renderFieldFor(
@@ -605,6 +616,7 @@ export default function EditFundsForm({
                         <label style={labelStyle}>
                           {slot.label}
                           {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                          {computedTotalHints[slot.fieldId] && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4, fontWeight: 400 }}>{computedTotalHints[slot.fieldId]}</span>}
                         </label>
                         {renderField(slot)}
                       </div>
