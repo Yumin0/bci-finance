@@ -7,6 +7,13 @@
 
 ## 進行中
 
+**付款憑單顯示資金分配申請附件**（Riku）
+分支：`main`（直接在 main 改）
+開始：2026-06-05
+影響範圍確認：
+- [ ] /funds-payment/my-payment/add/[id]（新增頁，新增申請單附件唯讀顯示）
+- [ ] /funds-payment/review/check/[id]（審核頁，新增申請單附件 + 付款憑單附件唯讀顯示）
+
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04

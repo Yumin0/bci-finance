@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MOCK_USER_ID } from '@/lib/constants'
-import { FundsPayment, ApprovalRecord, StepDecision, FormBlock } from '@/lib/types'
+import { FundsPayment, ApprovalRecord, StepDecision, FormBlock, FundAttachment } from '@/lib/types'
 import { submitApprovalDecision } from '@/app/actions/approval-flow'
 import { getFormSchemas } from '@/app/actions/form-schema'
+import { getAttachmentsByAllocationId, getAttachmentsByPaymentId } from '@/app/actions/attachments'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
+import AttachmentUpload from '@/app/_components/AttachmentUpload'
 import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/dateUtils'
 
@@ -38,6 +40,8 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [allocationAttachments, setAllocationAttachments] = useState<FundAttachment[]>([])
+  const [paymentAttachments, setPaymentAttachments] = useState<FundAttachment[]>([])
 
   useEffect(() => {
     async function load() {
@@ -68,6 +72,12 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         })
       } else {
         setRecord({ ...payment, approval_flow_templates: null })
+      }
+
+      // 載入附件
+      getAttachmentsByPaymentId(numId).then(setPaymentAttachments)
+      if (payment.funds_allocation_id) {
+        getAttachmentsByAllocationId(payment.funds_allocation_id).then(setAllocationAttachments)
       }
 
       setLoading(false)
@@ -120,6 +130,36 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
       {error && <p style={{ color: '#dc2626', marginBottom: 12 }}>{error}</p>}
 
       <FundsPaymentDetail record={record} schema={schema} />
+
+      {(allocationAttachments.length > 0 || paymentAttachments.length > 0) && (
+        <div style={{ marginBottom: 24, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>附件</span>
+          </div>
+          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {allocationAttachments.length > 0 && (
+              <div>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>來自資金分配申請單的附件</p>
+                <AttachmentUpload
+                  slotLabel="inherited"
+                  attachments={allocationAttachments.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
+                  onAdd={() => {}} onRemove={() => {}} readOnly
+                />
+              </div>
+            )}
+            {paymentAttachments.length > 0 && (
+              <div>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>付款憑單附件</p>
+                <AttachmentUpload
+                  slotLabel="payment"
+                  attachments={paymentAttachments.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
+                  onAdd={() => {}} onRemove={() => {}} readOnly
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>審核進度</h2>

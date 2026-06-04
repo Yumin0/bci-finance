@@ -3,12 +3,12 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsAllocation, FormBlock, FormSlot, DropdownOption, TaxRateOption } from '@/lib/types'
+import { FundsAllocation, FormBlock, FormSlot, DropdownOption, TaxRateOption, FundAttachment } from '@/lib/types'
 import { computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { createPayment } from '@/app/actions/payment'
 import { getFormSchemas } from '@/app/actions/form-schema'
-import { saveAttachments } from '@/app/actions/attachments'
+import { getAttachmentsByAllocationId, saveAttachments } from '@/app/actions/attachments'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -76,6 +76,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   const [error, setError] = useState<string | null>(null)
 
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
+  const [allocationAttachments, setAllocationAttachments] = useState<FundAttachment[]>([])
   const [pendingAttachments, setPendingAttachments] = useState<Record<string, AttachmentItem[]>>({})
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
@@ -200,6 +201,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       }
 
       await Promise.all(fetches)
+      getAttachmentsByAllocationId(numId).then(setAllocationAttachments)
       setLoading(false)
     }
     load()
@@ -505,6 +507,22 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
             </div>
           )
         })}
+
+        {allocationAttachments.length > 0 && (
+          <div style={{ marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>附件</span>
+            </div>
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>來自資金分配申請單的附件</p>
+              <AttachmentUpload
+                slotLabel="inherited"
+                attachments={allocationAttachments.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
+                onAdd={() => {}} onRemove={() => {}} readOnly
+              />
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <Button type="submit" disabled={submitting}>
