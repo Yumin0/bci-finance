@@ -69,7 +69,7 @@ export default function FundsAllocationDetail({
           </div>
           <div style={gridStyle(2)}>
             <Field label="費用項目" value={record.expense_item ?? ''} />
-            <Field label="項目 *" value={record.name} />
+            <Field label="項目 *" value={record.name ?? ''} />
           </div>
           <div style={gridStyle(2)}>
             <Field label="金額 *" value={String(record.amount)} />

@@ -111,6 +111,9 @@
 
 ## 已完成
 
+**資金分配申請單錯誤訊息與刪除 Bug 修正**（2026-06-04，Riku）
+送出失敗改只顯示中文說明（不顯示英文原始錯誤）；刪除申請單改用 Server Action（supabaseAdmin）確保實際刪除，並加 router.refresh() 修正刪後仍顯示的問題；修正審核頁 record.name 為 null 導致 Input 收到 null 值的 Console Error。
+
 **稅額自動計算 Bug 修正 + 每列獨立計算 + 欄位開放輸入**（2026-06-04，Riku）
 修正可重複列（repeatable row）中費用填寫後稅額與總額不更新的問題：原因為計算結果寫入 fieldValues，但 repeatable row 的欄位讀取 repeatableValues；改為 effect 直接更新 repeatableValues；實作每列費用對應同列稅額自動計算；總額改為所有列（費用＋手續費＋稅額）加總；移除稅額和總額的唯讀限制，改為可輸入但費用變動時自動帶入；修正可重複列欄寬與下方固定列欄寬不對齊的問題（刪除按鈕改為絕對定位，統一 gap:20）。
 

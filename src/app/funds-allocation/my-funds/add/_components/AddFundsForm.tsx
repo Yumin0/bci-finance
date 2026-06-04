@@ -641,7 +641,11 @@ export default function AddFundsForm({
   return (
     <div>
       <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>新增資金分配申請單</h1>
-      {error && <p style={errorStyle}>送出失敗：{error}</p>}
+      {error && (
+        <p style={errorStyle}>
+          送出失敗：{getChineseHint(error) ?? error}
+        </p>
+      )}
 
       <form onSubmit={handleSubmit}>
         {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
@@ -750,6 +754,16 @@ export default function AddFundsForm({
       </form>
     </div>
   )
+}
+
+function getChineseHint(error: string): string | null {
+  if (/null value in column/.test(error)) return '有必填欄位未填寫，請確認所有標示星號（*）的欄位都已填入。'
+  if (/duplicate key|unique constraint/.test(error)) return '資料重複，可能已有相同的申請紀錄，請確認後再試。'
+  if (/foreign key constraint/.test(error)) return '選取的關聯資料不存在，請確認選項是否有效。'
+  if (/permission denied/.test(error)) return '您沒有執行此操作的權限。'
+  if (/JWT expired|invalid JWT|請先登入/.test(error)) return '登入已逾時，請重新整理頁面後重新登入。'
+  if (/network|fetch|Failed to fetch/.test(error)) return '網路連線異常，請確認網路後再試。'
+  return null
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }

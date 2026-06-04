@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import { getAttachmentsByAllocationId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
+import { deleteFundsAllocation } from '@/app/actions/funds-allocation'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
@@ -585,8 +586,9 @@ export default function EditFundsForm({
   async function handleDelete() {
     if (!confirm('確定要刪除此單據嗎？此操作無法復原。')) return
     setSubmitting(true)
-    const { error: deleteError } = await supabase.from('funds_allocation').delete().eq('id', record.id)
-    if (deleteError) { setError(deleteError.message); setSubmitting(false); return }
+    const { error: deleteError } = await deleteFundsAllocation(record.id)
+    if (deleteError) { setError(deleteError); setSubmitting(false); return }
+    router.refresh()
     router.push('/funds-allocation/my-funds')
   }
 

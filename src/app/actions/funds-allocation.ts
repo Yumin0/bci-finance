@@ -33,6 +33,12 @@ export async function createFundsAllocation(payload: FundsAllocationPayload) {
   return { data, error: null }
 }
 
+export async function deleteFundsAllocation(id: number): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('funds_allocation').delete().eq('id', id)
+  if (error) return { error: error.message }
+  return { error: null }
+}
+
 export async function generateSerialNumber(): Promise<string> {
   const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }).replace(/-/g, '')
   const { count } = await supabase
