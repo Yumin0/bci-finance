@@ -33,6 +33,15 @@ export async function createFundsAllocation(payload: FundsAllocationPayload) {
   return { data, error: null }
 }
 
+export async function updateFundsAllocation(
+  id: number,
+  updates: Partial<FundsAllocationPayload> & { updated_at?: string }
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('funds_allocation').update(updates).eq('id', id)
+  if (error) return { error: error.message }
+  return { error: null }
+}
+
 export async function deleteFundsAllocation(id: number): Promise<{ error: string | null }> {
   const { error } = await supabase.from('funds_allocation').delete().eq('id', id)
   if (error) return { error: error.message }

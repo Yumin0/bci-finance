@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import { getAttachmentsByAllocationId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
-import { deleteFundsAllocation } from '@/app/actions/funds-allocation'
+import { deleteFundsAllocation, updateFundsAllocation } from '@/app/actions/funds-allocation'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
@@ -594,11 +594,11 @@ export default function EditFundsForm({
 
   async function handleSaveDraft() {
     setSavingDraft(true); setError(null)
-    const { error: updateError } = await supabase.from('funds_allocation')
-      .update({ ...buildUpdates(), status: 'draft', flow_template_id: null, current_step: null })
-      .eq('id', record.id)
+    const { error: updateError } = await updateFundsAllocation(record.id, {
+      ...buildUpdates(), status: 'draft', flow_template_id: null, current_step: null,
+    })
     setSavingDraft(false)
-    if (updateError) { setError(updateError.message); return }
+    if (updateError) { setError(updateError); return }
     await persistAttachmentChanges()
     router.push('/funds-allocation/my-funds')
   }
@@ -606,10 +606,10 @@ export default function EditFundsForm({
   async function handleSubmitFromDraft(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSubmitting(true); setError(null)
-    const { error: updateError } = await supabase.from('funds_allocation')
-      .update({ ...buildUpdates(), status: 'pending', flow_template_id: flowTemplateId, current_step: 1 })
-      .eq('id', record.id)
-    if (updateError) { setError(updateError.message); setSubmitting(false); return }
+    const { error: updateError } = await updateFundsAllocation(record.id, {
+      ...buildUpdates(), status: 'pending', flow_template_id: flowTemplateId, current_step: 1,
+    })
+    if (updateError) { setError(updateError); setSubmitting(false); return }
     await persistAttachmentChanges()
     router.push('/funds-allocation/my-funds')
   }
@@ -617,8 +617,8 @@ export default function EditFundsForm({
   async function handleSaveChanges(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSubmitting(true); setError(null)
-    const { error: updateError } = await supabase.from('funds_allocation').update(buildUpdates()).eq('id', record.id)
-    if (updateError) { setError(updateError.message); setSubmitting(false); return }
+    const { error: updateError } = await updateFundsAllocation(record.id, buildUpdates())
+    if (updateError) { setError(updateError); setSubmitting(false); return }
     await persistAttachmentChanges()
     router.push('/funds-allocation/my-funds')
   }
