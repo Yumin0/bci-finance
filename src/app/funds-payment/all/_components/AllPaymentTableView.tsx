@@ -2,10 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FundsPayment } from '@/lib/types'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
+import PageHeader from '@/app/_components/PageHeader'
 import ExportCsvButton from './ExportCsvButton'
 
 type PaymentRow = FundsPayment & {
@@ -58,75 +62,66 @@ export default function AllPaymentTableView({
     : records
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>全部付款紀錄</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>所有付款憑單的完整狀態覽表</p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Input
-            placeholder="搜尋採購單號、憑單名稱、付款方式、付款對象…"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            style={{ width: 260, fontSize: 13 }}
-          />
-          {canExport && <ExportCsvButton labelConfig={labelConfig} />}
-        </div>
+    <div className="flex flex-col gap-6">
+      <div>
+        <PageHeader
+          title="全部付款紀錄"
+          action={
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="搜尋採購單號、憑單名稱、付款方式…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                className="w-64 bg-background"
+              />
+              {canExport && <ExportCsvButton labelConfig={labelConfig} />}
+            </div>
+          }
+        />
+        <p className="mt-1 text-sm text-muted-foreground">所有付款憑單的完整狀態覽表</p>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
+      <Card className="overflow-hidden p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => (
-                <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
+                <TableHead key={i}>{col}</TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtered.length === 0 && (
-              <tr>
-                <td colSpan={7} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
+              <TableRow>
+                <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
                   {query ? '找不到符合的紀錄' : '目前無付款紀錄'}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
             {filtered.map(r => (
-              <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={td}>
-                  <StatusBadge
-                    module="payment_voucher"
-                    status={r.status}
-                    stepName={getStepName(r)}
-                    labelConfig={labelConfig}
-                  />
-                </td>
-                <td style={td}>
-                  <Link
-                    href={`/funds-payment/my-payment/${r.id}`}
-                    style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}
-                  >
+              <TableRow key={r.id}>
+                <TableCell>
+                  <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
+                </TableCell>
+                <TableCell>
+                  <Link href={`/funds-payment/my-payment/${r.id}`} className="text-sm text-primary underline underline-offset-4">
                     {r.status === 'draft' ? '繼續編輯' : (r.purchase_order_number ?? '-')}
                   </Link>
-                </td>
-                <td style={td}>{r.name}</td>
-                <td style={td}>{r.payment_method ?? '-'}</td>
-                <td style={td}>{payeeLabel ? (r.extra_data?.[payeeLabel] ?? '-') : '-'}</td>
-                <td style={td}>{r.amount.toLocaleString()}</td>
-                <td style={td}>
-                  <Link href={`/funds-payment/my-payment/${r.id}`}
-                    style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>
+                </TableCell>
+                <TableCell>{r.name}</TableCell>
+                <TableCell>{r.payment_method ?? '-'}</TableCell>
+                <TableCell>{payeeLabel ? (r.extra_data?.[payeeLabel] ?? '-') : '-'}</TableCell>
+                <TableCell>{r.amount.toLocaleString()}</TableCell>
+                <TableCell>
+                  <Link href={`/funds-payment/my-payment/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                     查閱
                   </Link>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   )
 }
-
-const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }

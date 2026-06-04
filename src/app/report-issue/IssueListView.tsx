@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import PageHeader from '@/app/_components/PageHeader'
 
 const TYPE_LABEL: Record<string, string> = {
   improvement: '小優化許願',
@@ -33,10 +36,12 @@ const STATUS_COLOR: Record<IssueStatus, React.CSSProperties> = {
   on_hold: { background: '#fef3c7', color: '#d97706' },
 }
 
+const filterSelectCls = 'w-full cursor-pointer rounded border border-border bg-card px-1 py-0.5 text-xs text-foreground'
+
 export default function IssueListView({
   issues,
   users,
-  currentUserId,
+  currentUserId: _currentUserId,
   moduleOptions,
 }: {
   issues: DevTracker[]
@@ -56,12 +61,10 @@ export default function IssueListView({
   const overlayRef = useRef<HTMLDivElement>(null)
   const tempId = useRef(`new-${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
-  // 控制式 select 狀態，確保顯示中文標籤
   const [typeValue, setTypeValue] = useState<string>('')
   const [priorityValue, setPriorityValue] = useState<string>('medium')
   const [moduleValue, setModuleValue] = useState<string>('')
 
-  // 欄位篩選
   const [filterPriority, setFilterPriority] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [filterCreator, setFilterCreator] = useState<string>('')
@@ -69,12 +72,8 @@ export default function IssueListView({
 
   const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]))
 
-  // 切換 Tab 時重置篩選
   useEffect(() => {
-    setFilterPriority('')
-    setFilterStatus('')
-    setFilterCreator('')
-    setFilterAssignee('')
+    setFilterPriority(''); setFilterStatus(''); setFilterCreator(''); setFilterAssignee('')
   }, [activeTab])
 
   const filteredIssues = issues
@@ -90,11 +89,7 @@ export default function IssueListView({
 
   useEffect(() => {
     if (state?.success) {
-      setShowForm(false)
-      setSelectedImg(null)
-      setTypeValue('')
-      setPriorityValue('medium')
-      setModuleValue('')
+      setShowForm(false); setSelectedImg(null); setTypeValue(''); setPriorityValue('medium'); setModuleValue('')
       if (editorRef.current) editorRef.current.innerHTML = ''
       tempId.current = `new-${Date.now()}-${Math.random().toString(36).slice(2)}`
     }
@@ -108,58 +103,37 @@ export default function IssueListView({
 
   function handleEditorClick(e: React.MouseEvent) {
     const target = e.target as HTMLElement
-    if (target.tagName === 'IMG') {
-      setSelectedImg(target as HTMLImageElement)
-    } else {
-      setSelectedImg(null)
-    }
+    if (target.tagName === 'IMG') setSelectedImg(target as HTMLImageElement)
+    else setSelectedImg(null)
   }
 
   function handleResizeMouseDown(e: React.MouseEvent) {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault(); e.stopPropagation()
     if (!selectedImg) return
-
     const startX = e.clientX
     const startW = selectedImg.getBoundingClientRect().width
-
     function onMove(ev: MouseEvent) {
       const newW = Math.max(40, startW + (ev.clientX - startX))
-      selectedImg!.style.width = `${newW}px`
-      selectedImg!.style.maxWidth = '100%'
+      selectedImg!.style.width = `${newW}px`; selectedImg!.style.maxWidth = '100%'
       if (overlayRef.current) {
         const r = selectedImg!.getBoundingClientRect()
-        overlayRef.current.style.left = `${r.left}px`
-        overlayRef.current.style.top = `${r.top}px`
-        overlayRef.current.style.width = `${r.width}px`
-        overlayRef.current.style.height = `${r.height}px`
+        overlayRef.current.style.left = `${r.left}px`; overlayRef.current.style.top = `${r.top}px`
+        overlayRef.current.style.width = `${r.width}px`; overlayRef.current.style.height = `${r.height}px`
       }
     }
-
-    function onUp() {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
   async function uploadAndInsert(file: File) {
     setUploading(true)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('issueId', tempId.current)
+    const fd = new FormData(); fd.append('file', file); fd.append('issueId', tempId.current)
     const res = await fetch('/api/upload-image', { method: 'POST', body: fd })
     const json = await res.json()
     setUploading(false)
     if (json.url) {
       editorRef.current?.focus()
-      document.execCommand(
-        'insertHTML',
-        false,
-        `<img src="${json.url}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;" /><br>`,
-      )
+      document.execCommand('insertHTML', false, `<img src="${json.url}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;" /><br>`)
     } else {
       alert('上傳失敗：' + (json.error ?? '未知錯誤'))
     }
@@ -167,221 +141,162 @@ export default function IssueListView({
 
   function handleEditorPaste(e: React.ClipboardEvent) {
     const imageItem = Array.from(e.clipboardData.items).find((item) => item.type.startsWith('image/'))
-    if (imageItem) {
-      e.preventDefault()
-      const file = imageItem.getAsFile()
-      if (file) uploadAndInsert(file)
-    }
+    if (imageItem) { e.preventDefault(); const file = imageItem.getAsFile(); if (file) uploadAndInsert(file) }
   }
 
   function handleFormSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     fd.set('before_description', editorRef.current?.innerHTML ?? '')
-    startFormTransition(async () => {
-      const result = await submitIssue(undefined, fd)
-      setState(result)
-    })
+    startFormTransition(async () => { const result = await submitIssue(undefined, fd); setState(result) })
   }
 
   function handleStatusChange(id: number, status: string) {
-    startStatusTransition(async () => {
-      await updateIssueStatus(id, status)
-    })
+    startStatusTransition(async () => { await updateIssueStatus(id, status) })
   }
 
   function handleAssignChange(id: number, assignedTo: string) {
-    startStatusTransition(async () => {
-      await assignIssue(id, assignedTo ? Number(assignedTo) : null)
-    })
+    startStatusTransition(async () => { await assignIssue(id, assignedTo ? Number(assignedTo) : null) })
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text-title)' }}>問題回報 / 開發追蹤</h1>
-        <Button
-          onClick={() => setShowForm((v) => !v)}
-          variant={showForm ? 'outline' : 'default'}
-        >
-          {showForm ? '取消' : '＋ 新增回報'}
-        </Button>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="問題回報 / 開發追蹤"
+        action={
+          <Button onClick={() => setShowForm((v) => !v)} variant={showForm ? 'outline' : 'default'}>
+            {showForm ? '取消' : '＋ 新增回報'}
+          </Button>
+        }
+      />
 
       {showForm && (
-        <div style={{
-          border: '1px solid var(--border-color)',
-          borderRadius: 8,
-          padding: 24,
-          marginBottom: 28,
-          background: 'var(--bg-sidebar)',
-        }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, marginTop: 0, marginBottom: 20, color: 'var(--text-title)' }}>新增回報</h2>
-          <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
-              <div>
-                <label style={labelStyle}>類型 *</label>
-                <Select name="type" value={typeValue} onValueChange={(v) => setTypeValue(v ?? '')}>
-                  <SelectTrigger className="w-full">
-                    <span style={{ color: typeValue ? 'var(--text-title)' : 'var(--text-subtle)' }}>
-                      {typeValue ? TYPE_LABEL[typeValue] : '請選擇'}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="improvement">小優化許願</SelectItem>
-                    <SelectItem value="feature">新功能許願</SelectItem>
-                    <SelectItem value="bug">Bug回報</SelectItem>
-                    <SelectItem value="performance">技術效能優化</SelectItem>
-                  </SelectContent>
-                </Select>
-                <input type="hidden" name="type" value={typeValue} />
+        <Card>
+          <CardHeader>
+            <CardTitle>新增回報</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-foreground">類型 *</label>
+                  <Select name="type" value={typeValue} onValueChange={(v) => setTypeValue(v ?? '')}>
+                    <SelectTrigger className="w-full">
+                      <span className={typeValue ? 'text-foreground' : 'text-muted-foreground'}>
+                        {typeValue ? TYPE_LABEL[typeValue] : '請選擇'}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="improvement">小優化許願</SelectItem>
+                      <SelectItem value="feature">新功能許願</SelectItem>
+                      <SelectItem value="bug">Bug回報</SelectItem>
+                      <SelectItem value="performance">技術效能優化</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <input type="hidden" name="type" value={typeValue} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-foreground">優先級</label>
+                  <Select name="priority" value={priorityValue} onValueChange={(v) => setPriorityValue(v ?? 'medium')}>
+                    <SelectTrigger className="w-full">
+                      <span className="text-foreground">{PRIORITY_LABEL[priorityValue]}</span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">低</SelectItem>
+                      <SelectItem value="medium">中</SelectItem>
+                      <SelectItem value="high">高</SelectItem>
+                      <SelectItem value="critical">緊急</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <input type="hidden" name="priority" value={priorityValue} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-foreground">影響模組</label>
+                  <Select name="module" value={moduleValue} onValueChange={(v) => setModuleValue(v ?? '')}>
+                    <SelectTrigger className="w-full">
+                      <span className={moduleValue ? 'text-foreground' : 'text-muted-foreground'}>
+                        {moduleValue || '請選擇（選填）'}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {moduleOptions.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <input type="hidden" name="module" value={moduleValue} />
+                </div>
               </div>
+
               <div>
-                <label style={labelStyle}>優先級</label>
-                <Select name="priority" value={priorityValue} onValueChange={(v) => setPriorityValue(v ?? 'medium')}>
-                  <SelectTrigger className="w-full">
-                    <span style={{ color: 'var(--text-title)' }}>
-                      {PRIORITY_LABEL[priorityValue]}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">低</SelectItem>
-                    <SelectItem value="medium">中</SelectItem>
-                    <SelectItem value="high">高</SelectItem>
-                    <SelectItem value="critical">緊急</SelectItem>
-                  </SelectContent>
-                </Select>
-                <input type="hidden" name="priority" value={priorityValue} />
+                <label className="mb-1 block text-sm font-medium text-foreground">標題 *</label>
+                <Input name="title" type="text" placeholder="請簡述問題或需求" required />
               </div>
+
               <div>
-                <label style={labelStyle}>影響模組</label>
-                <Select name="module" value={moduleValue} onValueChange={(v) => setModuleValue(v ?? '')}>
-                  <SelectTrigger className="w-full">
-                    <span style={{ color: moduleValue ? 'var(--text-title)' : 'var(--text-subtle)' }}>
-                      {moduleValue || '請選擇（選填）'}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {moduleOptions.map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <input type="hidden" name="module" value={moduleValue} />
+                <label className="mb-1 block text-sm font-medium text-foreground">詳細描述</label>
+                <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                    {uploading ? '上傳中...' : '📷 插入截圖'}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">或直接貼上圖片（Cmd+V）／拖曳</span>
+                </div>
+                <div
+                  ref={editorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onPaste={handleEditorPaste}
+                  onClick={handleEditorClick}
+                  onInput={() => { if (selectedImg && !selectedImg.isConnected) setSelectedImg(null) }}
+                  onDrop={(e) => { e.preventDefault(); Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/')).forEach((f) => uploadAndInsert(f)) }}
+                  onDragOver={(e) => e.preventDefault()}
+                  className="rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
+                  style={{ minHeight: 120, lineHeight: 1.8, wordBreak: 'break-word' }}
+                />
+                <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+                  onChange={(e) => { Array.from(e.target.files ?? []).forEach((f) => uploadAndInsert(f)); e.target.value = '' }} />
               </div>
-            </div>
-            <div>
-              <label style={labelStyle}>標題 *</label>
-              <Input
-                name="title"
-                type="text"
-                placeholder="請簡述問題或需求"
-                required
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>詳細描述</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? '上傳中...' : '📷 插入截圖'}
+
+              {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+              {state?.success && <p className="text-sm text-green-600 dark:text-green-400">已成功提交！</p>}
+
+              <div>
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? '提交中...' : '送出回報'}
                 </Button>
-                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>或直接貼上圖片（Cmd+V）／拖曳</span>
               </div>
-              <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onPaste={handleEditorPaste}
-                onClick={handleEditorClick}
-                onInput={() => {
-                  if (selectedImg && !selectedImg.isConnected) setSelectedImg(null)
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  Array.from(e.dataTransfer.files)
-                    .filter((f) => f.type.startsWith('image/'))
-                    .forEach((f) => uploadAndInsert(f))
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                style={{
-                  minHeight: 120,
-                  border: '1px solid var(--btn-border)',
-                  borderRadius: 6,
-                  padding: '8px 10px',
-                  fontSize: 13,
-                  lineHeight: 1.8,
-                  color: 'var(--text-title)',
-                  outline: 'none',
-                  wordBreak: 'break-word',
-                  background: 'var(--bg-card)',
-                }}
-              />
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  Array.from(e.target.files ?? []).forEach((f) => uploadAndInsert(f))
-                  e.target.value = ''
-                }}
-              />
-            </div>
-            {state?.error && (
-              <p style={{ color: '#dc2626', fontSize: 13, margin: 0 }}>{state.error}</p>
-            )}
-            {state?.success && (
-              <p style={{ color: '#16a34a', fontSize: 13, margin: 0 }}>已成功提交！</p>
-            )}
-            <div>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? '提交中...' : '送出回報'}
-              </Button>
-            </div>
-          </form>
-        </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid var(--border-color)' }}>
+      {/* Tab 切換 */}
+      <div className="flex border-b border-border">
         {(['improvement', 'feature', 'bug', 'performance'] as const).map((type) => (
           <button
             key={type}
             type="button"
             onClick={() => setActiveTab(type)}
-            style={{
-              padding: '8px 20px',
-              fontSize: 13,
-              fontWeight: 500,
-              border: 'none',
-              background: 'none',
-              cursor: 'pointer',
-              color: activeTab === type ? '#2563eb' : 'var(--text-muted)',
-              borderBottom: activeTab === type ? '2px solid #2563eb' : '2px solid transparent',
-              marginBottom: -2,
-            }}
+            className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${
+              activeTab === type
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
           >
             {TYPE_LABEL[type]}
           </button>
         ))}
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-              <th style={th}>影響模組</th>
-              <th style={th}>標題</th>
-              <th style={th}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* 問題列表 */}
+      <Card className="overflow-hidden p-0">
+        <Table className="[&_th]:align-top [&_td]:px-4 [&_td]:py-3 [&_th]:px-4 [&_th]:py-3">
+          <TableHeader>
+            <TableRow>
+              <TableHead>影響模組</TableHead>
+              <TableHead>標題</TableHead>
+              <TableHead>
+                <div className="flex flex-col gap-1">
                   <span>優先級</span>
-                  <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} style={filterSelectStyle}>
+                  <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className={filterSelectCls}>
                     <option value="">全部</option>
                     <option value="low">低</option>
                     <option value="medium">中</option>
@@ -389,11 +304,11 @@ export default function IssueListView({
                     <option value="critical">緊急</option>
                   </select>
                 </div>
-              </th>
-              <th style={th}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              </TableHead>
+              <TableHead>
+                <div className="flex flex-col gap-1">
                   <span>狀態</span>
-                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={filterSelectStyle}>
+                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={filterSelectCls}>
                     <option value="">全部</option>
                     <option value="pending">待處理</option>
                     <option value="in_progress">進行中</option>
@@ -402,78 +317,60 @@ export default function IssueListView({
                     <option value="rejected">已拒絕</option>
                   </select>
                 </div>
-              </th>
-              <th style={th}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              </TableHead>
+              <TableHead>
+                <div className="flex flex-col gap-1">
                   <span>建立者</span>
-                  <select value={filterCreator} onChange={(e) => setFilterCreator(e.target.value)} style={filterSelectStyle}>
+                  <select value={filterCreator} onChange={(e) => setFilterCreator(e.target.value)} className={filterSelectCls}>
                     <option value="">全部</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={String(u.id)}>{u.name}</option>
-                    ))}
+                    {users.map((u) => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
                   </select>
                 </div>
-              </th>
-              <th style={th}>建立日期</th>
-              <th style={th}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              </TableHead>
+              <TableHead>建立日期</TableHead>
+              <TableHead>
+                <div className="flex flex-col gap-1">
                   <span>承接開發者</span>
-                  <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)} style={filterSelectStyle}>
+                  <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)} className={filterSelectCls}>
                     <option value="">全部</option>
                     <option value="__unassigned__">未指派</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={String(u.id)}>{u.name}</option>
-                    ))}
+                    {users.map((u) => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
                   </select>
                 </div>
-              </th>
-              <th style={th}>完成日期</th>
-              <th style={th}></th>
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+              <TableHead>完成日期</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filteredIssues.length === 0 && (
-              <tr>
-                <td colSpan={9} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
+              <TableRow>
+                <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                   尚無任何回報紀錄
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
             {filteredIssues.map((issue) => (
-              <tr key={issue.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={{ ...td, color: 'var(--text-muted)' }}>{issue.module ?? '-'}</td>
-                <td style={{ ...td, maxWidth: 260, fontWeight: 500 }}>
-                  <Link
-                    href={`/report-issue/${issue.id}`}
-                    style={{ color: 'inherit', textDecoration: 'none' }}
-                    className="hover:underline"
-                  >
+              <TableRow key={issue.id}>
+                <TableCell className="text-muted-foreground">{issue.module ?? '-'}</TableCell>
+                <TableCell className="max-w-[260px] font-medium">
+                  <Link href={`/report-issue/${issue.id}`} className="hover:underline">
                     {issue.title}
                   </Link>
-                  {issue.description && (
-                    <div style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2, fontWeight: 400 }}>
-                      {issue.description.slice(0, 60)}{issue.description.length > 60 ? '…' : ''}
-                    </div>
-                  )}
-                </td>
-                <td style={td}>
+                </TableCell>
+                <TableCell>
                   <Badge style={PRIORITY_BADGE_STYLE[issue.priority]}>
                     {PRIORITY_LABEL[issue.priority]}
                   </Badge>
-                </td>
-                <td style={td}>
+                </TableCell>
+                <TableCell>
                   <select
                     defaultValue={issue.status}
                     onChange={(e) => handleStatusChange(issue.id, e.target.value)}
                     style={{
                       ...STATUS_COLOR[issue.status],
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontWeight: 500,
-                      fontSize: 12,
-                      borderRadius: 12,
-                      padding: '2px 8px',
-                      display: 'inline-block',
+                      border: 'none', cursor: 'pointer', fontWeight: 500,
+                      fontSize: 12, borderRadius: 12, padding: '2px 8px', display: 'inline-block',
                     }}
                   >
                     <option value="pending">待處理</option>
@@ -482,41 +379,36 @@ export default function IssueListView({
                     <option value="on_hold">暫緩</option>
                     <option value="rejected">已拒絕</option>
                   </select>
-                </td>
-                <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
                   {issue.created_by ? (userMap[issue.created_by] ?? '-') : '-'}
-                </td>
-                <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-muted-foreground">
                   {formatDate(issue.created_at)}
-                </td>
-                <td style={td}>
+                </TableCell>
+                <TableCell>
                   <select
                     defaultValue={issue.assigned_to ?? ''}
                     onChange={(e) => handleAssignChange(issue.id, e.target.value)}
-                    style={{ fontSize: 12, border: '1px solid var(--border-color)', borderRadius: 4, padding: '2px 6px', color: 'var(--text-body)', background: 'var(--bg-card)' }}
+                    className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-foreground"
                   >
                     <option value="">未指派</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
+                    {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                   </select>
-                </td>
-                <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-muted-foreground">
                   {formatDate(issue.completed_at)}
-                </td>
-                <td style={td}>
-                  <Link
-                    href={`/report-issue/${issue.id}`}
-                    style={{ fontSize: 12, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '3px 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                  >
+                </TableCell>
+                <TableCell>
+                  <Link href={`/report-issue/${issue.id}`} className="whitespace-nowrap rounded border border-border px-2.5 py-1 text-xs text-foreground hover:bg-muted">
                     檢視
                   </Link>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
 
       {selectedImg && selectedImg.isConnected && (() => {
         const r = selectedImg.getBoundingClientRect()
@@ -535,39 +427,4 @@ export default function IssueListView({
       })()}
     </div>
   )
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 13,
-  fontWeight: 500,
-  color: 'var(--text-body)',
-  marginBottom: 5,
-}
-
-const th: React.CSSProperties = {
-  padding: '10px 14px',
-  textAlign: 'left',
-  fontWeight: 600,
-  color: 'var(--text-body)',
-  whiteSpace: 'nowrap',
-  fontSize: 13,
-}
-
-const td: React.CSSProperties = {
-  padding: '10px 14px',
-  color: 'var(--text-title)',
-  verticalAlign: 'top',
-}
-
-const filterSelectStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 400,
-  color: 'var(--text-body)',
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 4,
-  padding: '2px 4px',
-  cursor: 'pointer',
-  width: '100%',
 }

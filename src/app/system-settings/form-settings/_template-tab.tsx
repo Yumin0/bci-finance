@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsAllocationTemplate, OrgUnit, DropdownOption, ExpenseItem } from '@/lib/types'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   getSharedFundTemplates,
   createSharedFundTemplate,
@@ -34,17 +37,9 @@ type EditorValues = {
 }
 
 const EMPTY_EDITOR: EditorValues = {
-  name: '',
-  apply_division: '',
-  apply_section: '',
-  apply_role: '',
-  institution: '',
-  payment_account: '',
-  expense_item: '',
-  item_name: '',
-  amount: '',
-  category: '',
-  note: '',
+  name: '', apply_division: '', apply_section: '', apply_role: '',
+  institution: '', payment_account: '', expense_item: '',
+  item_name: '', amount: '', category: '', note: '',
 }
 
 function templateToEditor(t: FundsAllocationTemplate): EditorValues {
@@ -88,7 +83,6 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
-  // Data sources for dropdowns
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
   const [orgUnitRoles, setOrgUnitRoles] = useState<RoleRow[]>([])
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
@@ -179,7 +173,6 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
     if (!error) setTemplates(prev => prev.filter(t => t.id !== id))
   }
 
-  // Derived cascade options
   const divisionId = Number(editorValues.apply_division) || null
   const sectionId = Number(editorValues.apply_section) || null
   const divisions = orgUnits.filter(u => u.level === '處')
@@ -192,158 +185,144 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
   const paymentAccountOptions = (dropdownOptions['payment_account'] ?? []).map(o => ({ value: o.label, label: o.label }))
   const expenseItemOptions = expenseItems.map(i => ({ value: i.label, label: i.label }))
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--text-muted)', textAlign: 'center' }}>載入中...</div>
+  if (loading) return <p className="text-sm text-muted-foreground">載入中...</p>
 
   return (
-    <div>
-      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-muted)' }}>
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">
         設定共用範本，使用者填寫資金分配申請時可選取範本快速帶入欄位值。
       </p>
 
-      {/* Editor form */}
+      {/* 編輯 / 新增表單 */}
       {editingId !== null && (
-        <div style={{ border: '1.5px solid #2563eb', borderRadius: 10, padding: 20, marginBottom: 20, background: '#f8faff' }}>
-          <p style={{ fontSize: 14, fontWeight: 600, color: '#1e40af', marginTop: 0, marginBottom: 16 }}>
-            {editingId === 'new' ? '新增範本' : '編輯範本'}
-          </p>
+        <Card className="border-primary/50">
+          <CardHeader>
+            <CardTitle className="text-primary">
+              {editingId === 'new' ? '新增範本' : '編輯範本'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
 
-          {errorMsg && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{errorMsg}</p>}
+            <FieldRow label="範本名稱 *">
+              <Input
+                value={editorValues.name}
+                onChange={e => setVal('name', e.target.value)}
+                placeholder="例：主要帳戶—會計師費用"
+              />
+            </FieldRow>
 
-          <FieldRow label="範本名稱 *">
-            <input
-              value={editorValues.name}
-              onChange={e => setVal('name', e.target.value)}
-              placeholder="例：主要帳戶—會計師費用"
-              style={inputStyle}
-            />
-          </FieldRow>
-
-          <div style={{ borderTop: '1px solid #dbeafe', margin: '14px 0', paddingTop: 14 }}>
-            <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>
-              以下欄位可選填，只有填寫的欄位會預先帶入申請表單。
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <FieldRow label="申請處別">
-                <SearchableSelect
-                  value={editorValues.apply_division}
-                  onChange={v => setVal('apply_division', v)}
-                  options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
-                  placeholder="選填"
-                />
-              </FieldRow>
-
-              <FieldRow label="申請課別">
-                <SearchableSelect
-                  value={editorValues.apply_section}
-                  onChange={v => setVal('apply_section', v)}
-                  options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
-                  disabled={!divisionId}
-                  placeholder="選填"
-                />
-              </FieldRow>
-
-              <FieldRow label="職稱">
-                <SearchableSelect
-                  value={editorValues.apply_role}
-                  onChange={v => setVal('apply_role', v)}
-                  options={roleOptions.map(name => ({ value: name, label: name }))}
-                  disabled={!sectionId}
-                  placeholder="選填"
-                />
-              </FieldRow>
-
-              <FieldRow label="機構">
-                <SearchableSelect
-                  value={editorValues.institution}
-                  onChange={v => setVal('institution', v)}
-                  options={institutionOptions}
-                  placeholder="選填"
-                />
-              </FieldRow>
-
-              <FieldRow label="出款帳戶">
-                <SearchableSelect
-                  value={editorValues.payment_account}
-                  onChange={v => setVal('payment_account', v)}
-                  options={paymentAccountOptions}
-                  placeholder="選填"
-                />
-              </FieldRow>
-
-              <FieldRow label="費用項目">
-                <SearchableSelect
-                  value={editorValues.expense_item}
-                  onChange={v => setVal('expense_item', v)}
-                  options={expenseItemOptions}
-                  placeholder="選填"
-                />
-              </FieldRow>
-
-              <FieldRow label="項目名稱">
-                <input
-                  value={editorValues.item_name}
-                  onChange={e => setVal('item_name', e.target.value)}
-                  placeholder="選填"
-                  style={inputStyle}
-                />
-              </FieldRow>
-
-              <FieldRow label="金額">
-                <input
-                  type="number"
-                  value={editorValues.amount}
-                  onChange={e => setVal('amount', e.target.value)}
-                  placeholder="選填"
-                  style={inputStyle}
-                />
-              </FieldRow>
-
-              <FieldRow label="類型">
-                <div style={{ display: 'flex', gap: 16, padding: '8px 0' }}>
-                  {['', ...CATEGORY_OPTIONS].map(opt => (
-                    <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                      <input
-                        type="radio"
-                        name="template_category"
-                        value={opt}
-                        checked={editorValues.category === opt}
-                        onChange={() => setVal('category', opt)}
-                      />
-                      {opt || '不指定'}
-                    </label>
-                  ))}
-                </div>
-              </FieldRow>
-
-              <FieldRow label="備註">
-                <textarea
-                  value={editorValues.note}
-                  onChange={e => setVal('note', e.target.value)}
-                  placeholder="選填"
-                  rows={2}
-                  style={{ ...inputStyle, resize: 'vertical' }}
-                />
-              </FieldRow>
+            <div className="border-t border-border pt-4">
+              <p className="mb-3 text-xs text-muted-foreground">
+                以下欄位可選填，只有填寫的欄位會預先帶入申請表單。
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <FieldRow label="申請處別">
+                  <SearchableSelect
+                    value={editorValues.apply_division}
+                    onChange={v => setVal('apply_division', v)}
+                    options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+                    placeholder="選填"
+                  />
+                </FieldRow>
+                <FieldRow label="申請課別">
+                  <SearchableSelect
+                    value={editorValues.apply_section}
+                    onChange={v => setVal('apply_section', v)}
+                    options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+                    disabled={!divisionId}
+                    placeholder="選填"
+                  />
+                </FieldRow>
+                <FieldRow label="職稱">
+                  <SearchableSelect
+                    value={editorValues.apply_role}
+                    onChange={v => setVal('apply_role', v)}
+                    options={roleOptions.map(name => ({ value: name, label: name }))}
+                    disabled={!sectionId}
+                    placeholder="選填"
+                  />
+                </FieldRow>
+                <FieldRow label="機構">
+                  <SearchableSelect
+                    value={editorValues.institution}
+                    onChange={v => setVal('institution', v)}
+                    options={institutionOptions}
+                    placeholder="選填"
+                  />
+                </FieldRow>
+                <FieldRow label="出款帳戶">
+                  <SearchableSelect
+                    value={editorValues.payment_account}
+                    onChange={v => setVal('payment_account', v)}
+                    options={paymentAccountOptions}
+                    placeholder="選填"
+                  />
+                </FieldRow>
+                <FieldRow label="費用項目">
+                  <SearchableSelect
+                    value={editorValues.expense_item}
+                    onChange={v => setVal('expense_item', v)}
+                    options={expenseItemOptions}
+                    placeholder="選填"
+                  />
+                </FieldRow>
+                <FieldRow label="項目名稱">
+                  <Input
+                    value={editorValues.item_name}
+                    onChange={e => setVal('item_name', e.target.value)}
+                    placeholder="選填"
+                  />
+                </FieldRow>
+                <FieldRow label="金額">
+                  <Input
+                    type="number"
+                    value={editorValues.amount}
+                    onChange={e => setVal('amount', e.target.value)}
+                    placeholder="選填"
+                  />
+                </FieldRow>
+                <FieldRow label="類型">
+                  <div className="flex gap-4 py-1">
+                    {['', ...CATEGORY_OPTIONS].map(opt => (
+                      <label key={opt} className="flex cursor-pointer items-center gap-1.5 text-sm text-foreground">
+                        <input
+                          type="radio"
+                          name="template_category"
+                          value={opt}
+                          checked={editorValues.category === opt}
+                          onChange={() => setVal('category', opt)}
+                        />
+                        {opt || '不指定'}
+                      </label>
+                    ))}
+                  </div>
+                </FieldRow>
+                <FieldRow label="備註">
+                  <textarea
+                    value={editorValues.note}
+                    onChange={e => setVal('note', e.target.value)}
+                    placeholder="選填"
+                    rows={2}
+                    className="w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus:border-ring dark:bg-input/30"
+                  />
+                </FieldRow>
+              </div>
             </div>
-          </div>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-              {saving ? '儲存中...' : '儲存範本'}
-            </button>
-            <button onClick={cancelEdit} disabled={saving} style={btnCancel}>
-              取消
-            </button>
-          </div>
-        </div>
+            <div className="flex gap-2 pt-2">
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? '儲存中...' : '儲存範本'}
+              </Button>
+              <Button variant="outline" onClick={cancelEdit} disabled={saving}>取消</Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Template list */}
+      {/* 範本列表 */}
       {templates.length === 0 && editingId === null && (
-        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-          尚未建立任何共用範本
-        </div>
+        <p className="py-10 text-center text-sm text-muted-foreground">尚未建立任何共用範本</p>
       )}
 
       {templates.map(t => {
@@ -355,40 +334,22 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
         ].filter(Boolean).join('　｜　')
 
         return (
-          <div key={t.id} style={{
-            border: '1px solid var(--border-color)',
-            borderRadius: 8,
-            padding: '14px 16px',
-            marginBottom: 10,
-            background: 'var(--bg-card)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-          }}>
-            <div>
-              <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: 'var(--text-title)' }}>{t.name}</p>
-              {summary && (
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{summary}</p>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-              <button
-                onClick={() => openEdit(t)}
-                disabled={editingId !== null}
-                style={btnOutline}
-              >
-                編輯
-              </button>
-              <button
-                onClick={() => handleDelete(t.id)}
-                disabled={deletingId === t.id}
-                style={btnDanger}
-              >
-                {deletingId === t.id ? '刪除中...' : '刪除'}
-              </button>
-            </div>
-          </div>
+          <Card key={t.id}>
+            <CardContent className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-semibold text-foreground">{t.name}</p>
+                {summary && <p className="mt-1 text-xs text-muted-foreground">{summary}</p>}
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Button variant="outline" size="sm" onClick={() => openEdit(t)} disabled={editingId !== null}>
+                  編輯
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => handleDelete(t.id)} disabled={deletingId === t.id}>
+                  {deletingId === t.id ? '刪除中...' : '刪除'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )
       })}
     </div>
@@ -398,25 +359,8 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 5 }}>
-        {label}
-      </label>
+      <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
       {children}
     </div>
   )
 }
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '6px 10px',
-  border: '1px solid var(--btn-border)',
-  borderRadius: 6,
-  fontSize: 13,
-  boxSizing: 'border-box',
-  background: 'white',
-}
-
-const btnPrimary: React.CSSProperties = { padding: '8px 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
-const btnCancel: React.CSSProperties = { padding: '8px 16px', background: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, cursor: 'pointer' }
-const btnOutline: React.CSSProperties = { padding: '6px 14px', background: 'white', color: '#374151', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 13, cursor: 'pointer' }
-const btnDanger: React.CSSProperties = { padding: '6px 14px', background: 'white', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 13, cursor: 'pointer' }

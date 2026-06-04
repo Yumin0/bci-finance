@@ -9,6 +9,10 @@ import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { buttonVariants } from '@/components/ui/button'
+import PageHeader from '@/app/_components/PageHeader'
 
 const PENDING_SEARCH: Array<(r: PendingItem) => string | null | undefined> = [
   (r) => r.serial_number,
@@ -93,14 +97,6 @@ export default function ReviewPage() {
     load()
   }, [])
 
-  const tabStyle = (t: Tab): React.CSSProperties => ({
-    padding: '10px 24px', fontSize: 14, fontWeight: tab === t ? 600 : 400,
-    background: tab === t ? 'var(--bg-page)' : 'none',
-    border: 'none', cursor: 'pointer',
-    borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
-    color: tab === t ? 'var(--text-title)' : 'var(--text-muted)',
-  })
-
   const filteredPending = query.trim()
     ? pendingItems.filter(r => PENDING_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
     : pendingItems
@@ -109,36 +105,44 @@ export default function ReviewPage() {
     : historyItems
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>審核管理</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>資金分配申請的審核任務與歷史記錄</p>
-        </div>
-        <Input
-          placeholder="搜尋單號、申請處別、申請課別、申請人、費用項目、項目名稱…"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          style={{ width: 260, fontSize: 13 }}
+    <div className="flex flex-col gap-6">
+      <div>
+        <PageHeader
+          title="審核管理"
+          action={
+            <Input
+              placeholder="搜尋單號、申請處別、課別、申請人…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              className="w-64 bg-background"
+            />
+          }
         />
+        <p className="mt-1 text-sm text-muted-foreground">資金分配申請的審核任務與歷史記錄</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border-color)', marginBottom: 24 }}>
-        <button style={tabStyle('pending')} onClick={() => setTab('pending')}>
+      <div className="flex border-b border-border">
+        <button
+          onClick={() => setTab('pending')}
+          className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${tab === 'pending' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
           待我審核
           {pendingItems.length > 0 && (
-            <span style={{ marginLeft: 6, fontSize: 11, background: '#dc2626', color: '#fff', borderRadius: 999, padding: '1px 8px', display: 'inline-block', fontWeight: 600 }}>
+            <span className="ml-1.5 inline-block rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
               {pendingItems.length}
             </span>
           )}
         </button>
-        <button style={tabStyle('history')} onClick={() => setTab('history')}>
+        <button
+          onClick={() => setTab('history')}
+          className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${tab === 'history' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
           我的審核紀錄
         </button>
       </div>
 
       {loading ? (
-        <p style={{ color: 'var(--text-muted)' }}>載入中...</p>
+        <p className="text-sm text-muted-foreground">載入中...</p>
       ) : tab === 'pending' ? (
         <PendingList items={filteredPending} labelConfig={labelConfig} />
       ) : (
@@ -149,110 +153,77 @@ export default function ReviewPage() {
 }
 
 function PendingList({ items, labelConfig }: { items: PendingItem[]; labelConfig: StatusLabelConfig }) {
-  if (items.length === 0) {
-    return <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>目前沒有待審核的申請</p>
-  }
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">目前沒有待審核的申請</p>
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-        <thead>
-          <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
+    <Card className="overflow-hidden p-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
             {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
-              <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
+              <TableHead key={i}>{col}</TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map(r => (
-            <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <td style={td}>
-                <StatusBadge module="funds_allocation" status="pending" stepName={r.step_name} labelConfig={labelConfig} />
-              </td>
-              <td style={td}>
-                <Link href={`/funds-allocation/review/check/${r.id}`}
-                  style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}>
-                  {r.serial_number ?? '-'}
-                </Link>
-              </td>
-              <td style={td}>{r.apply_division ?? '-'}</td>
-              <td style={td}>{r.apply_section ?? '-'}</td>
-              <td style={td}>{r.applicant ?? r.created_by}</td>
-              <td style={td}>{r.apply_role ?? '-'}</td>
-              <td style={td}>{r.amount.toLocaleString()}</td>
-              <td style={td}>{r.payment_account ?? '-'}</td>
-              <td style={td}>{r.expense_item ?? '-'}</td>
-              <td style={td}>{r.name}</td>
-              <td style={td}>
-                <Link
-                  href={`/funds-allocation/review/check/${r.id}`}
-                  style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}
-                >
-                  審核
-                </Link>
-              </td>
-            </tr>
+            <TableRow key={r.id}>
+              <TableCell><StatusBadge module="funds_allocation" status="pending" stepName={r.step_name} labelConfig={labelConfig} /></TableCell>
+              <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">{r.serial_number ?? '-'}</Link></TableCell>
+              <TableCell>{r.apply_division ?? '-'}</TableCell>
+              <TableCell>{r.apply_section ?? '-'}</TableCell>
+              <TableCell>{r.applicant ?? r.created_by}</TableCell>
+              <TableCell>{r.apply_role ?? '-'}</TableCell>
+              <TableCell>{r.amount.toLocaleString()}</TableCell>
+              <TableCell>{r.payment_account ?? '-'}</TableCell>
+              <TableCell>{r.expense_item ?? '-'}</TableCell>
+              <TableCell>{r.name}</TableCell>
+              <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link></TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Card>
   )
 }
 
 function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig: StatusLabelConfig }) {
-  if (items.length === 0) {
-    return <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>尚無審核紀錄</p>
-  }
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">尚無審核紀錄</p>
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-        <thead>
-          <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
+    <Card className="overflow-hidden p-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
             {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
-              <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
+              <TableHead key={i}>{col}</TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map(r => (
-            <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <td style={td}>
-                <StatusBadge
-                  module="funds_allocation"
-                  status={r.funds_allocation?.status ?? (r.decision === 'approved' ? 'approved' : 'rejected')}
-                  stepName={r.step_name}
-                  labelConfig={labelConfig}
-                />
-              </td>
-              <td style={td}>
-                {r.funds_allocation_id ? (
-                  <Link href={`/funds-allocation/review/check/${r.funds_allocation_id}`}
-                    style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}>
-                    {r.funds_allocation?.serial_number ?? '-'}
-                  </Link>
-                ) : (r.funds_allocation?.serial_number ?? '-')}
-              </td>
-              <td style={td}>{r.funds_allocation?.apply_division ?? '-'}</td>
-              <td style={td}>{r.funds_allocation?.apply_section ?? '-'}</td>
-              <td style={td}>{r.funds_allocation?.applicant ?? '-'}</td>
-              <td style={td}>{r.funds_allocation?.apply_role ?? '-'}</td>
-              <td style={td}>{r.funds_allocation?.amount?.toLocaleString() ?? '-'}</td>
-              <td style={td}>{r.funds_allocation?.payment_account ?? '-'}</td>
-              <td style={td}>{r.funds_allocation?.expense_item ?? '-'}</td>
-              <td style={td}>{r.funds_allocation?.name ?? '-'}</td>
-              <td style={td}>
-                {r.funds_allocation_id && (
-                  <Link href={`/funds-allocation/review/check/${r.funds_allocation_id}`}
-                    style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>
-                    查閱
-                  </Link>
-                )}
-              </td>
-            </tr>
+            <TableRow key={r.id}>
+              <TableCell>
+                <StatusBadge module="funds_allocation" status={r.funds_allocation?.status ?? (r.decision === 'approved' ? 'approved' : 'rejected')} stepName={r.step_name} labelConfig={labelConfig} />
+              </TableCell>
+              <TableCell>
+                {r.funds_allocation_id
+                  ? <Link href={`/funds-allocation/review/check/${r.funds_allocation_id}`} className="text-sm text-primary underline underline-offset-4">{r.funds_allocation?.serial_number ?? '-'}</Link>
+                  : (r.funds_allocation?.serial_number ?? '-')}
+              </TableCell>
+              <TableCell>{r.funds_allocation?.apply_division ?? '-'}</TableCell>
+              <TableCell>{r.funds_allocation?.apply_section ?? '-'}</TableCell>
+              <TableCell>{r.funds_allocation?.applicant ?? '-'}</TableCell>
+              <TableCell>{r.funds_allocation?.apply_role ?? '-'}</TableCell>
+              <TableCell>{r.funds_allocation?.amount?.toLocaleString() ?? '-'}</TableCell>
+              <TableCell>{r.funds_allocation?.payment_account ?? '-'}</TableCell>
+              <TableCell>{r.funds_allocation?.expense_item ?? '-'}</TableCell>
+              <TableCell>{r.funds_allocation?.name ?? '-'}</TableCell>
+              <TableCell>
+                {r.funds_allocation_id && <Link href={`/funds-allocation/review/check/${r.funds_allocation_id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>查閱</Link>}
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Card>
   )
 }
-
-const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }

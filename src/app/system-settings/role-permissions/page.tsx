@@ -6,6 +6,8 @@ import { DEFAULT_SIDEBAR_CONFIG } from '@/lib/sidebar-config'
 import type { SystemRole, RoleType } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import PageHeader from '@/app/_components/PageHeader'
 
 type SystemRoleWithRoleTypes = SystemRole & { role_type_ids: number[] }
 
@@ -87,10 +89,9 @@ function RoleForm({
         if (e2) { setError(e2.message); setSaving(false); return }
       }
     } else {
-      const maxOrder = 999
       const { data: newRole, error: e } = await supabase
         .from('system_roles')
-        .insert({ name: name.trim(), is_admin: isAdmin, allowed_item_ids: [...allowedItemIds], sort_order: maxOrder })
+        .insert({ name: name.trim(), is_admin: isAdmin, allowed_item_ids: [...allowedItemIds], sort_order: 999 })
         .select('id')
         .single()
       if (e || !newRole) { setError(e?.message ?? '建立失敗'); setSaving(false); return }
@@ -109,9 +110,9 @@ function RoleForm({
   const categories = [...new Set(ALL_ITEM_IDS.map(i => i.categoryLabel))]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="flex flex-col gap-5">
       <div>
-        <label style={labelStyle}>角色名稱</label>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">角色名稱</label>
         <Input
           value={name}
           onChange={e => setName(e.target.value)}
@@ -121,28 +122,33 @@ function RoleForm({
       </div>
 
       <div>
-        <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+        <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-foreground">
           <input type="checkbox" checked={isAdmin} onChange={e => setIsAdmin(e.target.checked)} />
-          <span>系統管理員（勾選後可看到所有功能，不受限制）</span>
+          系統管理員（勾選後可看到所有功能，不受限制）
         </label>
       </div>
 
       <div>
-        <p style={labelStyle}>對應組織職稱</p>
-        <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginBottom: 8 }}>
-          擔任以下職稱的人員，會自動套用此角色的功能權限
-        </p>
+        <p className="mb-1.5 text-sm font-medium text-foreground">對應組織職稱</p>
+        <p className="mb-2 text-xs text-muted-foreground">擔任以下職稱的人員，會自動套用此角色的功能權限</p>
         {roleTypes.length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>尚無職稱，請先至「組織架構與職位設定」新增</p>
+          <p className="text-sm text-muted-foreground">尚無職稱，請先至「組織架構與職位設定」新增</p>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div className="flex flex-wrap gap-2">
             {roleTypes.map(rt => (
-              <label key={rt.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '4px 10px', border: `1px solid ${selectedRoleTypeIds.has(rt.id) ? '#3b82f6' : '#d1d5db'}`, borderRadius: 20, background: selectedRoleTypeIds.has(rt.id) ? '#eff6ff' : '#fff', color: selectedRoleTypeIds.has(rt.id) ? '#1d4ed8' : '#374151' }}>
+              <label
+                key={rt.id}
+                className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm transition-colors ${
+                  selectedRoleTypeIds.has(rt.id)
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-background text-foreground hover:bg-muted'
+                }`}
+              >
                 <input
                   type="checkbox"
                   checked={selectedRoleTypeIds.has(rt.id)}
                   onChange={() => toggleRoleType(rt.id)}
-                  style={{ display: 'none' }}
+                  className="hidden"
                 />
                 {rt.level} · {rt.name}
               </label>
@@ -153,22 +159,25 @@ function RoleForm({
 
       {!isAdmin && (
         <div>
-          <p style={labelStyle}>可操作功能</p>
-          <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden' }}>
+          <p className="mb-1.5 text-sm font-medium text-foreground">可操作功能</p>
+          <div className="overflow-hidden rounded-lg border border-border">
             {categories.map((cat, ci) => {
               const items = ALL_ITEM_IDS.filter(i => i.categoryLabel === cat)
               const checkedCount = items.filter(i => allowedItemIds.has(i.id)).length
               const allChecked = checkedCount === items.length
               return (
-                <div key={cat} style={{ borderTop: ci === 0 ? 'none' : '1px solid var(--border-color)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'var(--bg-sidebar)', cursor: 'pointer' }} onClick={() => toggleCategory(cat)}>
+                <div key={cat} className={ci === 0 ? '' : 'border-t border-border'}>
+                  <div
+                    className="flex cursor-pointer items-center gap-2 bg-muted/50 px-3.5 py-2"
+                    onClick={() => toggleCategory(cat)}
+                  >
                     <input type="checkbox" checked={allChecked} onChange={() => toggleCategory(cat)} onClick={e => e.stopPropagation()} readOnly />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-body)' }}>{cat}</span>
-                    <span style={{ fontSize: 12, color: 'var(--text-subtle)' }}>{checkedCount}/{items.length}</span>
+                    <span className="text-sm font-semibold text-foreground">{cat}</span>
+                    <span className="text-xs text-muted-foreground">{checkedCount}/{items.length}</span>
                   </div>
-                  <div style={{ padding: '4px 14px 10px 32px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div className="flex flex-col gap-1 px-8 py-2.5">
                     {items.map(item => (
-                      <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-body)', cursor: 'pointer' }}>
+                      <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
                         <input
                           type="checkbox"
                           checked={allowedItemIds.has(item.id)}
@@ -185,9 +194,9 @@ function RoleForm({
         </div>
       )}
 
-      {error && <p style={{ color: '#dc2626', fontSize: 13 }}>{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="flex gap-2">
         <Button onClick={handleSave} disabled={saving}>
           {saving ? '儲存中...' : '儲存'}
         </Button>
@@ -239,94 +248,98 @@ export default function RolePermissionsPage() {
     loadAll()
   }
 
-  if (loading) return <p>載入中...</p>
+  if (loading) return <p className="text-muted-foreground">載入中...</p>
 
   return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>角色功能權限設定</h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>新增系統角色，設定各角色可操作的側邊欄功能，並綁定組織架構中的職稱。</p>
+    <div className="flex flex-col gap-6">
+      <div>
+        <PageHeader title="角色功能權限設定" />
+        <p className="mt-1 text-sm text-muted-foreground">
+          新增系統角色，設定各角色可操作的側邊欄功能，並綁定組織架構中的職稱。
+        </p>
       </div>
 
-      {error && <p style={{ color: '#dc2626', fontSize: 14, marginBottom: 16 }}>{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      <div className="flex items-start gap-6">
         {/* 左側：角色列表 */}
-        <div style={{ width: 220, flexShrink: 0 }}>
-          <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden' }}>
+        <div className="w-52 shrink-0">
+          <Card className="gap-0 overflow-hidden p-0">
             {roles.length === 0 && (
-              <p style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-subtle)' }}>尚無角色</p>
+              <p className="px-4 py-3 text-sm text-muted-foreground">尚無角色</p>
             )}
             {roles.map((role, i) => (
               <div
                 key={role.id}
                 onClick={() => setSelected(role)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  borderTop: i === 0 ? 'none' : '1px solid var(--border-color)',
-                  background: selected !== 'new' && selected?.id === role.id ? '#eff6ff' : '#fff',
-                  cursor: 'pointer',
-                }}
+                className={`flex cursor-pointer items-center justify-between px-3.5 py-2.5 transition-colors ${
+                  i > 0 ? 'border-t border-border' : ''
+                } ${
+                  selected !== 'new' && selected?.id === role.id
+                    ? 'bg-primary/10'
+                    : 'hover:bg-muted/50'
+                }`}
               >
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-title)' }}>{role.name}</div>
-                  {role.is_admin && <div style={{ fontSize: 11, color: '#2563eb' }}>系統管理員</div>}
-                  {!role.is_admin && (
-                    <div style={{ fontSize: 11, color: 'var(--text-subtle)' }}>
-                      {role.allowed_item_ids.length} 項功能
-                    </div>
-                  )}
+                  <div className="text-sm font-medium text-foreground">{role.name}</div>
+                  {role.is_admin
+                    ? <div className="text-xs text-primary">系統管理員</div>
+                    : <div className="text-xs text-muted-foreground">{role.allowed_item_ids.length} 項功能</div>
+                  }
                 </div>
                 <button
                   onClick={e => { e.stopPropagation(); handleDelete(role) }}
-                  style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  className="text-xs text-destructive hover:underline"
                 >
                   刪除
                 </button>
               </div>
             ))}
-          </div>
+          </Card>
           <button
             onClick={() => setSelected('new')}
-            style={{ marginTop: 10, width: '100%', padding: '8px 0', fontSize: 13, cursor: 'pointer', background: 'none', border: '1px dashed #9ca3af', borderRadius: 6, color: 'var(--text-muted)' }}
+            className="mt-2.5 w-full rounded-lg border border-dashed border-border py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50"
           >
             ＋ 新增角色
           </button>
         </div>
 
         {/* 右側：設定面板 */}
-        <div style={{ flex: 1, border: '1px solid var(--border-color)', borderRadius: 8, padding: 24, minHeight: 200 }}>
-          {selected === null && (
-            <p style={{ fontSize: 14, color: 'var(--text-subtle)' }}>← 點選左側角色進行設定，或新增角色</p>
-          )}
-          {selected === 'new' && (
-            <>
-              <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>新增角色</h2>
-              <RoleForm
-                role={null}
-                roleTypes={roleTypes}
-                onSave={() => { setSelected(null); loadAll() }}
-                onCancel={() => setSelected(null)}
-              />
-            </>
-          )}
-          {selected !== null && selected !== 'new' && (
-            <>
-              <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>編輯角色：{selected.name}</h2>
-              <RoleForm
-                key={selected.id}
-                role={selected}
-                roleTypes={roleTypes}
-                onSave={() => { setSelected(null); loadAll() }}
-                onCancel={() => setSelected(null)}
-              />
-            </>
-          )}
-        </div>
+        <Card className="min-h-48 flex-1">
+          <CardContent>
+            {selected === null && (
+              <p className="text-sm text-muted-foreground">← 點選左側角色進行設定，或新增角色</p>
+            )}
+            {selected === 'new' && (
+              <>
+                <CardHeader className="px-0 pt-0">
+                  <CardTitle>新增角色</CardTitle>
+                </CardHeader>
+                <RoleForm
+                  role={null}
+                  roleTypes={roleTypes}
+                  onSave={() => { setSelected(null); loadAll() }}
+                  onCancel={() => setSelected(null)}
+                />
+              </>
+            )}
+            {selected !== null && selected !== 'new' && (
+              <>
+                <CardHeader className="px-0 pt-0">
+                  <CardTitle>編輯角色：{selected.name}</CardTitle>
+                </CardHeader>
+                <RoleForm
+                  key={selected.id}
+                  role={selected}
+                  roleTypes={roleTypes}
+                  onSave={() => { setSelected(null); loadAll() }}
+                  onCancel={() => setSelected(null)}
+                />
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
 }
-
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }

@@ -10,6 +10,7 @@ import { getFormSchemas } from '@/app/actions/form-schema'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDateTime } from '@/lib/dateUtils'
 
 type StepDef = {
@@ -37,8 +38,7 @@ type TempVoucher = {
   approval_flow_templates: { id: number; name: string; approval_flow_steps: StepDef[] } | null
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
+const readonlyCls = 'bg-muted/40 cursor-default'
 
 function getFieldValue(fieldId: string, record: TempVoucher): string {
   const map: Record<string, unknown> = {
@@ -135,96 +135,106 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
     }
   }
 
-  if (loading) return <p style={{ padding: 24 }}>載入中...</p>
-  if (!record) return <p style={{ padding: 24, color: '#dc2626' }}>找不到此暫付款沖銷憑單</p>
+  if (loading) return <p className="text-muted-foreground">載入中...</p>
+  if (!record) return <p className="text-destructive">找不到此暫付款沖銷憑單</p>
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <button onClick={() => router.back()} style={{ background: 'none', border: '1px solid var(--btn-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>
-          ← 返回
-        </button>
-        <h1 style={{ fontSize: 18, fontWeight: 700 }}>審核暫付款沖銷憑單</h1>
+    <div className="flex flex-col gap-6">
+      {/* 頁面標題 */}
+      <div className="flex items-center gap-3">
+        <Button variant="outline" size="sm" onClick={() => router.back()}>← 返回</Button>
+        <h1 className="text-xl font-bold text-foreground">審核暫付款沖銷憑單</h1>
       </div>
 
-      {error && <p style={{ color: '#dc2626', marginBottom: 12 }}>{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {/* schema-driven 欄位顯示 */}
-      <div style={{ marginBottom: 32 }}>
-        {schema.map(block => (
-          <div key={block.id} style={{ marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden' }}>
-            {block.title && (
-              <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
+      {/* Schema 欄位區塊 */}
+      {schema.map(block => (
+        <Card key={block.id}>
+          {block.title && (
+            <CardHeader>
+              <CardTitle>{block.title}</CardTitle>
+            </CardHeader>
+          )}
+          <CardContent className={block.title ? '' : 'pt-4'}>
+            {block.rows.map(row => (
+              <div
+                key={row.id}
+                className="mb-5 grid gap-5"
+                style={{ gridTemplateColumns: `repeat(${row.cols}, 1fr)` }}
+              >
+                {row.slots.map((slot, idx) => slot ? (
+                  <div key={idx}>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">{slot.label}</label>
+                    {renderSlot(slot, record)}
+                  </div>
+                ) : <div key={idx} />)}
               </div>
-            )}
-            <div style={{ padding: '20px 20px 4px' }}>
-              {block.rows.map(row => (
-                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
-                  {row.slots.map((slot, idx) => slot ? (
-                    <div key={idx}>
-                      <label style={labelStyle}>{slot.label}</label>
-                      {renderSlot(slot, record)}
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+
+      {/* 審核進度 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>審核進度</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col divide-y divide-border">
+          {steps.map(step => {
+            const past = pastRecords.find(r => r.step_number === step.step_number)
+            const isActive = step.step_number === currentStep && record.status === 'pending'
+            const isDone = !!past
+
+            return (
+              <div key={step.step_number} className={`py-4 ${!isDone && !isActive ? 'opacity-40' : ''}`}>
+                <div className="mb-2 grid items-start gap-3" style={{ gridTemplateColumns: '160px 1fr' }}>
+                  <strong className="text-sm">{step.step_number}. {step.step_name}</strong>
+                  {isDone && (
+                    <span className={`text-sm font-medium ${past.decision === 'approved' ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
+                      {past.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
+                      {past.reviewed_at && <span className="ml-2 text-xs font-normal text-muted-foreground">{formatDateTime(past.reviewed_at)}</span>}
+                      {past.comment && <span className="mt-1 block text-xs font-normal text-muted-foreground">{past.comment}</span>}
+                    </span>
+                  )}
+                  {isActive && !isDone && <span className="text-sm font-medium text-primary">待審核</span>}
+                </div>
+
+                {isActive && canReview && (
+                  <div className="flex flex-col gap-3 pt-1">
+                    <div className="flex gap-5">
+                      {(['approved', 'rejected'] as const).map(val => (
+                        <label key={val} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                          <input type="radio" name="decision" value={val} checked={decision === val} onChange={() => setDecision(val)} />
+                          {val === 'approved' ? '核准' : '不核准'}
+                        </label>
+                      ))}
                     </div>
-                  ) : <div key={idx} />)}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>審核進度</h2>
-        {steps.map(step => {
-          const past = pastRecords.find(r => r.step_number === step.step_number)
-          const isActive = step.step_number === currentStep && record.status === 'pending'
-          const isDone = !!past
-
-          return (
-            <div key={step.step_number} style={{ padding: '16px 0', borderBottom: '1px solid var(--border-color)', opacity: !isDone && !isActive ? 0.4 : 1 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, alignItems: 'start', marginBottom: isActive ? 10 : 0 }}>
-                <strong style={{ fontSize: 14 }}>{step.step_number}. {step.step_name}</strong>
-                {isDone && (
-                  <span style={{ fontSize: 13, color: past.decision === 'approved' ? '#16a34a' : '#dc2626', fontWeight: 500 }}>
-                    {past.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
-                    {past.reviewed_at && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>{formatDateTime(past.reviewed_at)}</span>}
-                    {past.comment && <span style={{ display: 'block', color: 'var(--text-muted)', fontWeight: 400, fontSize: 12, marginTop: 2 }}>{past.comment}</span>}
-                  </span>
+                    <Textarea
+                      placeholder="評論（選填）"
+                      rows={3}
+                      value={comment}
+                      onChange={e => setComment(e.target.value)}
+                    />
+                    <div>
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={!decision || submitting}
+                        className={decision && !submitting ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : ''}
+                      >
+                        {submitting ? '送出中...' : '確定送出'}
+                      </Button>
+                    </div>
+                  </div>
                 )}
-                {isActive && !isDone && <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 500 }}>待審核</span>}
               </div>
+            )
+          })}
 
-              {isActive && canReview && (
-                <div>
-                  <div style={{ display: 'flex', gap: 20, marginBottom: 10 }}>
-                    {(['approved', 'rejected'] as const).map(val => (
-                      <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
-                        <input type="radio" name="decision" value={val} checked={decision === val} onChange={() => setDecision(val)} />
-                        {val === 'approved' ? '核准' : '不核准'}
-                      </label>
-                    ))}
-                  </div>
-                  <textarea
-                    placeholder="評論（選填）" rows={3} value={comment}
-                    onChange={e => setComment(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--btn-border)', fontSize: 14, resize: 'vertical', boxSizing: 'border-box', background: 'var(--bg-page)' }}
-                  />
-                  <div style={{ marginTop: 12 }}>
-                    <Button onClick={handleSubmit} disabled={!decision || submitting}
-                      className={decision && !submitting ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : ''}>
-                      {submitting ? '送出中...' : '確定送出'}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
-
-        {record.status === 'approved' && <p style={{ marginTop: 16, color: '#16a34a', fontWeight: 600 }}>✓ 此憑單已全數核准</p>}
-        {record.status === 'rejected' && <p style={{ marginTop: 16, color: '#dc2626', fontWeight: 600 }}>✗ 此憑單已被拒絕</p>}
-      </div>
+          {record.status === 'approved' && <p className="pt-4 font-semibold text-green-600 dark:text-green-400">✓ 此憑單已全數核准</p>}
+          {record.status === 'rejected' && <p className="pt-4 font-semibold text-destructive">✗ 此憑單已被拒絕</p>}
+        </CardContent>
+      </Card>
     </div>
   )
 }

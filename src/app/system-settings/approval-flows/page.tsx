@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { ApprovalFlowTemplate, ApprovalFlowStepWithRole, DropdownOption, RoleType, SystemRole } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import PageHeader from '@/app/_components/PageHeader'
 import {
   createTemplate, updateTemplateName, toggleTemplateActive, deleteTemplate,
   saveTemplateSteps, saveTemplatePaymentAccounts, getUsedPaymentAccountIds,
@@ -26,6 +28,8 @@ const FORM_SECTIONS: { type: FormType; label: string }[] = [
   { type: 'temp_voucher', label: '暫付款沖銷憑單' },
 ]
 
+const selectClass = 'h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus:border-ring dark:bg-input/30'
+
 export default function ApprovalFlowsPage() {
   const [creatingForType, setCreatingForType] = useState<FormType>('funds_allocation')
   const [templates, setTemplates] = useState<ApprovalFlowTemplate[]>([])
@@ -36,7 +40,6 @@ export default function ApprovalFlowsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // 編輯狀態
   const [selectedTemplate, setSelectedTemplate] = useState<ApprovalFlowTemplate | null>(null)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [editName, setEditName] = useState('')
@@ -66,7 +69,6 @@ export default function ApprovalFlowsPage() {
     setSelectedTemplate(template)
     setIsPanelOpen(true)
     setEditName(template.name)
-
     const [stepsRes, usedIds] = await Promise.all([
       supabase
         .from('approval_flow_steps')
@@ -184,61 +186,61 @@ export default function ApprovalFlowsPage() {
     )
   }
 
-  if (loading) return <p style={{ padding: 24 }}>載入中...</p>
+  if (loading) return <p className="text-muted-foreground">載入中...</p>
 
   return (
-    <div style={{ display: 'flex', gap: 0, minHeight: 600 }}>
-      {/* 左側：範本列表 */}
-      <div style={{ width: 280, borderRight: '1px solid var(--border-color)', padding: 24, flexShrink: 0 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>審核流程管理</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>設定各表單的審核流程範本</p>
+    <div className="flex flex-col gap-6">
+      <div>
+        <PageHeader title="審核流程管理" />
+        <p className="mt-1 text-sm text-muted-foreground">設定各表單的審核流程範本</p>
+      </div>
 
-        {/* 分區列表（不用 tab） */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div className="flex items-start gap-6">
+        {/* 左側：範本列表 */}
+        <div className="flex w-72 shrink-0 flex-col gap-5">
           {FORM_SECTIONS.map(({ type, label }) => {
             const sectionTemplates = templates.filter(t => t.form_type === type)
             return (
-              <div key={type}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, letterSpacing: '0.05em' }}>
-                  {label}
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
-                  {sectionTemplates.length === 0 && (
-                    <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>尚無範本</p>
-                  )}
-                  {sectionTemplates.map(t => (
-                    <div
-                      key={t.id}
-                      style={{
-                        border: `1px solid ${selectedTemplate?.id === t.id ? 'var(--accent)' : 'var(--border-color)'}`,
-                        borderRadius: 8, padding: '10px 12px',
-                        background: selectedTemplate?.id === t.id ? 'var(--bg-sidebar)' : 'transparent',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                        <span style={{ fontSize: 14, fontWeight: 500 }}>{t.name}</span>
-                        <button onClick={() => handleDelete(t)} style={{ fontSize: 12, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>
-                          刪除
-                        </button>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
-                          <input type="checkbox" checked={t.is_active} onChange={() => handleToggleActive(t)} />
-                          {t.is_active ? '啟用中' : '已停用'}
-                        </label>
-                        <button
-                          onClick={() => openEdit(t)}
-                          style={{ fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--btn-border)', background: 'none', cursor: 'pointer', color: 'var(--text-body)' }}
-                        >
-                          編輯
-                        </button>
-                      </div>
+              <div key={type} className="flex flex-col gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+                {sectionTemplates.length === 0 && (
+                  <p className="text-sm text-muted-foreground">尚無範本</p>
+                )}
+                {sectionTemplates.map(t => (
+                  <div
+                    key={t.id}
+                    className={`rounded-lg border p-3 transition-colors ${
+                      selectedTemplate?.id === t.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border bg-card'
+                    }`}
+                  >
+                    <div className="mb-2 flex items-start justify-between">
+                      <span className="text-sm font-medium text-foreground">{t.name}</span>
+                      <button
+                        onClick={() => handleDelete(t)}
+                        className="text-xs text-destructive hover:underline"
+                      >
+                        刪除
+                      </button>
                     </div>
-                  ))}
-                </div>
+                    <div className="flex items-center justify-between">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                        <input type="checkbox" checked={t.is_active} onChange={() => handleToggleActive(t)} />
+                        {t.is_active ? '啟用中' : '已停用'}
+                      </label>
+                      <button
+                        onClick={() => openEdit(t)}
+                        className="rounded border border-border px-2.5 py-0.5 text-xs text-foreground transition-colors hover:bg-muted"
+                      >
+                        編輯
+                      </button>
+                    </div>
+                  </div>
+                ))}
                 <button
                   onClick={() => openNew(type)}
-                  style={{ width: '100%', padding: '7px 0', borderRadius: 6, fontSize: 12, border: '1px dashed var(--btn-border)', background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                  className="w-full rounded-lg border border-dashed border-border py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50"
                 >
                   ＋ 新增範本
                 </button>
@@ -246,180 +248,155 @@ export default function ApprovalFlowsPage() {
             )
           })}
         </div>
-      </div>
 
-      {/* 右側：編輯面板 */}
-      {isPanelOpen ? (
-        <div style={{ flex: 1, padding: 32, overflowY: 'auto' }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 24 }}>
-            {selectedTemplate
-              ? `編輯範本：${selectedTemplate.name}`
-              : `新增範本（${FORM_SECTIONS.find(s => s.type === creatingForType)?.label ?? ''}）`}
-          </h2>
+        {/* 右側：編輯面板 */}
+        <Card className="min-h-48 flex-1">
+          {isPanelOpen ? (
+            <CardContent>
+              <CardHeader className="px-0 pt-0">
+                <CardTitle>
+                  {selectedTemplate
+                    ? `編輯範本：${selectedTemplate.name}`
+                    : `新增範本（${FORM_SECTIONS.find(s => s.type === creatingForType)?.label ?? ''}）`}
+                </CardTitle>
+              </CardHeader>
 
-          {error && <p style={{ color: '#dc2626', marginBottom: 12, fontSize: 13 }}>{error}</p>}
+              {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
 
-          {/* 範本名稱 */}
-          <section style={{ marginBottom: 28 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>範本名稱</label>
-            <Input value={editName} onChange={e => setEditName(e.target.value)} style={{ maxWidth: 360 }} />
-          </section>
+              <div className="flex flex-col gap-6">
+                {/* 範本名稱 */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">範本名稱</label>
+                  <Input value={editName} onChange={e => setEditName(e.target.value)} className="max-w-sm" />
+                </div>
 
-          {/* 適用出款帳號（暫付款沖銷憑單不需綁定帳號） */}
-          <section style={{ marginBottom: 28, display: (selectedTemplate?.form_type ?? creatingForType) === 'temp_voucher' ? 'none' : undefined }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>
-              適用出款帳號
-              <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6, fontSize: 12 }}>
-                （已被其他啟用範本使用的帳號無法選取）
-              </span>
-            </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {paymentAccounts.length === 0 && (
-                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>尚無出款帳號選項，請先在支出欄位設定中新增</p>
-              )}
-              {paymentAccounts.map(pa => {
-                const occupied = usedAccountIds.includes(pa.id)
-                const checked = editPaymentAccountIds.includes(pa.id)
-                return (
-                  <label
-                    key={pa.id}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: occupied ? 'not-allowed' : 'pointer', opacity: occupied ? 0.45 : 1 }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={occupied}
-                      onChange={() => togglePaymentAccount(pa.id)}
-                    />
-                    {pa.label}
-                    {occupied && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>（已被其他範本使用）</span>}
-                  </label>
-                )
-              })}
-            </div>
-          </section>
-
-          {/* 步驟設定 */}
-          <section style={{ marginBottom: 28 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>步驟設定</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {editSteps.map((step, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '40px 1fr 130px 1fr 70px',
-                    gap: 8, alignItems: 'center',
-                    padding: '10px 12px', borderRadius: 6,
-                    border: '1px solid var(--border-color)',
-                    background: 'var(--bg-sidebar)',
-                  }}
-                >
-                  {/* 上下移動 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
-                    <button
-                      onClick={() => moveStep(i, -1)} disabled={i === 0}
-                      style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', fontSize: 12, opacity: i === 0 ? 0.3 : 1 }}
-                    >▲</button>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{i + 1}</span>
-                    <button
-                      onClick={() => moveStep(i, 1)} disabled={i === editSteps.length - 1}
-                      style={{ background: 'none', border: 'none', cursor: i === editSteps.length - 1 ? 'default' : 'pointer', fontSize: 12, opacity: i === editSteps.length - 1 ? 0.3 : 1 }}
-                    >▼</button>
+                {/* 適用出款帳號 */}
+                {(selectedTemplate?.form_type ?? creatingForType) !== 'temp_voucher' && (
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">
+                      適用出款帳號
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                        （已被其他啟用範本使用的帳號無法選取）
+                      </span>
+                    </label>
+                    <div className="flex flex-col gap-2">
+                      {paymentAccounts.length === 0 && (
+                        <p className="text-sm text-muted-foreground">尚無出款帳號選項，請先在支出欄位設定中新增</p>
+                      )}
+                      {paymentAccounts.map(pa => {
+                        const occupied = usedAccountIds.includes(pa.id)
+                        const checked = editPaymentAccountIds.includes(pa.id)
+                        return (
+                          <label
+                            key={pa.id}
+                            className={`flex items-center gap-2 text-sm ${occupied ? 'cursor-not-allowed opacity-45' : 'cursor-pointer text-foreground'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={occupied}
+                              onChange={() => togglePaymentAccount(pa.id)}
+                            />
+                            {pa.label}
+                            {occupied && <span className="text-xs text-muted-foreground">（已被其他範本使用）</span>}
+                          </label>
+                        )
+                      })}
+                    </div>
                   </div>
+                )}
 
-                  {/* 步驟名稱 */}
-                  <Input
-                    placeholder="步驟名稱"
-                    value={step.step_name}
-                    onChange={e => updateStep(i, { step_name: e.target.value })}
-                  />
-
-                  {/* 審核人類型 */}
-                  <select
-                    value={step.reviewer_type}
-                    onChange={e => updateStep(i, {
-                      reviewer_type: e.target.value as 'org_role' | 'system_role',
-                      role_type_id: null,
-                      system_role_id: null,
-                    })}
-                    style={{
-                      padding: '8px 10px', borderRadius: 6, fontSize: 14,
-                      border: '1px solid var(--btn-border)', background: 'var(--bg-page)',
-                      color: 'var(--text-body)', cursor: 'pointer',
-                    }}
-                  >
-                    <option value="org_role">組織職位</option>
-                    <option value="system_role">系統角色</option>
-                  </select>
-
-                  {/* 角色選擇 */}
-                  {step.reviewer_type === 'org_role' ? (
-                    <select
-                      value={step.role_type_id ?? ''}
-                      onChange={e => updateStep(i, { role_type_id: Number(e.target.value) || null })}
-                      style={{
-                        padding: '8px 10px', borderRadius: 6, fontSize: 14,
-                        border: '1px solid var(--btn-border)', background: 'var(--bg-page)',
-                        color: 'var(--text-body)', cursor: 'pointer',
-                      }}
-                    >
-                      <option value="">選擇職位</option>
-                      {roleTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
-                    </select>
-                  ) : (
-                    <select
-                      value={step.system_role_id ?? ''}
-                      onChange={e => updateStep(i, { system_role_id: Number(e.target.value) || null })}
-                      style={{
-                        padding: '8px 10px', borderRadius: 6, fontSize: 14,
-                        border: '1px solid var(--btn-border)', background: 'var(--bg-page)',
-                        color: 'var(--text-body)', cursor: 'pointer',
-                      }}
-                    >
-                      <option value="">選擇角色</option>
-                      {systemRoles.map(sr => <option key={sr.id} value={sr.id}>{sr.name}</option>)}
-                    </select>
-                  )}
-
-                  {/* 刪除 */}
+                {/* 步驟設定 */}
+                <div>
+                  <label className="mb-3 block text-sm font-medium text-foreground">步驟設定</label>
+                  <div className="flex flex-col gap-2.5">
+                    {editSteps.map((step, i) => (
+                      <div
+                        key={i}
+                        className="grid items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5"
+                        style={{ gridTemplateColumns: '40px 1fr 130px 1fr 70px' }}
+                      >
+                        <div className="flex flex-col items-center gap-0.5">
+                          <button
+                            onClick={() => moveStep(i, -1)} disabled={i === 0}
+                            className={`text-xs ${i === 0 ? 'cursor-default opacity-30' : 'cursor-pointer'}`}
+                          >▲</button>
+                          <span className="text-xs text-muted-foreground">{i + 1}</span>
+                          <button
+                            onClick={() => moveStep(i, 1)} disabled={i === editSteps.length - 1}
+                            className={`text-xs ${i === editSteps.length - 1 ? 'cursor-default opacity-30' : 'cursor-pointer'}`}
+                          >▼</button>
+                        </div>
+                        <Input
+                          placeholder="步驟名稱"
+                          value={step.step_name}
+                          onChange={e => updateStep(i, { step_name: e.target.value })}
+                        />
+                        <select
+                          value={step.reviewer_type}
+                          onChange={e => updateStep(i, {
+                            reviewer_type: e.target.value as 'org_role' | 'system_role',
+                            role_type_id: null,
+                            system_role_id: null,
+                          })}
+                          className={selectClass}
+                        >
+                          <option value="org_role">組織職位</option>
+                          <option value="system_role">系統角色</option>
+                        </select>
+                        {step.reviewer_type === 'org_role' ? (
+                          <select
+                            value={step.role_type_id ?? ''}
+                            onChange={e => updateStep(i, { role_type_id: Number(e.target.value) || null })}
+                            className={selectClass}
+                          >
+                            <option value="">選擇職位</option>
+                            {roleTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
+                          </select>
+                        ) : (
+                          <select
+                            value={step.system_role_id ?? ''}
+                            onChange={e => updateStep(i, { system_role_id: Number(e.target.value) || null })}
+                            className={selectClass}
+                          >
+                            <option value="">選擇角色</option>
+                            {systemRoles.map(sr => <option key={sr.id} value={sr.id}>{sr.name}</option>)}
+                          </select>
+                        )}
+                        <button
+                          onClick={() => removeStep(i)}
+                          className="text-sm text-destructive hover:underline"
+                        >
+                          刪除
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                   <button
-                    onClick={() => removeStep(i)}
-                    style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}
+                    onClick={addStep}
+                    className="mt-2.5 rounded-lg border border-dashed border-border px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50"
                   >
-                    刪除
+                    ＋ 新增步驟
                   </button>
                 </div>
-              ))}
-            </div>
 
-            <button
-              onClick={addStep}
-              style={{
-                marginTop: 10, padding: '7px 16px', borderRadius: 6, fontSize: 13,
-                border: '1px dashed var(--btn-border)', background: 'none',
-                cursor: 'pointer', color: 'var(--text-muted)',
-              }}
-            >
-              ＋ 新增步驟
-            </button>
-          </section>
-
-          {/* 儲存 / 取消 */}
-          <div style={{ display: 'flex', gap: 10 }}>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? '儲存中...' : '儲存'}
-            </Button>
-            <Button variant="outline" onClick={() => { setSelectedTemplate(null); setIsPanelOpen(false); setEditName(''); setEditSteps([]); setEditPaymentAccountIds([]) }}>
-              取消
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-          選擇一個範本進行編輯，或點「新增範本」
-        </div>
-      )}
+                <div className="flex gap-2.5">
+                  <Button onClick={handleSave} disabled={saving}>
+                    {saving ? '儲存中...' : '儲存'}
+                  </Button>
+                  <Button variant="outline" onClick={() => { setSelectedTemplate(null); setIsPanelOpen(false); setEditName(''); setEditSteps([]); setEditPaymentAccountIds([]) }}>
+                    取消
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          ) : (
+            <CardContent className="flex items-center justify-center py-16">
+              <p className="text-sm text-muted-foreground">選擇一個範本進行編輯，或點「新增範本」</p>
+            </CardContent>
+          )}
+        </Card>
+      </div>
     </div>
   )
 }

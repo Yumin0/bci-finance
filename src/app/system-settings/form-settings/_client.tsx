@@ -6,6 +6,8 @@ import { FormBlock, FormSchemaRow, FormSlot, FormColCount, FormType, FormFieldTy
 import TemplateManagementTab from './_template-tab'
 import CycleTab from './_cycle-tab'
 import TaxTab from './_tax-tab'
+import { Button } from '@/components/ui/button'
+import PageHeader from '@/app/_components/PageHeader'
 
 type FieldDef = {
   id: string
@@ -288,52 +290,43 @@ export default function FormSettingsClient({
     : []
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="flex flex-col">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>表單設定</h1>
-        {activeTab !== 'templates' && activeTab !== 'cycle' && activeTab !== 'tax' ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {savedMsg && <span style={{ fontSize: 13, color: savedMsg === '已儲存' ? '#16a34a' : '#dc2626' }}>{savedMsg}</span>}
-            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-              {saving ? '儲存中...' : '儲存設定'}
-            </button>
-          </div>
-        ) : activeTab === 'templates' ? (
-          <button onClick={() => setNewTemplateTrigger(c => c + 1)} style={btnPrimary}>
-            ＋ 新增範本
-          </button>
-        ) : null}
-      </div>
+      <PageHeader
+        title="表單設定"
+        className="mb-5"
+        action={
+          activeTab !== 'templates' && activeTab !== 'cycle' && activeTab !== 'tax' ? (
+            <div className="flex items-center gap-3">
+              {savedMsg && (
+                <span className={`text-sm ${savedMsg === '已儲存' ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
+                  {savedMsg}
+                </span>
+              )}
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? '儲存中...' : '儲存設定'}
+              </Button>
+            </div>
+          ) : activeTab === 'templates' ? (
+            <Button onClick={() => setNewTemplateTrigger(c => c + 1)}>＋ 新增範本</Button>
+          ) : undefined
+        }
+      />
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: 20 }}>
+      <div className="mb-5 flex border-b border-border">
         {(['funds_allocation', 'payment_voucher', 'temp_voucher'] as FormType[]).map(ft => (
           <button key={ft} onClick={() => { setActiveTab(ft); setFormType(ft); setSelection(null) }}
-            style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
-              borderBottom: activeTab === ft ? '2px solid #111827' : '2px solid transparent',
-              marginBottom: -1, cursor: 'pointer', color: activeTab === ft ? '#111827' : '#6b7280' }}>
+            className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${activeTab === ft ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
             {ft === 'funds_allocation' ? '資金分配申請單' : ft === 'payment_voucher' ? '付款憑單' : '暫付款沖銷憑單'}
           </button>
         ))}
-        <button onClick={() => { setActiveTab('cycle'); setSelection(null) }}
-          style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
-            borderBottom: activeTab === 'cycle' ? '2px solid #111827' : '2px solid transparent',
-            marginBottom: -1, cursor: 'pointer', color: activeTab === 'cycle' ? '#111827' : '#6b7280' }}>
-          申請週期
-        </button>
-        <button onClick={() => { setActiveTab('tax'); setSelection(null) }}
-          style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
-            borderBottom: activeTab === 'tax' ? '2px solid #111827' : '2px solid transparent',
-            marginBottom: -1, cursor: 'pointer', color: activeTab === 'tax' ? '#111827' : '#6b7280' }}>
-          稅額清單
-        </button>
-        <button onClick={() => { setActiveTab('templates'); setSelection(null) }}
-          style={{ padding: '8px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none',
-            borderBottom: activeTab === 'templates' ? '2px solid #111827' : '2px solid transparent',
-            marginBottom: -1, cursor: 'pointer', color: activeTab === 'templates' ? '#111827' : '#6b7280' }}>
-          範本管理
-        </button>
+        {(['cycle', 'tax', 'templates'] as const).map(tab => (
+          <button key={tab} onClick={() => { setActiveTab(tab); setSelection(null) }}
+            className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${activeTab === tab ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+            {tab === 'cycle' ? '申請週期' : tab === 'tax' ? '稅額清單' : '範本管理'}
+          </button>
+        ))}
       </div>
 
       {/* Cycle tab */}
@@ -836,5 +829,4 @@ export default function FormSettingsClient({
 const panelTitle: React.CSSProperties = { fontSize: 14, fontWeight: 600, color: 'var(--text-title)', marginBottom: 14, marginTop: 0 }
 const panelLabel: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6, marginTop: 0 }
 const panelInput: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }
-const btnPrimary: React.CSSProperties = { padding: '8px 20px', background: '#111827', color: 'white', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
 const btnDanger: React.CSSProperties = { width: '100%', padding: '8px 12px', background: 'white', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 13, cursor: 'pointer' }

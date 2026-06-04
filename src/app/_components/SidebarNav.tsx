@@ -31,50 +31,24 @@ export default function SidebarNav({ config }: { config: SidebarCategory[] }) {
   }
 
   return (
-    <div style={{ padding: '8px 0 16px' }}>
+    <div className="pb-4 pt-2">
       {config.map((category, ci) => {
         const isClosed = closedCategories.has(category.id)
         return (
           <div key={category.id}>
-            {/* Section divider between categories */}
-            {ci > 0 && (
-              <div style={{ height: 1, background: 'var(--border-color)', margin: '6px 16px 2px' }} />
-            )}
+            {ci > 0 && <div className="mx-4 my-1.5 h-px bg-border" />}
 
-            {/* Category header — clickable to collapse */}
+            {/* Category header */}
             <button
               onClick={() => toggleCategory(category.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-                padding: ci === 0 ? '8px 16px 6px' : '14px 16px 6px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                textAlign: 'left',
-                gap: 4,
-              }}
+              className={`flex w-full cursor-pointer items-center justify-between gap-1 border-none bg-transparent px-4 text-left ${ci === 0 ? 'pb-1.5 pt-2' : 'pb-1.5 pt-3.5'}`}
             >
-              <span style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: 'var(--sidebar-accent)',
-                letterSpacing: '0.03em',
-                lineHeight: 1.3,
-              }}>
+              <span className="text-sm font-bold leading-snug tracking-[0.03em] text-[var(--sidebar-accent)]">
                 {category.label}
               </span>
               <svg
                 width="12" height="12" viewBox="0 0 12 12" fill="none"
-                style={{
-                  flexShrink: 0,
-                  color: 'var(--sidebar-accent)',
-                  opacity: 0.6,
-                  transform: isClosed ? 'rotate(-90deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s ease',
-                }}
+                className={`shrink-0 text-[var(--sidebar-accent)] opacity-60 transition-transform duration-200 ${isClosed ? '-rotate-90' : 'rotate-0'}`}
               >
                 <path d="M2 4.5L6 8L10 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -82,7 +56,7 @@ export default function SidebarNav({ config }: { config: SidebarCategory[] }) {
 
             {/* Items */}
             {!isClosed && (
-              <ul style={{ listStyle: 'none', margin: 0, padding: '0 0 4px' }}>
+              <ul className="m-0 list-none p-0 pb-1">
                 {category.entries.map(entry => {
                   if (entry.kind === 'item') {
                     if (entry.navHidden) return null
@@ -91,33 +65,18 @@ export default function SidebarNav({ config }: { config: SidebarCategory[] }) {
                       <li key={entry.id}>
                         <Link
                           href={entry.href}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            padding: '7px 16px 7px 18px',
-                            textDecoration: 'none',
-                            fontSize: 13.5,
-                            fontWeight: active ? 600 : 400,
-                            color: active ? 'var(--sidebar-accent)' : 'var(--text-body)',
-                            background: active ? 'var(--sidebar-active-bg)' : 'transparent',
-                            borderLeft: active ? '3px solid var(--sidebar-accent)' : '3px solid transparent',
-                            borderRadius: '0 8px 8px 0',
-                            transition: 'background 0.12s, color 0.12s',
-                          }}
-                          onMouseEnter={e => {
-                            if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--sidebar-hover-bg)'
-                          }}
-                          onMouseLeave={e => {
-                            if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'
-                          }}
+                          className={`flex items-center gap-2 rounded-r-lg border-l-[3px] py-1.5 pl-4 pr-4 text-[13.5px] no-underline transition-colors duration-100 ${
+                            active
+                              ? 'border-[var(--sidebar-accent)] bg-[var(--sidebar-active-bg)] font-semibold text-[var(--sidebar-accent)]'
+                              : 'border-transparent font-normal text-foreground hover:bg-[var(--sidebar-hover-bg)]'
+                          }`}
                         >
                           {active ? (
-                            <svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor" style={{ flexShrink: 0 }}>
+                            <svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor" className="shrink-0">
                               <circle cx="3" cy="3" r="3" />
                             </svg>
                           ) : (
-                            <svg width="6" height="6" viewBox="0 0 6 6" fill="none" style={{ flexShrink: 0 }}>
+                            <svg width="6" height="6" viewBox="0 0 6 6" fill="none" className="shrink-0">
                               <circle cx="3" cy="3" r="2.5" stroke="currentColor" strokeOpacity="0.35" />
                             </svg>
                           )}
@@ -127,7 +86,7 @@ export default function SidebarNav({ config }: { config: SidebarCategory[] }) {
                     )
                   }
 
-                  // Group (collapsible sub-section)
+                  // Group
                   const group = entry as SidebarGroup
                   const isGroupOpen = openGroups.has(group.id)
                   const groupHasActive = group.items.some(i => isActive(i.href))
@@ -135,71 +94,41 @@ export default function SidebarNav({ config }: { config: SidebarCategory[] }) {
                     <li key={group.id}>
                       <button
                         onClick={() => toggleGroup(group.id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          width: '100%',
-                          padding: '7px 16px 7px 18px',
-                          background: groupHasActive && !isGroupOpen ? 'var(--sidebar-active-bg)' : 'none',
-                          border: 'none',
-                          borderLeft: groupHasActive && !isGroupOpen ? '3px solid var(--sidebar-accent)' : '3px solid transparent',
-                          borderRadius: '0 8px 8px 0',
-                          cursor: 'pointer',
-                          fontSize: 13.5,
-                          fontWeight: groupHasActive ? 600 : 400,
-                          color: groupHasActive ? 'var(--sidebar-accent)' : 'var(--text-body)',
-                          textAlign: 'left',
-                        }}
+                        className={`flex w-full cursor-pointer items-center justify-between rounded-r-lg border-l-[3px] border-none py-1.5 pl-4 pr-4 text-left text-[13.5px] transition-colors duration-100 ${
+                          groupHasActive && !isGroupOpen
+                            ? 'border-[var(--sidebar-accent)] bg-[var(--sidebar-active-bg)] font-semibold text-[var(--sidebar-accent)]'
+                            : 'border-transparent bg-transparent font-normal text-foreground'
+                        }`}
                       >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <svg width="6" height="6" viewBox="0 0 6 6" fill="none" style={{ flexShrink: 0 }}>
+                        <span className="flex items-center gap-2">
+                          <svg width="6" height="6" viewBox="0 0 6 6" fill="none" className="shrink-0">
                             <circle cx="3" cy="3" r="2.5" stroke="currentColor" strokeOpacity="0.35" />
                           </svg>
                           {group.label}
                         </span>
                         <svg
                           width="10" height="10" viewBox="0 0 10 10" fill="none"
-                          style={{
-                            flexShrink: 0,
-                            color: 'var(--text-subtle)',
-                            transform: isGroupOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                            transition: 'transform 0.18s ease',
-                          }}
+                          className={`shrink-0 text-muted-foreground transition-transform duration-[180ms] ${isGroupOpen ? 'rotate-0' : '-rotate-90'}`}
                         >
                           <path d="M1.5 3.5L5 7L8.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </button>
 
                       {isGroupOpen && (
-                        <ul style={{ listStyle: 'none', margin: 0, padding: '2px 0 4px' }}>
+                        <ul className="m-0 list-none py-0.5">
                           {group.items.map(item => {
                             const active = isActive(item.href)
                             return (
                               <li key={item.id}>
                                 <Link
                                   href={item.href}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    padding: '6px 16px 6px 34px',
-                                    textDecoration: 'none',
-                                    fontSize: 13,
-                                    fontWeight: active ? 600 : 400,
-                                    color: active ? 'var(--sidebar-accent)' : 'var(--text-muted)',
-                                    background: active ? 'var(--sidebar-active-bg)' : 'transparent',
-                                    borderLeft: active ? '3px solid var(--sidebar-accent)' : '3px solid transparent',
-                                    borderRadius: '0 8px 8px 0',
-                                  }}
-                                  onMouseEnter={e => {
-                                    if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--sidebar-hover-bg)'
-                                  }}
-                                  onMouseLeave={e => {
-                                    if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'
-                                  }}
+                                  className={`flex items-center gap-2 rounded-r-lg border-l-[3px] py-1.5 pl-8 pr-4 text-[13px] no-underline transition-colors duration-100 ${
+                                    active
+                                      ? 'border-[var(--sidebar-accent)] bg-[var(--sidebar-active-bg)] font-semibold text-[var(--sidebar-accent)]'
+                                      : 'border-transparent font-normal text-muted-foreground hover:bg-[var(--sidebar-hover-bg)]'
+                                  }`}
                                 >
-                                  <svg width="4" height="4" viewBox="0 0 4 4" fill="currentColor" style={{ flexShrink: 0, opacity: 0.4 }}>
+                                  <svg width="4" height="4" viewBox="0 0 4 4" fill="currentColor" className="shrink-0 opacity-40">
                                     <circle cx="2" cy="2" r="2" />
                                   </svg>
                                   {item.label}

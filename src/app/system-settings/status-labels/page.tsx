@@ -9,6 +9,9 @@ import {
 } from '@/lib/status-label-config'
 import { getStatusLabelConfig, saveStatusLabelConfig } from '@/app/actions/status-labels'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import PageHeader from '@/app/_components/PageHeader'
 
 const MODULE_LABELS: Record<keyof StatusLabelConfig, string> = {
   funds_allocation: '資金分配申請',
@@ -38,23 +41,20 @@ function ColorPicker({
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <div className="flex items-center gap-1.5">
       <input
         type="color"
         value={/^#[0-9a-fA-F]{6}$/.test(hex) ? hex : '#000000'}
         onChange={e => handleColorPicker(e.target.value)}
-        style={{ width: 32, height: 32, padding: 2, border: '1px solid var(--border-color)', borderRadius: 6, cursor: 'pointer', background: 'none' }}
+        className="h-8 w-8 cursor-pointer rounded-md border border-input bg-transparent p-0.5"
         title="選取顏色"
       />
-      <input
+      <Input
         value={hex}
         onChange={e => handleHexInput(e.target.value)}
         maxLength={7}
         placeholder="#000000"
-        style={{
-          width: 90, padding: '6px 10px', fontSize: 13, borderRadius: 6, fontFamily: 'monospace',
-          border: '1px solid var(--border-color)', background: 'var(--bg-page)', color: 'var(--text-body)',
-        }}
+        className="w-24 font-mono"
       />
     </div>
   )
@@ -92,37 +92,35 @@ export default function StatusLabelsPage() {
     else setSaved(true)
   }
 
-  if (loading) return <p style={{ color: 'var(--text-muted)', padding: 32 }}>載入中...</p>
+  if (loading) return <p className="p-8 text-muted-foreground">載入中...</p>
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700 }}>狀態標籤設定</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+    <div className="flex max-w-2xl flex-col gap-6">
+      <div>
+        <PageHeader title="狀態標籤設定" />
+        <p className="mt-1 text-sm text-muted-foreground">
           自訂各模組的狀態標籤名稱與顏色。更新後全站即時生效。
         </p>
       </div>
 
       {(Object.keys(MODULE_LABELS) as (keyof StatusLabelConfig)[]).map(mod => (
-        <section key={mod} style={{ marginBottom: 36 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border-color)' }}>
-            {MODULE_LABELS[mod]}
-          </h2>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* 欄位標題 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '120px 160px 1fr 120px', gap: 12, paddingBottom: 4, borderBottom: '1px solid var(--border-color)' }}>
+        <Card key={mod}>
+          <CardHeader>
+            <CardTitle>{MODULE_LABELS[mod]}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div className="grid grid-cols-[120px_160px_1fr_120px] gap-3 border-b pb-2">
               {['預覽', '標籤名稱', '顏色', '顯示步驟'].map(h => (
-                <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
+                <span key={h} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {h}
+                </span>
               ))}
             </div>
 
             {Object.entries(DEFAULT_STATUS_LABEL_CONFIG[mod]).map(([key]) => {
               const entry = config[mod][key]
-
               return (
-                <div key={key} style={{ display: 'grid', gridTemplateColumns: '120px 160px 1fr 120px', gap: 12, alignItems: 'center', padding: '6px 0' }}>
-                  {/* 預覽 badge */}
+                <div key={key} className="grid grid-cols-[120px_160px_1fr_120px] items-center gap-3 py-1.5">
                   <span style={{
                     fontSize: 12, padding: '3px 10px', borderRadius: 4, fontWeight: 500,
                     background: hexToRgba(entry.color, 0.15),
@@ -132,27 +130,15 @@ export default function StatusLabelsPage() {
                   }}>
                     {entry.label}
                   </span>
-
-                  {/* 標籤文字輸入 */}
-                  <input
+                  <Input
                     value={entry.label}
                     onChange={e => updateEntry(mod, key, 'label', e.target.value)}
-                    style={{
-                      padding: '6px 10px', fontSize: 13, borderRadius: 6,
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--bg-page)', color: 'var(--text-body)',
-                      width: '100%',
-                    }}
                   />
-
-                  {/* 顏色選擇器 */}
                   <ColorPicker
                     value={entry.color}
                     onChange={v => updateEntry(mod, key, 'color', v)}
                   />
-
-                  {/* 顯示步驟 */}
-                  <label style={{ fontSize: 13, color: 'var(--text-body)', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                  <label className="flex cursor-pointer items-center gap-1.5 text-sm text-foreground">
                     <input
                       type="checkbox"
                       checked={entry.showStep}
@@ -163,16 +149,16 @@ export default function StatusLabelsPage() {
                 </div>
               )
             })}
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       ))}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, paddingTop: 16, borderTop: '1px solid var(--border-color)' }}>
+      <div className="flex items-center gap-3 border-t pt-4">
         <Button onClick={handleSave} disabled={saving}>
           {saving ? '儲存中...' : '儲存設定'}
         </Button>
-        {saved && <span style={{ fontSize: 13, color: '#166534' }}>已儲存</span>}
-        {error && <span style={{ fontSize: 13, color: '#dc2626' }}>{error}</span>}
+        {saved && <span className="text-sm text-green-700 dark:text-green-400">已儲存</span>}
+        {error && <span className="text-sm text-destructive">{error}</span>}
       </div>
     </div>
   )

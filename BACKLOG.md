@@ -7,9 +7,26 @@
 
 ## 進行中
 
-**（稅收）費用自動計算**（Riku）
-分支：`main`
-開始：2026-06-01
+**UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
+分支：`feature/riku-ui-consistency`
+開始：2026-06-04
+影響範圍確認：
+- [x] /system-settings/account-management（含新增、編輯）
+- [x] /system-settings/expense-fields
+- [x] /system-settings/status-labels
+- [x] /system-settings/role-permissions
+- [x] /system-settings/approval-flows
+- [x] /system-settings/payee-settings
+- [x] /system-settings/sidebar-customization
+- [x] /system-settings/org-structure
+- [x] /system-settings/form-settings（cycle、tax、template tab 及標題區）
+- [x] 各模組列表頁（資金分配、付款憑單、暫付款沖銷的 my/all）
+- [x] 各模組審核管理頁（三個模組）
+- [x] /funds-voucher/review/check/[id]
+- [x] /finance/funds、/finance/payment
+- [x] /report-issue（IssueListView、module-settings）
+- [x] 側邊欄導航（SidebarNav）
+- [ ] 其餘頁面（付款憑單詳細頁、審核操作頁、填表頁、首頁、費用類型設定、登入頁等）
 
 ---
 
@@ -17,8 +34,17 @@
 
 ### 🔴 高優先
 
-#### [（稅收）費用自動計算]（Riku）
-- **目標**：費用欄位支援稅收自動計算
+#### [全站 confirm() 替換為系統風格確認對話框]
+- **問題**：全站 19 處使用瀏覽器原生 `confirm()`，彈出視窗與系統 UI 風格不一致
+- **解法**：安裝 shadcn Dialog，建立 `useConfirm` hook，替換 8 個檔案中所有 `confirm()` 呼叫
+- **範圍**：`approval-flows`、`expense-fields`、`role-permissions`、`org-structure`、`payee-settings`、`fee`、`form-settings/_tax-tab`、`funds-allocation/edit`、`report-issue/module-settings`
+
+#### [支出欄位設定 RLS 寫入修復]
+- **問題**：`/system-settings/expense-fields` 新增／刪除選項時出現 RLS 錯誤（`new row violates row-level security policy for table "dropdown_options"`）
+- **原因**：頁面直接用 `supabase`（一般客戶端）執行 INSERT/DELETE，被 Supabase RLS 擋住
+- **解法**：與組織架構頁相同，將寫入操作移至 Server Actions，改用 `supabaseAdmin`（service role key）
+
+#### ~~[（稅收）費用自動計算]~~（Riku）✅ 已完成（2026-06-02）
 
 #### ~~[資金分配審核流程彈性化]~~ ✅ 已完成（2026-05-22）
 

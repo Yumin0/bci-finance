@@ -10,6 +10,10 @@ import { getFormSchemas } from '@/app/actions/form-schema'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { buttonVariants } from '@/components/ui/button'
+import PageHeader from '@/app/_components/PageHeader'
 
 const buildPendingSearch = (payeeLabel: string | null): Array<(r: PendingItem) => string | null | undefined> => [
   (r) => r.purchase_order_number,
@@ -98,14 +102,6 @@ export default function PaymentReviewPage() {
     load()
   }, [])
 
-  const tabStyle = (t: Tab): React.CSSProperties => ({
-    padding: '10px 24px', fontSize: 14, fontWeight: tab === t ? 600 : 400,
-    background: tab === t ? 'var(--bg-page)' : 'none',
-    border: 'none', cursor: 'pointer',
-    borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
-    color: tab === t ? 'var(--text-title)' : 'var(--text-muted)',
-  })
-
   const filteredPending = query.trim()
     ? pendingItems.filter(r => buildPendingSearch(payeeLabel).some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
     : pendingItems
@@ -114,33 +110,35 @@ export default function PaymentReviewPage() {
     : historyItems
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>審核管理</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>付款憑單的審核任務與歷史記錄</p>
-        </div>
-        <Input
-          placeholder="搜尋採購單號、憑單名稱、付款方式、付款對象…"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          style={{ width: 260, fontSize: 13 }}
+    <div className="flex flex-col gap-6">
+      <div>
+        <PageHeader
+          title="審核管理"
+          action={
+            <Input
+              placeholder="搜尋採購單號、憑單名稱、付款方式…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              className="w-64 bg-background"
+            />
+          }
         />
+        <p className="mt-1 text-sm text-muted-foreground">付款憑單的審核任務與歷史記錄</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border-color)', marginBottom: 24 }}>
-        <button style={tabStyle('pending')} onClick={() => setTab('pending')}>
+      <div className="flex border-b border-border">
+        <button onClick={() => setTab('pending')} className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${tab === 'pending' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
           待我審核
           {pendingItems.length > 0 && (
-            <span style={{ marginLeft: 6, fontSize: 11, background: '#dc2626', color: '#fff', borderRadius: 999, padding: '1px 8px', display: 'inline-block', fontWeight: 600 }}>
-              {pendingItems.length}
-            </span>
+            <span className="ml-1.5 inline-block rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">{pendingItems.length}</span>
           )}
         </button>
-        <button style={tabStyle('history')} onClick={() => setTab('history')}>我的審核紀錄</button>
+        <button onClick={() => setTab('history')} className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${tab === 'history' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+          我的審核紀錄
+        </button>
       </div>
 
-      {loading ? <p style={{ color: 'var(--text-muted)' }}>載入中...</p>
+      {loading ? <p className="text-sm text-muted-foreground">載入中...</p>
         : tab === 'pending' ? <PendingList items={filteredPending} labelConfig={labelConfig} payeeLabel={payeeLabel} />
         : <HistoryList items={filteredHistory} labelConfig={labelConfig} payeeLabel={payeeLabel} />}
     </div>
@@ -148,96 +146,65 @@ export default function PaymentReviewPage() {
 }
 
 function PendingList({ items, labelConfig, payeeLabel }: { items: PendingItem[]; labelConfig: StatusLabelConfig; payeeLabel: string | null }) {
-  if (items.length === 0) return <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>目前沒有待審核的憑單</p>
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">目前沒有待審核的憑單</p>
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-        <thead>
-          <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => (
-              <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+    <Card className="overflow-hidden p-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => <TableHead key={i}>{col}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map(r => (
-            <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <td style={td}>
-                <StatusBadge module="payment_voucher" status="pending" stepName={r.step_name} labelConfig={labelConfig} />
-              </td>
-              <td style={td}>
-                <Link href={`/funds-payment/review/check/${r.id}`}
-                  style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}>
-                  {r.purchase_order_number ?? '-'}
-                </Link>
-              </td>
-              <td style={td}>{r.name}</td>
-              <td style={td}>{r.payment_method ?? '-'}</td>
-              <td style={td}>{payeeLabel ? (r.extra_data?.[payeeLabel] ?? '-') : '-'}</td>
-              <td style={td}>{r.amount.toLocaleString()}</td>
-              <td style={td}>
-                <Link href={`/funds-payment/review/check/${r.id}`}
-                  style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>
-                  審核
-                </Link>
-              </td>
-            </tr>
+            <TableRow key={r.id}>
+              <TableCell><StatusBadge module="payment_voucher" status="pending" stepName={r.step_name} labelConfig={labelConfig} /></TableCell>
+              <TableCell><Link href={`/funds-payment/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">{r.purchase_order_number ?? '-'}</Link></TableCell>
+              <TableCell>{r.name}</TableCell>
+              <TableCell>{r.payment_method ?? '-'}</TableCell>
+              <TableCell>{payeeLabel ? (r.extra_data?.[payeeLabel] ?? '-') : '-'}</TableCell>
+              <TableCell>{r.amount.toLocaleString()}</TableCell>
+              <TableCell><Link href={`/funds-payment/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link></TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Card>
   )
 }
 
 function HistoryList({ items, labelConfig, payeeLabel }: { items: HistoryItem[]; labelConfig: StatusLabelConfig; payeeLabel: string | null }) {
-  if (items.length === 0) return <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>尚無審核紀錄</p>
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">尚無審核紀錄</p>
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-        <thead>
-          <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => (
-              <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+    <Card className="overflow-hidden p-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => <TableHead key={i}>{col}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map(r => (
-            <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <td style={td}>
-                <StatusBadge
-                  module="payment_voucher"
-                  status={r.funds_payment?.status ?? (r.decision === 'approved' ? 'approved' : 'rejected')}
-                  stepName={r.step_name}
-                  labelConfig={labelConfig}
-                />
-              </td>
-              <td style={td}>
-                {r.funds_payment_id ? (
-                  <Link href={`/funds-payment/review/check/${r.funds_payment_id}`}
-                    style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}>
-                    {r.funds_payment?.purchase_order_number ?? '-'}
-                  </Link>
-                ) : (r.funds_payment?.purchase_order_number ?? '-')}
-              </td>
-              <td style={td}>{r.funds_payment?.name ?? '-'}</td>
-              <td style={td}>{r.funds_payment?.payment_method ?? '-'}</td>
-              <td style={td}>{payeeLabel ? (r.funds_payment?.extra_data?.[payeeLabel] ?? '-') : '-'}</td>
-              <td style={td}>{r.funds_payment?.amount?.toLocaleString() ?? '-'}</td>
-              <td style={td}>
-                {r.funds_payment_id && (
-                  <Link href={`/funds-payment/review/check/${r.funds_payment_id}`}
-                    style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>
-                    查閱
-                  </Link>
-                )}
-              </td>
-            </tr>
+            <TableRow key={r.id}>
+              <TableCell>
+                <StatusBadge module="payment_voucher" status={r.funds_payment?.status ?? (r.decision === 'approved' ? 'approved' : 'rejected')} stepName={r.step_name} labelConfig={labelConfig} />
+              </TableCell>
+              <TableCell>
+                {r.funds_payment_id
+                  ? <Link href={`/funds-payment/review/check/${r.funds_payment_id}`} className="text-sm text-primary underline underline-offset-4">{r.funds_payment?.purchase_order_number ?? '-'}</Link>
+                  : (r.funds_payment?.purchase_order_number ?? '-')}
+              </TableCell>
+              <TableCell>{r.funds_payment?.name ?? '-'}</TableCell>
+              <TableCell>{r.funds_payment?.payment_method ?? '-'}</TableCell>
+              <TableCell>{payeeLabel ? (r.funds_payment?.extra_data?.[payeeLabel] ?? '-') : '-'}</TableCell>
+              <TableCell>{r.funds_payment?.amount?.toLocaleString() ?? '-'}</TableCell>
+              <TableCell>
+                {r.funds_payment_id && <Link href={`/funds-payment/review/check/${r.funds_payment_id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>查閱</Link>}
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Card>
   )
 }
-
-const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }

@@ -236,7 +236,6 @@ function ContentEditor({
 
     if (json.url) {
       editorRef.current?.focus()
-      // Insert image inline at current cursor, followed by a line break to continue typing
       document.execCommand(
         'insertHTML',
         false,

@@ -4,9 +4,14 @@ import { useState, useEffect } from 'react'
 import { TaxRateOption, TaxFormulaStep } from '@/lib/types'
 import { getTaxRateOptions, upsertTaxRateOption, deleteTaxRateOption } from '@/app/actions/tax-rates'
 import { formulaSummary } from '@/lib/taxUtils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 const OPS = ['+', '-', '*', '/'] as const
 const OP_DISPLAY: Record<string, string> = { '+': '＋', '-': '－', '*': '×', '/': '÷' }
+const selectCls = 'rounded-md border border-input bg-transparent px-2 py-1 text-sm outline-none focus:border-ring dark:bg-input/30'
 
 export default function TaxTab() {
   const [options, setOptions] = useState<TaxRateOption[]>([])
@@ -81,148 +86,138 @@ export default function TaxTab() {
     setTimeout(() => setMsg(null), 3000)
   }
 
-  if (loading) return <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>載入中...</p>
+  if (loading) return <p className="text-sm text-muted-foreground">載入中...</p>
 
   return (
-    <div style={{ maxWidth: 600 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
-          設定填表時「稅額選擇」下拉選單的選項與對應計算公式。
-        </p>
+    <div className="flex max-w-xl flex-col gap-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">設定填表時「稅額選擇」下拉選單的選項與對應計算公式。</p>
         {msg && (
-          <span style={{ fontSize: 13, color: msg.ok ? '#16a34a' : '#dc2626' }}>{msg.text}</span>
+          <span className={`text-sm ${msg.ok ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
+            {msg.text}
+          </span>
         )}
       </div>
 
-      {/* Option list */}
+      {/* 選項列表 */}
       {options.length > 0 && (
-        <div style={{ marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 0, background: '#f9fafb', padding: '8px 16px', borderBottom: '1px solid var(--border-color)' }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>名稱</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>計算公式（費用起始）</span>
-            <span />
-          </div>
-          {options.map(opt => (
-            <div key={opt.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', alignItems: 'center', gap: 0, padding: '10px 16px', borderBottom: '1px solid var(--border-color)', background: 'white' }}>
-              <span style={{ fontSize: 14, color: 'var(--text-body)' }}>{opt.label}</span>
-              <span style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                費用 {formulaSummary(opt.formula_steps)} ＝ 稅額
-              </span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button
-                  onClick={() => startEdit(opt)}
-                  disabled={editingId !== null}
-                  style={{ padding: '4px 10px', fontSize: 12, border: '1px solid var(--btn-border)', borderRadius: 5, background: 'white', cursor: editingId !== null ? 'not-allowed' : 'pointer', color: 'var(--text-body)' }}>
-                  編輯
-                </button>
-                <button
-                  onClick={() => handleDelete(opt.id)}
-                  disabled={editingId !== null}
-                  style={{ padding: '4px 10px', fontSize: 12, border: '1px solid #fca5a5', borderRadius: 5, background: 'white', cursor: editingId !== null ? 'not-allowed' : 'pointer', color: '#dc2626' }}>
-                  刪除
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <Card className="overflow-hidden py-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>名稱</TableHead>
+                <TableHead>計算公式（費用起始）</TableHead>
+                <TableHead className="w-28" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {options.map(opt => (
+                <TableRow key={opt.id}>
+                  <TableCell className="text-sm font-medium">{opt.label}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    費用 {formulaSummary(opt.formula_steps)} ＝ 稅額
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1.5">
+                      <Button variant="outline" size="sm" onClick={() => startEdit(opt)} disabled={editingId !== null}>
+                        編輯
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(opt.id)} disabled={editingId !== null}>
+                        刪除
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       {options.length === 0 && editingId === null && (
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>尚未設定任何稅額選項。</p>
+        <p className="text-sm text-muted-foreground">尚未設定任何稅額選項。</p>
       )}
 
-      {/* Edit / New form */}
+      {/* 編輯 / 新增表單 */}
       {editingId !== null && (
-        <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: 20, marginBottom: 16, background: 'white' }}>
-          <p style={{ fontSize: 14, fontWeight: 600, margin: '0 0 16px 0' }}>
-            {editingId === 'new' ? '新增稅額選項' : '編輯稅額選項'}
-          </p>
-
-          <label style={labelStyle}>稅額名稱</label>
-          <input
-            value={editLabel}
-            onChange={e => setEditLabel(e.target.value)}
-            placeholder="例：應稅5%、境外稅"
-            style={inputStyle}
-          />
-
-          <label style={{ ...labelStyle, marginTop: 16 }}>計算步驟（起始值為「費用」）</label>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: '#f3f4f6', borderRadius: 5, fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>
-              起始值：費用
-            </div>
-          </div>
-
-          {editSteps.map((step, idx) => (
-            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 40 }}>第 {idx + 1} 步</span>
-              <select
-                value={step.op}
-                onChange={e => setStep(idx, { op: e.target.value as TaxFormulaStep['op'] })}
-                style={{ ...inputStyle, width: 64, marginBottom: 0 }}>
-                {OPS.map(op => (
-                  <option key={op} value={op}>{OP_DISPLAY[op]}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                step="any"
-                value={step.value}
-                onChange={e => setStep(idx, { value: parseFloat(e.target.value) || 0 })}
-                style={{ ...inputStyle, width: 100, marginBottom: 0 }}
+        <Card>
+          <CardHeader>
+            <CardTitle>{editingId === 'new' ? '新增稅額選項' : '編輯稅額選項'}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">稅額名稱</label>
+              <Input
+                value={editLabel}
+                onChange={e => setEditLabel(e.target.value)}
+                placeholder="例：應稅5%、境外稅"
               />
-              <button
-                type="button"
-                onClick={() => removeStep(idx)}
-                disabled={editSteps.length <= 1}
-                style={{ padding: '4px 8px', fontSize: 12, border: '1px solid #fca5a5', borderRadius: 5, background: 'white', color: editSteps.length <= 1 ? '#d1d5db' : '#dc2626', cursor: editSteps.length <= 1 ? 'not-allowed' : 'pointer' }}>
-                刪除
-              </button>
             </div>
-          ))}
 
-          <div style={{ padding: '4px 10px', background: '#f0fdf4', borderRadius: 5, fontSize: 13, color: '#16a34a', marginBottom: 12, display: 'inline-block' }}>
-            ＝ 稅額
-          </div>
+            <div>
+              <label className="mb-2 block text-xs font-medium text-muted-foreground">計算步驟（起始值為「費用」）</label>
+              <span className="mb-2 inline-flex items-center rounded bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                起始值：費用
+              </span>
 
-          <div style={{ marginBottom: 16 }}>
-            <button
-              type="button"
-              onClick={addStep}
-              style={{ padding: '6px 12px', fontSize: 13, border: '1.5px dashed #d1d5db', borderRadius: 6, background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-              ＋ 新增步驟
-            </button>
-          </div>
+              <div className="flex flex-col gap-2">
+                {editSteps.map((step, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="w-10 text-xs text-muted-foreground">第 {idx + 1} 步</span>
+                    <select
+                      value={step.op}
+                      onChange={e => setStep(idx, { op: e.target.value as TaxFormulaStep['op'] })}
+                      className={`w-16 ${selectCls}`}
+                    >
+                      {OPS.map(op => <option key={op} value={op}>{OP_DISPLAY[op]}</option>)}
+                    </select>
+                    <Input
+                      type="number"
+                      step="any"
+                      value={step.value}
+                      onChange={e => setStep(idx, { value: parseFloat(e.target.value) || 0 })}
+                      className="w-24"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeStep(idx)}
+                      disabled={editSteps.length <= 1}
+                    >
+                      刪除
+                    </Button>
+                  </div>
+                ))}
+              </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || !editLabel.trim()}
-              style={{ padding: '8px 20px', background: editLabel.trim() ? '#111827' : '#d1d5db', color: 'white', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: editLabel.trim() ? 'pointer' : 'not-allowed' }}>
-              {saving ? '儲存中...' : '儲存'}
-            </button>
-            <button
-              type="button"
-              onClick={cancel}
-              style={{ padding: '8px 16px', background: 'white', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }}>
-              取消
-            </button>
-          </div>
-        </div>
+              <span className="mt-2 inline-flex items-center rounded bg-green-50 px-2.5 py-1 text-xs text-green-700 dark:bg-green-950 dark:text-green-400">
+                ＝ 稅額
+              </span>
+
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={addStep}
+                  className="rounded-md border border-dashed border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted/50"
+                >
+                  ＋ 新增步驟
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={handleSave} disabled={saving || !editLabel.trim()}>
+                {saving ? '儲存中...' : '儲存'}
+              </Button>
+              <Button variant="outline" onClick={cancel}>取消</Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {editingId === null && (
-        <button
-          type="button"
-          onClick={startNew}
-          style={{ padding: '8px 20px', background: '#111827', color: 'white', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-          ＋ 新增稅額選項
-        </button>
+        <Button onClick={startNew} className="w-fit">＋ 新增稅額選項</Button>
       )}
     </div>
   )
 }
-
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6 }
-const inputStyle: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', marginBottom: 8, background: 'white', color: 'var(--text-body)' }

@@ -5,7 +5,7 @@
 ## 技術棧
 - **Next.js** (App Router) + **React 19** + **TypeScript**（strict mode）
 - **Tailwind CSS 4.x** 樣式
-- **shadcn/ui**（組件產生器）+ **Base UI**（`@base-ui/react`，headless primitive）+ **class-variance-authority**（cva，樣式變體）
+- **shadcn/ui**（組件產生器，`style: base-nova`）+ **Base UI**（`@base-ui/react`，headless primitive）+ **class-variance-authority**（cva，樣式變體）；已安裝組件：button、input、select、tabs、textarea、badge、card、table、searchable-select
 - **Supabase**（PostgreSQL 資料庫 + Storage 圖片儲存）
 - **JWT Session**（HTTP-only Secure Cookie，7 天有效期，jose 套件）
 - **路由保護**：`src/proxy.ts` 攔截未登入請求，重導向 `/login`

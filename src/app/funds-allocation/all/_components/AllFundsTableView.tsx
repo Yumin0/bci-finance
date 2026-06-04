@@ -2,11 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FundsAllocation } from '@/lib/types'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
+import PageHeader from '@/app/_components/PageHeader'
 import ExportCsvButton from './ExportCsvButton'
-import { Input } from '@/components/ui/input'
 
 type AllocationRow = FundsAllocation & {
   approval_flow_templates: {
@@ -53,89 +57,74 @@ export default function AllFundsTableView({
   const [query, setQuery] = useState('')
 
   const filtered = query.trim()
-    ? records.filter(r =>
-        SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase()))
-      )
+    ? records.filter(r => SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
     : records
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>全部申請紀錄</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>所有資金分配申請的完整狀態覽表</p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Input
-            placeholder="搜尋單號、申請處別、申請課別、申請人、費用項目、項目名稱…"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            style={{ width: 260, fontSize: 13 }}
-          />
-          {canExport && <ExportCsvButton labelConfig={labelConfig} />}
-        </div>
+    <div className="flex flex-col gap-6">
+      <div>
+        <PageHeader
+          title="全部申請紀錄"
+          action={
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="搜尋單號、申請處別、申請課別…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                className="w-64 bg-background"
+              />
+              {canExport && <ExportCsvButton labelConfig={labelConfig} />}
+            </div>
+          }
+        />
+        <p className="mt-1 text-sm text-muted-foreground">所有資金分配申請的完整狀態覽表</p>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
+      <Card className="overflow-hidden p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
-                <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  {col}
-                </th>
+                <TableHead key={i}>{col}</TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtered.length === 0 && (
-              <tr>
-                <td colSpan={11} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
+              <TableRow>
+                <TableCell colSpan={11} className="py-6 text-center text-muted-foreground">
                   {query ? '找不到符合的紀錄' : '目前無申請紀錄'}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
             {filtered.map(r => (
-              <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={td}>
-                  <StatusBadge
-                    module="funds_allocation"
-                    status={r.status}
-                    stepName={getStepName(r)}
-                    labelConfig={labelConfig}
-                  />
-                </td>
-                <td style={td}>
-                  <Link
-                    href={`/funds-allocation/my-funds/edit/${r.id}`}
-                    style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 13 }}
-                  >
+              <TableRow key={r.id}>
+                <TableCell>
+                  <StatusBadge module="funds_allocation" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
+                </TableCell>
+                <TableCell>
+                  <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className="text-sm text-primary underline underline-offset-4">
                     {r.status === 'draft' ? '繼續編輯' : (r.serial_number ?? '-')}
                   </Link>
-                </td>
-                <td style={td}>{r.apply_division ?? '-'}</td>
-                <td style={td}>{r.apply_section ?? '-'}</td>
-                <td style={td}>{r.applicant ?? r.created_by}</td>
-                <td style={td}>{r.apply_role ?? '-'}</td>
-                <td style={td}>{r.amount.toLocaleString()}</td>
-                <td style={td}>{r.payment_account ?? '-'}</td>
-                <td style={td}>{r.expense_item ?? '-'}</td>
-                <td style={td}>{r.name}</td>
-                <td style={td}>
-                  <Link
-                    href={`/funds-allocation/my-funds/edit/${r.id}`}
-                    style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}
-                  >
+                </TableCell>
+                <TableCell>{r.apply_division ?? '-'}</TableCell>
+                <TableCell>{r.apply_section ?? '-'}</TableCell>
+                <TableCell>{r.applicant ?? r.created_by}</TableCell>
+                <TableCell>{r.apply_role ?? '-'}</TableCell>
+                <TableCell>{r.amount.toLocaleString()}</TableCell>
+                <TableCell>{r.payment_account ?? '-'}</TableCell>
+                <TableCell>{r.expense_item ?? '-'}</TableCell>
+                <TableCell>{r.name}</TableCell>
+                <TableCell>
+                  <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                     查閱
                   </Link>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   )
 }
-
-const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }

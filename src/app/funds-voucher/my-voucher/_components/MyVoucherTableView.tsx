@@ -4,9 +4,12 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatDate } from '@/lib/dateUtils'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
+import PageHeader from '@/app/_components/PageHeader'
 
 type TempVoucherRow = {
   id: number
@@ -25,7 +28,6 @@ type TempVoucherRow = {
   approval_records: Array<{ step_name: string; decision: string }>
 }
 
-// 搜尋欄位設定：要新增或移除搜尋欄位只改這裡
 const SEARCH_FIELDS: Array<(r: TempVoucherRow) => string | null | undefined> = [
   (r) => r.applicant,
   (r) => String(r.funds_payment_id),
@@ -61,63 +63,58 @@ export default function MyVoucherTableView({
     : records
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700 }}>我的暫付款沖銷憑單</h1>
-        <Input
-          placeholder="搜尋申請人或關聯付款憑單編號…"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          style={{ width: 260, fontSize: 13 }}
-        />
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="我的暫付款沖銷憑單"
+        action={
+          <Input
+            placeholder="搜尋申請人或關聯付款憑單編號…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            className="w-64 bg-background"
+          />
+        }
+      />
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
+      <Card className="overflow-hidden p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {['狀態', '申請日期', '暫付金額', '關聯付款憑單', ''].map((col, i) => (
-                <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-body)', whiteSpace: 'nowrap' }}>
-                  {col}
-                </th>
+                <TableHead key={i}>{col}</TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtered.length === 0 && (
-              <tr>
-                <td colSpan={5} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
+              <TableRow>
+                <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
                   {query ? '找不到符合的紀錄' : '尚無暫付款沖銷憑單'}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
             {filtered.map((r) => (
-              <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={td}>
-                  <StatusBadge
-                    module="temp_voucher"
-                    status={r.status}
-                    stepName={getStepName(r)}
-                    labelConfig={labelConfig}
-                  />
-                </td>
-                <td style={td}>{r.date ? formatDate(r.date) : '-'}</td>
-                <td style={td}>{r.amount != null ? r.amount.toLocaleString() : '-'}</td>
-                <td style={td}>
-                  <Link href={`/funds-payment/my-payment/${r.funds_payment_id}`} style={{ color: '#2563eb', fontSize: 13 }}>
+              <TableRow key={r.id}>
+                <TableCell>
+                  <StatusBadge module="temp_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
+                </TableCell>
+                <TableCell>{r.date ? formatDate(r.date) : '-'}</TableCell>
+                <TableCell>{r.amount != null ? r.amount.toLocaleString() : '-'}</TableCell>
+                <TableCell>
+                  <Link href={`/funds-payment/my-payment/${r.funds_payment_id}`} className="text-sm text-primary underline underline-offset-4">
                     #{r.funds_payment_id}
                   </Link>
-                </td>
-                <td style={td}>
-                  <Link href={`/funds-voucher/my-voucher/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>檢視</Link>
-                </td>
-              </tr>
+                </TableCell>
+                <TableCell>
+                  <Link href={`/funds-voucher/my-voucher/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                    檢視
+                  </Link>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   )
 }
-
-const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }

@@ -2,6 +2,16 @@ import Link from 'next/link'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { formatDate } from '@/lib/dateUtils'
 import { buttonVariants } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import PageHeader from '@/app/_components/PageHeader'
 
 type AppUser = {
   id: number
@@ -18,54 +28,65 @@ export default async function AccountManagementPage() {
     .order('id')
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700 }}>帳號管理</h1>
-        <Link href="/system-settings/account-management/new" className={buttonVariants({ variant: 'default' })}>
-          ＋ 新增帳號
-        </Link>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader title="帳號管理" />
 
-      {error && <p style={{ color: '#dc2626' }}>載入失敗：{error.message}</p>}
-
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-              {['編號', '帳號', '姓名', '建立日期', '更新日期', ''].map((col, i) => (
-                <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-body)', whiteSpace: 'nowrap' }}>
-                  {col}
-                </th>
+      <Card>
+        <CardHeader>
+          <CardTitle>帳號列表</CardTitle>
+          <CardAction>
+            <Link
+              href="/system-settings/account-management/new"
+              className={buttonVariants({ variant: 'default' })}
+            >
+              ＋ 新增帳號
+            </Link>
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <p className="mb-4 text-sm text-destructive">載入失敗：{error.message}</p>
+          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>編號</TableHead>
+                <TableHead>帳號</TableHead>
+                <TableHead>姓名</TableHead>
+                <TableHead>建立日期</TableHead>
+                <TableHead>更新日期</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(users as AppUser[] | null)?.map(user => (
+                <TableRow key={user.id}>
+                  <TableCell>{user.id}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.name}</TableCell>
+                  <TableCell className="whitespace-nowrap">{formatDate(user.created_at)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{formatDate(user.updated_at)}</TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/system-settings/account-management/${user.id}/edit`}
+                      className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                    >
+                      編輯
+                    </Link>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(users as AppUser[] | null)?.map(user => (
-              <tr key={user.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={td}>{user.id}</td>
-                <td style={td}>{user.email}</td>
-                <td style={td}>{user.name}</td>
-                <td style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(user.created_at)}</td>
-                <td style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(user.updated_at)}</td>
-                <td style={td}>
-                  <Link href={`/system-settings/account-management/${user.id}/edit`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                    編輯
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {!users?.length && (
-              <tr>
-                <td colSpan={6} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-subtle)' }}>
-                  尚無帳號資料
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              {!users?.length && (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
+                    尚無帳號資料
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   )
 }
-
-const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }

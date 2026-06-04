@@ -10,6 +10,10 @@ import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/statu
 import StatusBadge from '@/app/_components/StatusBadge'
 import { formatDateTime } from '@/lib/dateUtils'
 import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { buttonVariants } from '@/components/ui/button'
+import PageHeader from '@/app/_components/PageHeader'
 
 // 搜尋欄位設定：要新增或移除搜尋欄位只改這裡
 const PENDING_SEARCH: Array<(r: TempVoucherRow) => string | null | undefined> = [
@@ -97,14 +101,6 @@ export default function VoucherReviewPage() {
     load()
   }, [])
 
-  const tabStyle = (t: Tab): React.CSSProperties => ({
-    padding: '10px 24px', fontSize: 14, fontWeight: tab === t ? 600 : 400,
-    background: tab === t ? 'var(--bg-page)' : 'none',
-    border: 'none', cursor: 'pointer',
-    borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
-    color: tab === t ? 'var(--text-title)' : 'var(--text-muted)',
-  })
-
   const filteredPending = query.trim()
     ? pendingItems.filter(r => PENDING_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
     : pendingItems
@@ -113,33 +109,35 @@ export default function VoucherReviewPage() {
     : historyItems
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>審核管理</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>暫付款沖銷憑單的審核任務與歷史記錄</p>
-        </div>
-        <Input
-          placeholder="搜尋申請課別、申請人…"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          style={{ width: 260, fontSize: 13 }}
+    <div className="flex flex-col gap-6">
+      <div>
+        <PageHeader
+          title="審核管理"
+          action={
+            <Input
+              placeholder="搜尋申請課別、申請人…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              className="w-64 bg-background"
+            />
+          }
         />
+        <p className="mt-1 text-sm text-muted-foreground">暫付款沖銷憑單的審核任務與歷史記錄</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border-color)', marginBottom: 24 }}>
-        <button style={tabStyle('pending')} onClick={() => setTab('pending')}>
+      <div className="flex border-b border-border">
+        <button onClick={() => setTab('pending')} className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${tab === 'pending' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
           待我審核
           {pendingItems.length > 0 && (
-            <span style={{ marginLeft: 6, fontSize: 11, background: '#dc2626', color: '#fff', borderRadius: 999, padding: '1px 8px', display: 'inline-block', fontWeight: 600 }}>
-              {pendingItems.length}
-            </span>
+            <span className="ml-1.5 inline-block rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">{pendingItems.length}</span>
           )}
         </button>
-        <button style={tabStyle('history')} onClick={() => setTab('history')}>我的審核紀錄</button>
+        <button onClick={() => setTab('history')} className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${tab === 'history' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+          我的審核紀錄
+        </button>
       </div>
 
-      {loading ? <p style={{ color: 'var(--text-muted)' }}>載入中...</p>
+      {loading ? <p className="text-sm text-muted-foreground">載入中...</p>
         : tab === 'pending' ? <PendingList items={filteredPending} labelConfig={labelConfig} />
         : <HistoryList items={filteredHistory} labelConfig={labelConfig} />}
     </div>
@@ -147,81 +145,58 @@ export default function VoucherReviewPage() {
 }
 
 function PendingList({ items, labelConfig }: { items: TempVoucherRow[]; labelConfig: StatusLabelConfig }) {
-  if (items.length === 0) return <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>目前沒有待審核的憑單</p>
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">目前沒有待審核的憑單</p>
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-        <thead>
-          <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['狀態', '申請課別', '申請人', '暫付金額', ''].map((col, i) => (
-              <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+    <Card className="overflow-hidden p-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {['狀態', '申請課別', '申請人', '暫付金額', ''].map((col, i) => <TableHead key={i}>{col}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map(r => (
-            <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <td style={td}>
-                <StatusBadge module="temp_voucher" status="pending" stepName={r.step_name ?? null} labelConfig={labelConfig} />
-              </td>
-              <td style={td}>{r.apply_section ?? '-'}</td>
-              <td style={td}>{r.applicant ?? '-'}</td>
-              <td style={td}>{r.amount != null ? r.amount.toLocaleString() : '-'}</td>
-              <td style={td}>
-                <Link href={`/funds-voucher/review/check/${r.id}`}
-                  style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>
-                  審核
-                </Link>
-              </td>
-            </tr>
+            <TableRow key={r.id}>
+              <TableCell><StatusBadge module="temp_voucher" status="pending" stepName={r.step_name ?? null} labelConfig={labelConfig} /></TableCell>
+              <TableCell>{r.apply_section ?? '-'}</TableCell>
+              <TableCell>{r.applicant ?? '-'}</TableCell>
+              <TableCell>{r.amount != null ? r.amount.toLocaleString() : '-'}</TableCell>
+              <TableCell><Link href={`/funds-voucher/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link></TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Card>
   )
 }
 
 function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig: StatusLabelConfig }) {
-  if (items.length === 0) return <p style={{ color: 'var(--text-subtle)', fontSize: 14 }}>尚無審核紀錄</p>
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">尚無審核紀錄</p>
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-        <thead>
-          <tr style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            {['審核結果', '申請課別', '申請人', '暫付金額', '審核時間', ''].map((col, i) => (
-              <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+    <Card className="overflow-hidden p-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {['審核結果', '申請課別', '申請人', '暫付金額', '審核時間', ''].map((col, i) => <TableHead key={i}>{col}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map(r => (
-            <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <td style={td}>
-                <StatusBadge
-                  module="temp_voucher"
-                  status={r.temp_voucher?.status ?? (r.decision === 'approved' ? 'approved' : 'rejected')}
-                  stepName={r.step_name}
-                  labelConfig={labelConfig}
-                />
-              </td>
-              <td style={td}>{r.temp_voucher?.apply_section ?? '-'}</td>
-              <td style={td}>{r.temp_voucher?.applicant ?? '-'}</td>
-              <td style={td}>{r.temp_voucher?.amount != null ? r.temp_voucher.amount.toLocaleString() : '-'}</td>
-              <td style={td}>{r.reviewed_at ? formatDateTime(r.reviewed_at) : '-'}</td>
-              <td style={td}>
-                {r.temp_voucher_id && (
-                  <Link href={`/funds-voucher/review/check/${r.temp_voucher_id}`}
-                    style={{ fontSize: 13, color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', textDecoration: 'none' }}>
-                    查閱
-                  </Link>
-                )}
-              </td>
-            </tr>
+            <TableRow key={r.id}>
+              <TableCell>
+                <StatusBadge module="temp_voucher" status={r.temp_voucher?.status ?? (r.decision === 'approved' ? 'approved' : 'rejected')} stepName={r.step_name} labelConfig={labelConfig} />
+              </TableCell>
+              <TableCell>{r.temp_voucher?.apply_section ?? '-'}</TableCell>
+              <TableCell>{r.temp_voucher?.applicant ?? '-'}</TableCell>
+              <TableCell>{r.temp_voucher?.amount != null ? r.temp_voucher.amount.toLocaleString() : '-'}</TableCell>
+              <TableCell>{r.reviewed_at ? formatDateTime(r.reviewed_at) : '-'}</TableCell>
+              <TableCell>
+                {r.temp_voucher_id && <Link href={`/funds-voucher/review/check/${r.temp_voucher_id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>查閱</Link>}
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Card>
   )
 }
-
-const td: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-title)' }

@@ -2,20 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import PageHeader from '@/app/_components/PageHeader'
 import type { PayeeCategory, PayeeCategoryField, PayeeFieldType, PayeeRecord } from '@/lib/types'
 import {
-  getPayeeCategories,
-  getAllPayeeCategoryFields,
-  getPayeeRecords,
-  addPayeeCategory,
-  updatePayeeCategory,
-  deletePayeeCategory,
-  addPayeeCategoryField,
-  updatePayeeCategoryField,
-  deletePayeeCategoryField,
-  addPayeeRecord,
-  updatePayeeRecord,
-  deletePayeeRecord,
+  getPayeeCategories, getAllPayeeCategoryFields, getPayeeRecords,
+  addPayeeCategory, updatePayeeCategory, deletePayeeCategory,
+  addPayeeCategoryField, updatePayeeCategoryField, deletePayeeCategoryField,
+  addPayeeRecord, updatePayeeRecord, deletePayeeRecord,
 } from '@/app/actions/payee'
 
 const FIELD_TYPE_LABELS: Record<PayeeFieldType, string> = {
@@ -25,11 +20,11 @@ const FIELD_TYPE_LABELS: Record<PayeeFieldType, string> = {
   date: '日期',
 }
 
-// ---- Inline 欄位表單（在 CategorySettingsModal 內使用）----
+const inputCls = 'w-full rounded-lg border border-input bg-transparent px-3 py-1.5 text-sm outline-none transition-colors focus:border-ring dark:bg-input/30'
+
+// ---- Inline 欄位表單 ----
 function InlineFieldForm({
-  initial,
-  onSave,
-  onCancel,
+  initial, onSave, onCancel,
 }: {
   initial?: PayeeCategoryField
   onSave: (label: string, fieldType: PayeeFieldType, options: string[] | null) => Promise<void>
@@ -51,22 +46,16 @@ function InlineFieldForm({
     setSaving(false)
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '7px 10px', fontSize: 13, borderRadius: 7,
-    border: '1px solid var(--border-color)', background: 'var(--bg-page)',
-    color: 'var(--text-body)', boxSizing: 'border-box',
-  }
-
   return (
-    <div style={{ border: '1px solid var(--primary)', borderRadius: 10, padding: '14px 14px 12px', background: 'var(--bg-subtle)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 10 }}>
+    <div className="flex flex-col gap-2.5 rounded-xl border border-primary bg-primary/5 p-3.5">
+      <div className="grid grid-cols-[1fr_140px] gap-2.5">
         <div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>欄位名稱</p>
-          <input value={label} onChange={e => setLabel(e.target.value)} placeholder="例如：銀行帳號" style={inputStyle} />
+          <p className="mb-1 text-xs font-semibold text-muted-foreground">欄位名稱</p>
+          <Input value={label} onChange={e => setLabel(e.target.value)} placeholder="例如：銀行帳號" />
         </div>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>欄位類型</p>
-          <select value={fieldType} onChange={e => setFieldType(e.target.value as PayeeFieldType)} style={inputStyle}>
+          <p className="mb-1 text-xs font-semibold text-muted-foreground">欄位類型</p>
+          <select value={fieldType} onChange={e => setFieldType(e.target.value as PayeeFieldType)} className={inputCls}>
             {(Object.entries(FIELD_TYPE_LABELS) as [PayeeFieldType, string][]).map(([v, l]) => (
               <option key={v} value={v}>{l}</option>
             ))}
@@ -75,30 +64,27 @@ function InlineFieldForm({
       </div>
       {fieldType === 'dropdown' && (
         <div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>選項（每行一個）</p>
-          <textarea value={optionsText} onChange={e => setOptionsText(e.target.value)} rows={3}
-            placeholder={'選項一\n選項二\n選項三'} style={{ ...inputStyle, resize: 'vertical' }} />
+          <p className="mb-1 text-xs font-semibold text-muted-foreground">選項（每行一個）</p>
+          <textarea
+            value={optionsText}
+            onChange={e => setOptionsText(e.target.value)}
+            rows={3}
+            placeholder={'選項一\n選項二\n選項三'}
+            className={`${inputCls} resize-y`}
+          />
         </div>
       )}
-      {error && <p style={{ color: '#dc2626', fontSize: 12 }}>{error}</p>}
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <Button variant="outline" onClick={onCancel} disabled={saving} style={{ fontSize: 12, padding: '4px 12px' }}>取消</Button>
-        <Button onClick={handleSave} disabled={saving} style={{ fontSize: 12, padding: '4px 12px' }}>
-          {saving ? '儲存中...' : '儲存'}
-        </Button>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>取消</Button>
+        <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? '儲存中...' : '儲存'}</Button>
       </div>
     </div>
   )
 }
 
-// ---- 新增類別 Modal（僅新增用）----
-function AddCategoryModal({
-  onSave,
-  onClose,
-}: {
-  onSave: (name: string) => Promise<void>
-  onClose: () => void
-}) {
+// ---- 新增類別 Modal ----
+function AddCategoryModal({ onSave, onClose }: { onSave: (name: string) => Promise<void>; onClose: () => void }) {
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -111,14 +97,17 @@ function AddCategoryModal({
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 28, width: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>新增付款對象類別</h3>
-        <input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45">
+      <div className="w-[360px] rounded-xl bg-card p-7 shadow-xl">
+        <h3 className="mb-5 text-base font-bold text-foreground">新增付款對象類別</h3>
+        <Input
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
           placeholder="例如：職員、廠商"
-          style={{ width: '100%', padding: '8px 12px', fontSize: 14, borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-page)', color: 'var(--text-body)', boxSizing: 'border-box' }} />
-        {error && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{error}</p>}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+        />
+        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+        <div className="mt-5 flex justify-end gap-2.5">
           <Button variant="outline" onClick={onClose} disabled={saving}>取消</Button>
           <Button onClick={handleSave} disabled={saving}>{saving ? '儲存中...' : '儲存'}</Button>
         </div>
@@ -127,15 +116,9 @@ function AddCategoryModal({
   )
 }
 
-// ---- 類別設定 Modal（改名 + 管理欄位inline + 刪除，三合一）----
+// ---- 類別設定 Modal ----
 function CategorySettingsModal({
-  category,
-  fields,
-  onSaveName,
-  onSaveField,
-  onDeleteField,
-  onDeleteCategory,
-  onClose,
+  category, fields, onSaveName, onSaveField, onDeleteField, onDeleteCategory, onClose,
 }: {
   category: PayeeCategory
   fields: PayeeCategoryField[]
@@ -149,7 +132,6 @@ function CategorySettingsModal({
   const [savingName, setSavingName] = useState(false)
   const [nameSaved, setNameSaved] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
-  // 'new' = 新增表單展開, field.id = 該欄位編輯展開, null = 無
   const [editingFieldId, setEditingFieldId] = useState<number | 'new' | null>(null)
 
   async function handleSaveName() {
@@ -167,84 +149,71 @@ function CategorySettingsModal({
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: 28, width: 580, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <h3 style={{ fontSize: 17, fontWeight: 700 }}>類別設定</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1 }}>✕</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45">
+      <div className="flex max-h-[88vh] w-[580px] flex-col rounded-2xl bg-card p-7 shadow-xl">
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-foreground">類別設定</h3>
+          <button onClick={onClose} className="text-xl leading-none text-muted-foreground hover:text-foreground">✕</button>
         </div>
 
-        <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 28 }}>
-          {/* 類別名稱 */}
+        <div className="flex flex-1 flex-col gap-7 overflow-y-auto">
           <section>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>類別名稱</p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input value={name} onChange={e => { setName(e.target.value); setNameSaved(false) }}
-                style={{ flex: 1, padding: '8px 12px', fontSize: 14, borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-page)', color: 'var(--text-body)', boxSizing: 'border-box' }} />
-              <Button onClick={handleSaveName} disabled={savingName} style={{ fontSize: 13, padding: '5px 16px', whiteSpace: 'nowrap' }}>
+            <p className="mb-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">類別名稱</p>
+            <div className="flex gap-2">
+              <Input value={name} onChange={e => { setName(e.target.value); setNameSaved(false) }} className="flex-1" />
+              <Button onClick={handleSaveName} disabled={savingName} className="shrink-0">
                 {savingName ? '儲存中...' : nameSaved ? '✓ 已儲存' : '儲存'}
               </Button>
             </div>
-            {nameError && <p style={{ color: '#dc2626', fontSize: 12, marginTop: 6 }}>{nameError}</p>}
+            {nameError && <p className="mt-1.5 text-xs text-destructive">{nameError}</p>}
           </section>
 
-          {/* 欄位管理 */}
           <section>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>欄位管理</p>
+            <div className="mb-2.5 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">欄位管理</p>
               {editingFieldId === null && (
-                <Button onClick={() => setEditingFieldId('new')} style={{ fontSize: 12, padding: '4px 12px' }}>+ 新增欄位</Button>
+                <Button size="sm" onClick={() => setEditingFieldId('new')}>+ 新增欄位</Button>
               )}
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="flex flex-col gap-1.5">
               {fields.map(field => (
                 editingFieldId === field.id ? (
-                  <InlineFieldForm key={field.id} initial={field}
-                    onSave={handleSaveField}
-                    onCancel={() => setEditingFieldId(null)} />
+                  <InlineFieldForm key={field.id} initial={field} onSave={handleSaveField} onCancel={() => setEditingFieldId(null)} />
                 ) : (
-                  <div key={field.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px', padding: '10px 14px', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: 8, background: 'var(--bg-card)' }}>
+                  <div key={field.id} className="grid items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-2.5" style={{ gridTemplateColumns: '1fr 130px 80px' }}>
                     <div>
-                      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-body)' }}>{field.label}</span>
+                      <span className="text-sm font-medium text-foreground">{field.label}</span>
                       {field.field_type === 'dropdown' && field.options && field.options.length > 0 && (
-                        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>選項：{field.options.join('、')}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">選項：{field.options.join('、')}</p>
                       )}
                     </div>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{FIELD_TYPE_LABELS[field.field_type]}</span>
-                    <div style={{ display: 'flex', gap: 10 }}>
+                    <span className="text-xs text-muted-foreground">{FIELD_TYPE_LABELS[field.field_type]}</span>
+                    <div className="flex gap-2.5">
                       <button onClick={() => setEditingFieldId(field.id)} disabled={editingFieldId !== null}
-                        style={{ fontSize: 13, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, opacity: editingFieldId !== null ? 0.4 : 1 }}>編輯</button>
+                        className="text-sm text-primary disabled:opacity-40 hover:underline">編輯</button>
                       <button onClick={() => onDeleteField(field)} disabled={editingFieldId !== null}
-                        style={{ fontSize: 13, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: 0, opacity: editingFieldId !== null ? 0.4 : 1 }}>刪除</button>
+                        className="text-sm text-destructive disabled:opacity-40 hover:underline">刪除</button>
                     </div>
                   </div>
                 )
               ))}
-
-              {/* 新增欄位 inline 表單 */}
               {editingFieldId === 'new' && (
-                <InlineFieldForm
-                  onSave={handleSaveField}
-                  onCancel={() => setEditingFieldId(null)} />
+                <InlineFieldForm onSave={handleSaveField} onCancel={() => setEditingFieldId(null)} />
               )}
-
               {fields.length === 0 && editingFieldId === null && (
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '12px 0', textAlign: 'center' }}>尚未設定任何欄位</p>
+                <p className="py-3 text-center text-sm text-muted-foreground">尚未設定任何欄位</p>
               )}
             </div>
           </section>
 
-          {/* 危險區域 */}
-          <section style={{ paddingTop: 4 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>危險區域</p>
-            <div style={{ border: '1px solid #fca5a5', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <section>
+            <p className="mb-2.5 text-xs font-bold uppercase tracking-wider text-destructive">危險區域</p>
+            <div className="flex items-center justify-between rounded-xl border border-red-200 px-4 py-3.5 dark:border-red-900">
               <div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-body)' }}>刪除此類別</p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>此操作無法復原，所有欄位與付款對象資料也會一併刪除。</p>
+                <p className="text-sm font-semibold text-foreground">刪除此類別</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">此操作無法復原，所有欄位與付款對象資料也會一併刪除。</p>
               </div>
-              <Button variant="outline" onClick={onDeleteCategory}
-                style={{ fontSize: 13, padding: '5px 14px', color: '#dc2626', borderColor: '#fca5a5', whiteSpace: 'nowrap', marginLeft: 16 }}>
+              <Button variant="outline" onClick={onDeleteCategory} className="ml-4 shrink-0 border-red-300 text-destructive hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950">
                 刪除類別
               </Button>
             </div>
@@ -257,10 +226,7 @@ function CategorySettingsModal({
 
 // ---- 付款對象記錄 Modal ----
 function RecordModal({
-  fields,
-  initial,
-  onSave,
-  onClose,
+  fields, initial, onSave, onClose,
 }: {
   fields: PayeeCategoryField[]
   initial?: PayeeRecord
@@ -279,16 +245,19 @@ function RecordModal({
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 28, width: 480, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>{initial ? '編輯付款對象' : '新增付款對象'}</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45">
+      <div className="max-h-[80vh] w-[480px] overflow-y-auto rounded-xl bg-card p-7 shadow-xl">
+        <h3 className="mb-5 text-base font-bold text-foreground">{initial ? '編輯付款對象' : '新增付款對象'}</h3>
+        <div className="flex flex-col gap-3.5">
           {fields.map(f => (
-            <label key={f.id} style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-body)' }}>
+            <label key={f.id} className="text-sm font-semibold text-foreground">
               {f.label}
               {f.field_type === 'dropdown' ? (
-                <select value={values[String(f.id)] ?? ''} onChange={e => set(f.id, e.target.value)}
-                  style={{ display: 'block', width: '100%', marginTop: 6, padding: '8px 12px', fontSize: 14, borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-page)', color: 'var(--text-body)', boxSizing: 'border-box' }}>
+                <select
+                  value={values[String(f.id)] ?? ''}
+                  onChange={e => set(f.id, e.target.value)}
+                  className={`mt-1.5 block ${inputCls}`}
+                >
                   <option value="">— 請選擇 —</option>
                   {(f.options ?? []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
@@ -297,13 +266,13 @@ function RecordModal({
                   type={f.field_type === 'number' ? 'number' : f.field_type === 'date' ? 'date' : 'text'}
                   value={values[String(f.id)] ?? ''}
                   onChange={e => set(f.id, e.target.value)}
-                  style={{ display: 'block', width: '100%', marginTop: 6, padding: '8px 12px', fontSize: 14, borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-page)', color: 'var(--text-body)', boxSizing: 'border-box' }}
+                  className={`mt-1.5 block ${inputCls}`}
                 />
               )}
             </label>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
+        <div className="mt-6 flex justify-end gap-2.5">
           <Button variant="outline" onClick={onClose} disabled={saving}>取消</Button>
           <Button onClick={async () => { setSaving(true); await onSave(values); setSaving(false) }} disabled={saving}>
             {saving ? '儲存中...' : '儲存'}
@@ -325,8 +294,6 @@ export default function PayeeSettingsPage() {
 
   const [showAddCategory, setShowAddCategory] = useState(false)
   const [showCategorySettings, setShowCategorySettings] = useState(false)
-
-  // 付款對象 Modal
   const [showRecordModal, setShowRecordModal] = useState(false)
   const [editingRecord, setEditingRecord] = useState<PayeeRecord | undefined>()
 
@@ -338,8 +305,7 @@ export default function PayeeSettingsPage() {
   }
 
   async function loadRecords(categoryId: number) {
-    const recs = await getPayeeRecords(categoryId)
-    setRecords(recs)
+    setRecords(await getPayeeRecords(categoryId))
   }
 
   async function load(keepActive?: number) {
@@ -363,7 +329,6 @@ export default function PayeeSettingsPage() {
   const activeRecords = records.filter(r => r.category_id === activeId)
   const activeCat = categories.find(c => c.id === activeId)
 
-  // Category handlers
   async function handleAddCategory(name: string) {
     const res = await addPayeeCategory(name)
     if (res.error) { setError(res.error); return }
@@ -387,7 +352,6 @@ export default function PayeeSettingsPage() {
     await load()
   }
 
-  // Field handlers
   async function handleSaveField(label: string, fieldType: PayeeFieldType, options: string[] | null, editingId?: number) {
     const res = editingId
       ? await updatePayeeCategoryField(editingId, label, fieldType, options)
@@ -403,7 +367,6 @@ export default function PayeeSettingsPage() {
     await load(activeId ?? undefined)
   }
 
-  // Record handlers
   async function handleSaveRecord(values: Record<string, string>) {
     const res = editingRecord
       ? await updatePayeeRecord(editingRecord.id, values)
@@ -421,113 +384,115 @@ export default function PayeeSettingsPage() {
     if (activeId) await loadRecords(activeId)
   }
 
-  if (loading) return <p style={{ color: 'var(--text-muted)', padding: 32 }}>載入中...</p>
+  if (loading) return <p className="text-muted-foreground">載入中...</p>
 
   return (
-    <div>
-      {/* 頁首 */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>付款對象設定</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-            自訂付款對象類別，並管理各類別的付款對象資料。
-          </p>
-        </div>
-        <Button onClick={() => setShowAddCategory(true)}>+ 新增類別</Button>
+    <div className="flex flex-col gap-6">
+      <div>
+        <PageHeader
+          title="付款對象設定"
+          action={<Button onClick={() => setShowAddCategory(true)}>+ 新增類別</Button>}
+        />
+        <p className="mt-1 text-sm text-muted-foreground">自訂付款對象類別，並管理各類別的付款對象資料。</p>
       </div>
 
-      {error && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 16 }}>錯誤：{error}</p>}
+      {error && <p className="text-sm text-destructive">錯誤：{error}</p>}
 
       {categories.length === 0 ? (
-        <div style={{ padding: 48, textAlign: 'center', border: '1px dashed var(--border-color)', borderRadius: 12, color: 'var(--text-muted)' }}>
+        <div className="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground">
           尚未建立任何類別，請點右上角「+ 新增類別」開始設定。
         </div>
       ) : (
-        <>
+        <Card className="gap-0 overflow-hidden p-0">
           {/* 類別 Tab 列 */}
-          <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border-color)', marginBottom: 0 }}>
+          <div className="flex border-b border-border px-2">
             {categories.map(cat => (
-              <button key={cat.id} onClick={() => switchCategory(cat.id)}
-                style={{
-                  padding: '8px 20px', fontSize: 14, fontWeight: activeId === cat.id ? 700 : 400,
-                  color: activeId === cat.id ? 'var(--primary)' : 'var(--text-muted)',
-                  background: 'none', border: 'none',
-                  borderBottom: activeId === cat.id ? '2px solid var(--primary)' : '2px solid transparent',
-                  marginBottom: -2, cursor: 'pointer', whiteSpace: 'nowrap',
-                }}>
+              <button
+                key={cat.id}
+                onClick={() => switchCategory(cat.id)}
+                className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2.5 text-sm transition-colors ${
+                  activeId === cat.id
+                    ? 'border-primary font-bold text-primary'
+                    : 'border-transparent font-normal text-muted-foreground hover:text-foreground'
+                }`}
+              >
                 {cat.name}
               </button>
             ))}
           </div>
 
           {activeCat && (
-            <div style={{ marginTop: 20 }}>
-              {/* 類別設定按鈕 */}
-              <div style={{ marginBottom: 20 }}>
-                <Button variant="outline" onClick={() => setShowCategorySettings(true)}
-                  style={{ fontSize: 13, padding: '5px 14px' }}>類別設定</Button>
+            <CardContent className="flex flex-col gap-5 py-5">
+              <div>
+                <Button variant="outline" size="sm" onClick={() => setShowCategorySettings(true)}>
+                  類別設定
+                </Button>
               </div>
 
-              {/* 付款對象卡片區塊 */}
-              <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-color)', padding: '20px 24px' }}>
-                <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: 'var(--text-body)' }}>{activeCat.name}</h3>
-
-                {activeFields.length === 0 ? (
-                  <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0 12px', textAlign: 'center' }}>
-                    請先點「類別設定」建立此類別的欄位，再新增付款對象。
-                  </p>
-                ) : (
-                  <>
-                    {/* 欄位標題 */}
-                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${activeFields.length}, 1fr) 64px`, gap: 12, marginBottom: 8 }}>
-                      {activeFields.map(f => (
-                        <p key={f.id} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', paddingLeft: 2 }}>{f.label}</p>
-                      ))}
-                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', paddingLeft: 2 }}>功能</p>
-                    </div>
-
-                    {/* 項目列 */}
-                    {activeRecords.map(record => (
-                      <div key={record.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${activeFields.length}, 1fr) 64px`, gap: 12, marginBottom: 8, alignItems: 'center' }}>
-                        {activeFields.map(f => (
-                          <div key={f.id} style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 8, fontSize: 14, color: 'var(--text-body)', border: '1px solid var(--border-color)', minHeight: 40, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {record.field_values[String(f.id)] || <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                            </span>
-                          </div>
-                        ))}
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', paddingLeft: 4 }}>
-                          <button onClick={() => { setEditingRecord(record); setShowRecordModal(true) }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', fontSize: 16, lineHeight: 1, color: 'var(--text-muted)' }} title="編輯">✏️</button>
-                          <button onClick={() => handleDeleteRecord(record)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', fontSize: 13, color: 'var(--text-muted)' }} title="刪除">✕</button>
-                        </div>
-                      </div>
+              {activeFields.length === 0 ? (
+                <p className="py-2 text-center text-sm text-muted-foreground">
+                  請先點「類別設定」建立此類別的欄位，再新增付款對象。
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {/* 欄位標題列 */}
+                  <div
+                    className="grid gap-3"
+                    style={{ gridTemplateColumns: `repeat(${activeFields.length}, 1fr) 64px` }}
+                  >
+                    {activeFields.map(f => (
+                      <p key={f.id} className="pl-1 text-xs font-semibold text-muted-foreground">{f.label}</p>
                     ))}
+                    <p className="pl-1 text-xs font-semibold text-muted-foreground">功能</p>
+                  </div>
 
-                    {activeRecords.length === 0 && (
-                      <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0 12px', textAlign: 'center' }}>尚無付款對象</p>
-                    )}
-                  </>
-                )}
+                  {/* 記錄列 */}
+                  {activeRecords.length === 0 ? (
+                    <p className="py-3 text-center text-sm text-muted-foreground">尚無付款對象</p>
+                  ) : activeRecords.map(record => (
+                    <div
+                      key={record.id}
+                      className="grid items-center gap-3"
+                      style={{ gridTemplateColumns: `repeat(${activeFields.length}, 1fr) 64px` }}
+                    >
+                      {activeFields.map(f => (
+                        <div key={f.id} className="flex min-h-10 items-center overflow-hidden rounded-lg border border-border bg-muted/40 px-3.5 py-2 text-sm text-foreground">
+                          <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+                            {record.field_values[String(f.id)] || <span className="text-muted-foreground">—</span>}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-2 pl-1">
+                        <button
+                          onClick={() => { setEditingRecord(record); setShowRecordModal(true) }}
+                          className="text-base text-muted-foreground hover:text-foreground"
+                          title="編輯"
+                        >✏️</button>
+                        <button
+                          onClick={() => handleDeleteRecord(record)}
+                          className="text-sm text-muted-foreground hover:text-destructive"
+                          title="刪除"
+                        >✕</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-                <button onClick={() => { setEditingRecord(undefined); setShowRecordModal(true) }}
-                  style={{ marginTop: 4, fontSize: 13, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontWeight: 500 }}>
-                  + 新增付款對象
-                </button>
-              </div>
-            </div>
+              <button
+                onClick={() => { setEditingRecord(undefined); setShowRecordModal(true) }}
+                className="w-fit text-sm font-medium text-primary hover:underline"
+              >
+                + 新增付款對象
+              </button>
+            </CardContent>
           )}
-        </>
+        </Card>
       )}
 
-      {/* ── Modals ── */}
       {showAddCategory && (
-        <AddCategoryModal
-          onSave={handleAddCategory}
-          onClose={() => setShowAddCategory(false)} />
+        <AddCategoryModal onSave={handleAddCategory} onClose={() => setShowAddCategory(false)} />
       )}
-
       {showCategorySettings && activeCat && (
         <CategorySettingsModal
           category={activeCat}
@@ -536,13 +501,16 @@ export default function PayeeSettingsPage() {
           onSaveField={handleSaveField}
           onDeleteField={handleDeleteField}
           onDeleteCategory={handleDeleteCategory}
-          onClose={() => setShowCategorySettings(false)} />
+          onClose={() => setShowCategorySettings(false)}
+        />
       )}
-
       {showRecordModal && (
-        <RecordModal fields={activeFields} initial={editingRecord}
+        <RecordModal
+          fields={activeFields}
+          initial={editingRecord}
           onSave={handleSaveRecord}
-          onClose={() => { setShowRecordModal(false); setEditingRecord(undefined) }} />
+          onClose={() => { setShowRecordModal(false); setEditingRecord(undefined) }}
+        />
       )}
     </div>
   )
