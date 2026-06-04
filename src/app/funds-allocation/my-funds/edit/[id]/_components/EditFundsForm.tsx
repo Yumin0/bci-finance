@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSchemaRow, FormSlot, StepDecision, TaxRateOption } from '@/lib/types'
-import { computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
+import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtils'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
 import ApprovalPanel from '@/app/funds-allocation/_components/ApprovalPanel'
@@ -269,7 +269,17 @@ export default function EditFundsForm({
 
   const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
   for (const block of schema) {
-    const info = computeBlockTax(block, fieldValues, taxRateOptions)
+    const aggregatedValues = { ...fieldValues }
+    for (const row of block.rows) {
+      if (row.repeatable) {
+        const instances = repeatableValues[row.id] ?? [{}]
+        for (const slot of row.slots.filter(Boolean) as NonNullable<FormSlot>[]) {
+          const sum = instances.reduce((acc, inst) => acc + (parseFloat(inst[slot.fieldId] ?? '0') || 0), 0)
+          aggregatedValues[slot.fieldId] = String(sum)
+        }
+      }
+    }
+    const info = computeBlockTax(block, aggregatedValues, taxRateOptions)
     if (info) blockTaxMap[block.id] = info
   }
   const computedTotals: Record<string, string> = {}
@@ -287,6 +297,66 @@ export default function EditFundsForm({
       if (sumParts.length > 0) computedTotalHints[info.totalFieldId] = `（${[...sumParts, '稅額'].join('＋')}）`
     }
   }
+
+  const taxSelectorStr = JSON.stringify(
+    allSlots
+      .filter(s => s.dataSource === 'tax_rates' && s.taxConfig)
+      .reduce((acc, s) => ({ ...acc, [s.fieldId]: fieldValues[s.fieldId] ?? '' }), {} as Record<string, string>)
+  )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const taxSelectors = JSON.parse(taxSelectorStr) as Record<string, string>
+    const fieldUpdates: Record<string, string> = {}
+    const repeatableUpdates: Record<string, Record<string, string>[]> = {}
+
+    for (const block of schema) {
+      const allBlockSlots = block.rows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+      const taxSelectSlot = allBlockSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+      if (!taxSelectSlot?.taxConfig) continue
+
+      const { baseFieldId, totalFieldId, taxAmountFieldId } = taxSelectSlot.taxConfig
+      const selectedLabel = taxSelectors[taxSelectSlot.fieldId] ?? ''
+      const selectedOption = taxRateOptions.find(o => o.label === selectedLabel)
+      const feeRow = block.rows.find(r => r.repeatable && r.slots.some(s => s?.fieldId === baseFieldId))
+
+      if (feeRow && taxAmountFieldId) {
+        const instances = repeatableValues[feeRow.id] ?? [{}]
+        const newInstances = instances.map(inst => {
+          const fee = parseFloat(inst[baseFieldId] ?? '0') || 0
+          const tax = selectedOption ? Math.floor(applyTaxFormula(fee, selectedOption.formula_steps)) : 0
+          if (inst[taxAmountFieldId] === String(tax)) return inst
+          return { ...inst, [taxAmountFieldId]: String(tax) }
+        })
+        if (newInstances.some((inst, i) => inst !== instances[i])) {
+          repeatableUpdates[feeRow.id] = newInstances
+        }
+        const instancesToUse = repeatableUpdates[feeRow.id] ?? instances
+        const rowNumberSlots = (feeRow.slots.filter(Boolean) as NonNullable<FormSlot>[]).filter(s => s.type === 'number')
+        const total = instancesToUse.reduce((sum, inst) =>
+          sum + rowNumberSlots.reduce((rowSum, s) => rowSum + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0), 0)
+        fieldUpdates[totalFieldId] = String(Math.floor(total))
+      } else {
+        const info = computeBlockTax(block, { ...fieldValues }, taxRateOptions)
+        if (info) {
+          fieldUpdates[info.totalFieldId] = String(Math.floor(info.total))
+          if (info.taxAmountFieldId) fieldUpdates[info.taxAmountFieldId] = String(Math.floor(info.taxAmount))
+        }
+      }
+    }
+
+    if (Object.keys(repeatableUpdates).length > 0) {
+      setRepeatableValues(prev => {
+        const changed = Object.entries(repeatableUpdates).some(([k, v]) => prev[k] !== v)
+        return changed ? { ...prev, ...repeatableUpdates } : prev
+      })
+    }
+    if (Object.keys(fieldUpdates).length > 0) {
+      setFieldValues(prev => {
+        const changed = Object.entries(fieldUpdates).some(([k, v]) => prev[k] !== v)
+        return changed ? { ...prev, ...fieldUpdates } : prev
+      })
+    }
+  }, [repeatableValues, taxSelectorStr, taxRateOptions])
 
   function renderFieldFor(
     slot: NonNullable<FormSlot>,
@@ -347,10 +417,6 @@ export default function EditFundsForm({
           disabled={disabled}
         />
       )
-    }
-
-    if (computedTotals[fieldId] !== undefined) {
-      return <Input value={computedTotals[fieldId]} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
     if (type === 'radio') {
@@ -427,7 +493,7 @@ export default function EditFundsForm({
     const disabled = !canEdit
     return (
       <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr) 56px`, gap: 12, marginBottom: 6 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 6 }}>
           {row.slots.map((slot, idx) =>
             slot ? (
               <label key={idx} style={labelStyle}>
@@ -435,26 +501,26 @@ export default function EditFundsForm({
               </label>
             ) : <div key={idx} />
           )}
-          <div />
         </div>
         {instances.map((instValues, instIdx) => (
-          <div key={instIdx} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr) 56px`, gap: 12, marginBottom: 8, alignItems: 'center' }}>
-            {row.slots.map((slot, slotIdx) =>
-              slot ? (
-                <div key={slotIdx}>
-                  {renderFieldFor(slot, instValues, (fid, val) => setRepeatableField(row.id, instIdx, fid, val), true)}
-                </div>
-              ) : <div key={slotIdx} />
-            )}
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              {!disabled && instances.length > 1 && (
-                <button type="button" onClick={() => removeRepeatableInstance(row.id, instIdx)}
-                  style={{ padding: '4px 8px', fontSize: 12, border: '1px solid #fca5a5',
-                    borderRadius: 6, background: 'white', color: '#dc2626', cursor: 'pointer' }}>
-                  刪除
-                </button>
+          <div key={instIdx} style={{ position: 'relative', marginBottom: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, alignItems: 'center' }}>
+              {row.slots.map((slot, slotIdx) =>
+                slot ? (
+                  <div key={slotIdx}>
+                    {renderFieldFor(slot, instValues, (fid, val) => setRepeatableField(row.id, instIdx, fid, val), true)}
+                  </div>
+                ) : <div key={slotIdx} />
               )}
             </div>
+            {!disabled && instances.length > 1 && (
+              <button type="button" onClick={() => removeRepeatableInstance(row.id, instIdx)}
+                style={{ position: 'absolute', right: -76, top: '50%', transform: 'translateY(-50%)',
+                  width: 56, padding: '4px 8px', fontSize: 12, border: '1px solid #fca5a5',
+                  borderRadius: 6, background: 'white', color: '#dc2626', cursor: 'pointer' }}>
+                刪除
+              </button>
+            )}
           </div>
         ))}
         {!disabled && (
@@ -474,7 +540,7 @@ export default function EditFundsForm({
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
       if (slot.fieldId.startsWith('custom_') && !repeatableSlotFieldIds.has(slot.fieldId)) {
-        extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
+        extraData[slot.label] = fieldValues[slot.fieldId] ?? computedTotals[slot.fieldId] ?? ''
       }
     }
     for (const row of allRows.filter(r => r.repeatable)) {
@@ -601,7 +667,7 @@ export default function EditFundsForm({
                 })()}
               </div>
             )}
-            <div style={{ padding: '20px 20px 4px' }}>
+            <div style={{ paddingTop: 20, paddingLeft: 20, paddingBottom: 4, paddingRight: block.rows.some(r => r.repeatable) ? 96 : 20 }}>
               {block.rows.map(row =>
                 row.repeatable ? (
                   <div key={row.id}>{renderRepeatableRow(row)}</div>

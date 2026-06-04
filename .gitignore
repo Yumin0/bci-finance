@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local-only documentation (不上傳 GitHub，僅本地維護)
+/docs
