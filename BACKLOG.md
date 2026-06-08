@@ -7,13 +7,6 @@
 
 ## 進行中
 
-**付款憑單顯示資金分配申請附件**（Riku）
-分支：`main`（直接在 main 改）
-開始：2026-06-05
-影響範圍確認：
-- [ ] /funds-payment/my-payment/add/[id]（新增頁，新增申請單附件唯讀顯示）
-- [ ] /funds-payment/review/check/[id]（審核頁，新增申請單附件 + 付款憑單附件唯讀顯示）
-
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04
@@ -33,7 +26,8 @@
 - [x] /finance/funds、/finance/payment
 - [x] /report-issue（IssueListView、module-settings）
 - [x] 側邊欄導航（SidebarNav）
-- [ ] 其餘頁面（付款憑單詳細頁、審核操作頁、填表頁、首頁、費用類型設定、登入頁等）
+- [x] 首頁
+- [ ] 其餘頁面（付款憑單詳細頁、審核操作頁、填表頁、費用類型設定、登入頁等）
 
 ---
 
@@ -137,11 +131,20 @@
 **我的列表應對應使用者，避免看到他人單據**（2026-06-08，Riku）
 查出「我的申請紀錄」首頁與 `/funds-allocation/my-funds` 在查詢資金分配申請單時，使用寫死的假測試帳號 `MOCK_USER_ID` 過濾，導致所有使用者看到的都是同一份混合資料（新增單據時也寫入同一個假值）；付款憑單與暫付款沖銷憑單原本就正確使用 `session.userId`，未受影響。修正：新增表單、我的列表查詢、首頁查詢三處改用登入者真實 `session.userId`；並在 Supabase 執行資料回填 SQL，依「申請人」姓名比對 `app_users` 把既有 19 筆記錄的 `created_by` 改寫為正確的真實使用者 id。已用 Playwright 登入兩個帳號比對，確認各自只看到自己的單據（9 筆／10 筆），無交叉顯示。
 
+**付款憑單顯示資金分配申請附件**（2026-06-05，Riku）
+核准後轉付款憑單時，申請單附件改為以唯讀方式顯示在建立付款憑單頁（my-payment/add/[id]）與付款憑單審核頁（review/check/[id]，同時顯示付款憑單本身的附件）。
+
+**修復資金分配申請單儲存失效**（2026-06-05，Riku）
+編輯申請單時儲存草稿／送出／儲存變更會被 RLS 靜默擋下導致更新失效；新增 `updateFundsAllocation` Server Action（supabaseAdmin）取代前端直接呼叫 `supabase.from('funds_allocation').update()`，三處呼叫改走 Server Action。
+
 **資金分配申請單錯誤訊息與刪除 Bug 修正**（2026-06-04，Riku）
 送出失敗改只顯示中文說明（不顯示英文原始錯誤）；刪除申請單改用 Server Action（supabaseAdmin）確保實際刪除，並加 router.refresh() 修正刪後仍顯示的問題；修正審核頁 record.name 為 null 導致 Input 收到 null 值的 Console Error。
 
 **稅額自動計算 Bug 修正 + 每列獨立計算 + 欄位開放輸入**（2026-06-04，Riku）
 修正可重複列（repeatable row）中費用填寫後稅額與總額不更新的問題：原因為計算結果寫入 fieldValues，但 repeatable row 的欄位讀取 repeatableValues；改為 effect 直接更新 repeatableValues；實作每列費用對應同列稅額自動計算；總額改為所有列（費用＋手續費＋稅額）加總；移除稅額和總額的唯讀限制，改為可輸入但費用變動時自動帶入；修正可重複列欄寬與下方固定列欄寬不對齊的問題（刪除按鈕改為絕對定位，統一 gap:20）。
+
+**修復組織架構頁寫入被 RLS 擋住的問題**（2026-06-01，Riku）
+`/system-settings/org-structure` 新增/編輯/刪除組織單位、職位、人員指派時被 Supabase RLS 擋住；將所有 INSERT/UPDATE/DELETE 操作移至新增的 `org-structure.ts` Server Actions，改用 supabaseAdmin（service role key）繞過 RLS。
 
 **表單設定列上移／下移**（2026-05-29，Riku）
 表單設定頁點選任一列後，右側列設定面板新增「↑ 上移」「↓ 下移」按鈕，可在同一區塊內整列對調順序；位於第一列時「上移」反灰、最後一列時「下移」反灰。
