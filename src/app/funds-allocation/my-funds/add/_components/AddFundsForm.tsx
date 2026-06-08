@@ -594,7 +594,7 @@ export default function AddFundsForm({
       status,
       flow_template_id: status === 'pending' ? flowTemplateId : null,
       current_step: status === 'pending' ? 1 : null,
-      created_by: MOCK_USER_ID,
+      created_by: String(userId ?? ''),
     }
   }
 

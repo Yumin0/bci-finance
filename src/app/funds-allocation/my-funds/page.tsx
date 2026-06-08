@@ -1,10 +1,11 @@
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
-import { MOCK_USER_ID } from '@/lib/constants'
+import { getSession } from '@/lib/session'
 import { FundsAllocation } from '@/lib/types'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import MyFundsTableView from './_components/MyFundsTableView'
 
 export default async function MyFundsPage() {
+  const session = await getSession()
   const [{ data, error }, labelConfig] = await Promise.all([
     supabase
       .from('funds_allocation')
@@ -16,7 +17,7 @@ export default async function MyFundsPage() {
         ),
         approval_records!funds_allocation_id(step_name, decision)
       `)
-      .eq('created_by', MOCK_USER_ID)
+      .eq('created_by', String(session?.userId ?? ''))
       .order('created_at', { ascending: false }),
     getStatusLabelConfig(),
   ])

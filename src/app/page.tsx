@@ -1,5 +1,4 @@
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
-import { MOCK_USER_ID } from '@/lib/constants'
 import { getSession } from '@/lib/session'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { FundsAllocation, FundsPayment } from '@/lib/types'
@@ -43,7 +42,7 @@ export default async function Home() {
     supabase
       .from('funds_allocation')
       .select(FUNDS_JOIN_SELECT)
-      .eq('created_by', MOCK_USER_ID)
+      .eq('created_by', String(session?.userId ?? ''))
       .order('created_at', { ascending: false }),
     supabase
       .from('funds_payment')
