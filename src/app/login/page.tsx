@@ -61,13 +61,20 @@ export default function LoginPage() {
           使用 Google {mode === 'login' ? '登入' : '註冊'}
         </a>
 
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', marginTop: -12, marginBottom: 16 }}>
+          僅限 @hcatwn.com 帳號使用
+        </p>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <div style={{ flex: 1, height: 1, background: 'var(--border-color)' }} />
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>或</span>
           <div style={{ flex: 1, height: 1, background: 'var(--border-color)' }} />
         </div>
 
-        {oauthError && (
+        {oauthError === 'domain_not_allowed' && (
+          <p style={{ ...errorStyle, marginBottom: 16 }}>僅限 @hcatwn.com 帳號登入</p>
+        )}
+        {oauthError && oauthError !== 'domain_not_allowed' && (
           <p style={{ ...errorStyle, marginBottom: 16 }}>Google 登入失敗，請稍後再試</p>
         )}
 

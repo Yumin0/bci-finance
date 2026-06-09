@@ -47,6 +47,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=oauth_failed', req.nextUrl))
   }
 
+  if (!googleUser.email.endsWith('@hcatwn.com')) {
+    return NextResponse.redirect(new URL('/login?error=domain_not_allowed', req.nextUrl))
+  }
+
   // 用 email 找已存在的帳號，或建立新帳號
   const { data: existingUser } = await supabaseAdmin
     .from('app_users')
