@@ -631,7 +631,7 @@ export default function AddFundsForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true); setError(null)
-    const serialNumber = await genSerialNumber()
+    const serialNumber = await genSerialNumber(fieldValues['date'] || undefined)
     const { data, error: insertError } = await createFundsAllocation({ ...buildPayload('pending'), serial_number: serialNumber })
     if (insertError) { setError(insertError); setSubmitting(false); return }
     if (data?.id) await savePendingAttachments(data.id)
