@@ -22,7 +22,7 @@
 | 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位、側邊欄自定義、角色權限、表單設定、狀態標籤設定、付款對象設定 |
 | 費用類型設定 | `/settings/fee` | 自訂費用類別（Tab 式切換）、各類別自訂欄位（文字/數字/下拉/日期）、費用項目資料管理 |
 | 問題回報 | `/report-issue` | Rich Text + 圖片上傳、狀態追蹤、影響模組標籤 |
-| 登入 | `/login` | Email + Password |
+| 登入 | `/login` | Email + Password；Google OAuth（保留 Email 登入，同 email 自動合併帳號）|
 | 首頁 | `/` | 顯示我的申請紀錄與付款憑單 |
 
 ## 主要資料模型（Supabase 資料表）
@@ -35,7 +35,7 @@
 - `approval_flow_steps`：步驟定義（`reviewer_type`: org_role | system_role）
 - `approval_records`：每筆審核動作記錄（取代舊 step1~5_* 欄位）
 - `template_payment_accounts`：範本與出款帳號的對應（多對多）
-- `app_users`：系統使用者，含 `system_role_id`
+- `app_users`：系統使用者，含 `system_role_id`、`google_id TEXT`（Google OAuth sub，nullable）；`password_hash` nullable（Google 用戶無密碼）
 - `user_positions`：使用者職位，關聯 `org_unit_role_id`，`is_primary` 標記主職位
 - `org_units`：組織單位，樹狀結構（部門/處/課/科），含 `parent_id`
 - `role_types`：職位類型

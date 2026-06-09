@@ -17,6 +17,7 @@ type AppUser = {
   id: number
   email: string
   name: string
+  google_id: string | null
   created_at: string
   updated_at: string | null
 }
@@ -24,7 +25,7 @@ type AppUser = {
 export default async function AccountManagementPage() {
   const { data: users, error } = await supabase
     .from('app_users')
-    .select('id, email, name, created_at, updated_at')
+    .select('id, email, name, google_id, created_at, updated_at')
     .order('id')
 
   return (
@@ -53,6 +54,7 @@ export default async function AccountManagementPage() {
                 <TableHead>編號</TableHead>
                 <TableHead>帳號</TableHead>
                 <TableHead>姓名</TableHead>
+                <TableHead>登入方式</TableHead>
                 <TableHead>建立日期</TableHead>
                 <TableHead>更新日期</TableHead>
                 <TableHead />
@@ -64,6 +66,13 @@ export default async function AccountManagementPage() {
                   <TableCell>{user.id}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.name}</TableCell>
+                  <TableCell>
+                    {user.google_id ? (
+                      <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#e8f0fe', color: '#1a73e8', fontWeight: 500 }}>Google</span>
+                    ) : (
+                      <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: 'var(--bg-muted)', color: 'var(--text-muted)', fontWeight: 500 }}>Email</span>
+                    )}
+                  </TableCell>
                   <TableCell className="whitespace-nowrap">{formatDate(user.created_at)}</TableCell>
                   <TableCell className="whitespace-nowrap">{formatDate(user.updated_at)}</TableCell>
                   <TableCell>
@@ -78,7 +87,7 @@ export default async function AccountManagementPage() {
               ))}
               {!users?.length && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
                     尚無帳號資料
                   </TableCell>
                 </TableRow>
