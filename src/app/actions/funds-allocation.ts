@@ -48,8 +48,10 @@ export async function deleteFundsAllocation(id: number): Promise<{ error: string
   return { error: null }
 }
 
-export async function generateSerialNumber(): Promise<string> {
-  const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }).replace(/-/g, '')
+export async function generateSerialNumber(applyDate?: string): Promise<string> {
+  const dateStr = applyDate
+    ? applyDate.replace(/-/g, '')
+    : new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }).replace(/-/g, '')
   const { count } = await supabase
     .from('funds_allocation')
     .select('id', { count: 'exact', head: true })
