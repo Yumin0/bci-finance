@@ -38,7 +38,7 @@
 - `template_payment_accounts`：範本與出款帳號的對應（多對多）
 - `app_users`：系統使用者，含 `system_role_id`、`google_id TEXT`（Google OAuth sub，nullable）；`password_hash` nullable（Google 用戶無密碼）
 - `user_positions`：使用者職位，關聯 `org_unit_role_id`，`is_primary` 標記主職位
-- `org_units`：組織單位，樹狀結構（單一樹根，深度不限，由 `parent_id` 決定階層），`level` 為自由文字標籤（純顯示用，例如「L2 主幹」「處」「課」），支援拖曳調整同層順序與跨層級重新掛載
+- `org_units`：組織單位，樹狀結構（單一樹根，深度不限，由 `parent_id` 決定階層），`level` 為自由文字標籤（純顯示用，例如「L2 主幹」「處」「課」），支援拖曳調整同層順序與跨層級重新掛載；`default_expanded boolean`（預設 true）控制主畫面初始展開/收合狀態，可在「排列組織架構」Modal 中調整並按「儲存收合設定」批次套用
 - `org_unit_members`：組織單位成員（Excel 匯入的暫定人員），`org_unit_id` 關聯 `org_units`、`display_name` 姓名、`user_id` 可選關聯 `app_users(id)`（依姓名比對既有帳號，找到則連結）
 - `role_types`：職位類型
 - `org_unit_roles`：組織單位職位（`org_unit_id` + `role_type_id` 組合）

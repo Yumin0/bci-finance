@@ -69,6 +69,7 @@ export type OrgUnit = {
   level: string
   parent_id: number | null
   sort_order: number
+  default_expanded: boolean
   created_at: string
 }
 

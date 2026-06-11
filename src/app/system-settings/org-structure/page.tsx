@@ -12,11 +12,11 @@ import {
 import PageHeader from '@/app/_components/PageHeader'
 import {
   addUserPosition, removeUserPosition,
-  insertOrgUnit, updateOrgUnit, deleteOrgUnit, reorderOrgUnits, moveOrgUnit,
+  insertOrgUnit, updateOrgUnit, deleteOrgUnit, reorderOrgUnits, moveOrgUnit, updateOrgUnitsExpanded,
   addOrgUnitRole, deleteOrgUnitRole,
   addRoleType, updateRoleType, deleteRoleType,
   addOrgUnitMember, removeOrgUnitMember,
-  previewOrgImport, commitOrgImport,
+  previewOrgImport, commitOrgImport, getOrgImportTemplate,
   type OrgImportPreview, type OrgImportRow,
 } from '@/app/actions/org-structure'
 
@@ -52,16 +52,9 @@ function formatLevelLabel(level: string, depth: number): string {
   return category ? `L${depth + 1} ${category}` : `L${depth + 1}`
 }
 
-// 預設收合「處」「課」層級的節點（隱藏其下的「課」「科」），避免一開啟就展開到最深層；層級名稱含「處」或「課」即視為此層
+// 依各節點儲存的 default_expanded 設定，算出預設收合的節點 id 集合
 function computeDefaultCollapsed(allUnits: OrgUnit[]): Set<number> {
-  const hasChildrenIds = new Set(allUnits.filter(u => u.parent_id != null).map(u => u.parent_id as number))
-  const collapsed = new Set<number>()
-  for (const u of allUnits) {
-    if (hasChildrenIds.has(u.id) && (u.level.includes('處') || u.level.includes('課'))) {
-      collapsed.add(u.id)
-    }
-  }
-  return collapsed
+  return new Set(allUnits.filter(u => !u.default_expanded).map(u => u.id))
 }
 
 function buildDisplayName(unit: OrgUnit, roleType: RoleType): string {
@@ -227,9 +220,8 @@ function OrgTreeNode({
   const [editCode, setEditCode] = useState(unit.code ?? '')
   const [editName, setEditName] = useState(unit.name)
   const [isAddingChild, setIsAddingChild] = useState(false)
-  const [childLevel, setChildLevel] = useState('')
-  const [childCode, setChildCode] = useState('')
   const [childName, setChildName] = useState('')
+  const [addingChild, setAddingChild] = useState(false)
   const [isAddingRole, setIsAddingRole] = useState(false)
   const [selectedRoleTypeId, setSelectedRoleTypeId] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -260,12 +252,14 @@ function OrgTreeNode({
   }
 
   async function handleAddChild() {
-    if (!childName.trim() || !childLevel.trim()) return
+    if (!childName.trim() || addingChild) return
     setError(null)
+    setAddingChild(true)
     const maxOrder = allUnits.filter(u => u.parent_id === unit.id).reduce((m, u) => Math.max(m, u.sort_order), -1)
-    const err = await insertOrgUnit({ code: childCode.trim() || null, name: childName.trim(), level: childLevel.trim(), parentId: unit.id, sortOrder: maxOrder + 1 })
+    const err = await insertOrgUnit({ code: null, name: childName.trim(), level: '', parentId: unit.id, sortOrder: maxOrder + 1 })
+    setAddingChild(false)
     if (err) { setError(err); return }
-    setChildCode(''); setChildName(''); setChildLevel(''); setIsAddingChild(false); onRefresh()
+    setChildName(''); setIsAddingChild(false); onRefresh()
   }
 
   async function handleAddRole() {
@@ -352,11 +346,9 @@ function OrgTreeNode({
       {isAddingChild && (
         <div className="border-t border-dashed border-border py-2 pl-8">
           <div className="flex flex-wrap items-center gap-2">
-            <Input value={childLevel} onChange={e => setChildLevel(e.target.value)} placeholder="層級（如：課）" className="h-7 w-24 text-sm" />
-            <Input value={childCode} onChange={e => setChildCode(e.target.value)} placeholder="編號（選填）" className="h-7 w-28 text-sm" />
             <Input value={childName} onChange={e => setChildName(e.target.value)} placeholder="名稱" className="h-7 w-40 text-sm" onKeyDown={e => { if (e.key === 'Enter') handleAddChild() }} autoFocus />
-            <button onClick={handleAddChild} className={btnSave}>新增</button>
-            <button onClick={() => { setIsAddingChild(false); setChildLevel(''); setChildCode(''); setChildName('') }} className={btnCancel}>取消</button>
+            <button onClick={handleAddChild} disabled={addingChild} className={btnSave}>新增</button>
+            <button onClick={() => { setIsAddingChild(false); setChildName('') }} className={btnCancel}>取消</button>
           </div>
         </div>
       )}
@@ -427,8 +419,10 @@ function ArrangeNode({ unit, allUnits, depth, collapsedIds, onToggleCollapse, dr
   )
 }
 
-function ArrangeModal({ units, drag, onClose }: { units: OrgUnit[]; drag: DragHandlers; onClose: () => void }) {
+function ArrangeModal({ units, drag, onClose, onSavedExpand }: { units: OrgUnit[]; drag: DragHandlers; onClose: () => void; onSavedExpand: () => void }) {
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(() => computeDefaultCollapsed(units))
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   function toggleCollapse(id: number) {
     setCollapsedIds(prev => {
@@ -436,6 +430,19 @@ function ArrangeModal({ units, drag, onClose }: { units: OrgUnit[]; drag: DragHa
       if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
+  }
+
+  // 比對目前收合狀態與資料庫已儲存的 default_expanded，找出有變動的節點
+  const pendingChanges = units.filter(u => collapsedIds.has(u.id) === u.default_expanded)
+  const hasChanges = pendingChanges.length > 0
+
+  async function handleSave() {
+    setSaving(true)
+    setSaveError(null)
+    const err = await updateOrgUnitsExpanded(pendingChanges.map(u => ({ id: u.id, defaultExpanded: !collapsedIds.has(u.id) })))
+    setSaving(false)
+    if (err) { setSaveError(err); return }
+    onSavedExpand()
   }
 
   const topUnits = units.filter(u => u.parent_id === null).sort((a, b) => a.sort_order - b.sort_order)
@@ -448,12 +455,16 @@ function ArrangeModal({ units, drag, onClose }: { units: OrgUnit[]; drag: DragHa
           <button onClick={onClose} className="cursor-pointer text-lg leading-none text-muted-foreground hover:text-foreground">×</button>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3">
-          <p className="mb-2 text-xs text-muted-foreground">拖曳節點可調整同層順序，或拖到其他節點上使其成為該節點的子節點（子節點會一併移動）。變更會立即儲存。</p>
+          <p className="mb-2 text-xs text-muted-foreground">拖曳節點可調整同層順序，或拖到其他節點上使其成為該節點的子節點（子節點會一併移動）。順序變更會立即儲存。點擊節點左側箭頭可調整「主畫面預設展開/收合」狀態，調整後請按下方「儲存收合設定」套用。</p>
           <div className="flex flex-col gap-1.5">
             {topUnits.map(unit => (
               <ArrangeNode key={unit.id} unit={unit} allUnits={units} depth={0} collapsedIds={collapsedIds} onToggleCollapse={toggleCollapse} drag={drag} />
             ))}
           </div>
+        </div>
+        <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3">
+          <span className="text-xs text-muted-foreground">{saveError ? <span className="text-destructive">錯誤：{saveError}</span> : hasChanges ? '收合設定有未儲存的變更' : '收合設定已是最新'}</span>
+          <Button size="sm" onClick={handleSave} disabled={!hasChanges || saving}>{saving ? '儲存中...' : '儲存收合設定'}</Button>
         </div>
       </div>
     </div>
@@ -649,6 +660,20 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
     onImported()
   }
 
+  async function handleDownloadTemplate() {
+    const base64 = await getOrgImportTemplate()
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = '組織架構匯入範例.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const tree = preview ? buildPreviewTree(preview.rows) : null
 
   return (
@@ -661,8 +686,43 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
 
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <p className="mb-3 text-sm text-muted-foreground">
-            請上傳包含「層級」「職務名稱」「上級職務」「負責人」欄位的 .xlsx 檔案，系統會依「上級職務」自動判讀階層關係。
+            請上傳包含「層級」「職務名稱」「上級職務」「負責人」欄位的 .xlsx 檔案，系統會依「上級職務」自動判讀階層關係。範例：「業務一課」的上級職務填「業務部」，系統就會把它放在業務部底下；「業務一課A科」的上級職務填「業務一課」，就會再放到業務一課底下，依此類推。「層級」只是分類標籤（部門/課/科...），畫面上看到的 L1/L2/L3 編號是系統依階層關係自動產生，不需要自己填；「負責人」有多人時用「、」分隔。
           </p>
+          <div className="mb-3 overflow-hidden rounded-md border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>層級</TableHead>
+                  <TableHead>職務名稱</TableHead>
+                  <TableHead>上級職務</TableHead>
+                  <TableHead>負責人</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="text-sm">部門</TableCell>
+                  <TableCell className="text-sm">業務部</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">（空白）</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">（空白）</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-sm">課</TableCell>
+                  <TableCell className="text-sm">業務一課</TableCell>
+                  <TableCell className="text-sm">業務部</TableCell>
+                  <TableCell className="text-sm">王小明</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-sm">科</TableCell>
+                  <TableCell className="text-sm">業務一課A科</TableCell>
+                  <TableCell className="text-sm">業務一課</TableCell>
+                  <TableCell className="text-sm">陳小華</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+          <div className="mb-3">
+            <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>下載範例檔案</Button>
+          </div>
           <div className="flex items-center gap-2">
             <input
               ref={fileInputRef}
@@ -885,7 +945,7 @@ export default function OrgStructurePage() {
       )}
 
       {showArrange && (
-        <ArrangeModal units={units} drag={dragHandlers} onClose={() => setShowArrange(false)} />
+        <ArrangeModal units={units} drag={dragHandlers} onClose={() => setShowArrange(false)} onSavedExpand={() => { collapseInitialized.current = false; loadAll() }} />
       )}
     </div>
   )

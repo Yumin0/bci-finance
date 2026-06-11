@@ -66,6 +66,16 @@ export async function reorderOrgUnits(updates: { id: number; sortOrder: number }
   return err?.error?.message ?? null
 }
 
+export async function updateOrgUnitsExpanded(updates: { id: number; defaultExpanded: boolean }[]): Promise<string | null> {
+  const results = await Promise.all(
+    updates.map(({ id, defaultExpanded }) =>
+      supabase.from('org_units').update({ default_expanded: defaultExpanded }).eq('id', id)
+    )
+  )
+  const err = results.find(r => r.error)
+  return err?.error?.message ?? null
+}
+
 // ── org_unit_roles ────────────────────────────────────────────────────────────
 
 export async function addOrgUnitRole(orgUnitId: number, roleTypeId: number, sortOrder: number): Promise<string | null> {
@@ -170,6 +180,25 @@ function cellToString(value: ExcelJS.CellValue): string {
 
 function splitMembers(raw: string): string[] {
   return raw.split(/[/、,，]/).map(s => s.trim()).filter(Boolean)
+}
+
+// 產生匯入範例 .xlsx（含欄位標題與示範資料），回傳 base64 供前端下載
+export async function getOrgImportTemplate(): Promise<string> {
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet('組織架構')
+  sheet.columns = [
+    { header: '層級', key: 'level', width: 12 },
+    { header: '職務名稱', key: 'name', width: 24 },
+    { header: '上級職務', key: 'parent', width: 24 },
+    { header: '負責人', key: 'members', width: 24 },
+  ]
+  sheet.addRows([
+    { level: '部門', name: '業務部', parent: '', members: '' },
+    { level: '課', name: '業務一課', parent: '業務部', members: '王小明' },
+    { level: '科', name: '業務一課A科', parent: '業務一課', members: '陳小華' },
+  ])
+  const buffer = await workbook.xlsx.writeBuffer()
+  return Buffer.from(buffer).toString('base64')
 }
 
 // 解析上傳的 Excel，回傳每列資料 + 階層解析結果 + 同名衝突清單，不寫入資料庫
