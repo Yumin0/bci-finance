@@ -7,20 +7,6 @@
 
 ## 進行中
 
-**組織架構與職位設定邏輯彈性化 Phase 2：申請處別/課別與職稱整合**（Riku）
-分支：`feature/riku-org-structure`（延續）
-開始：2026-06-10
-- **背景**：Phase 1（樹狀重構、Excel 匯入、拖曳排列）已完成並移至「已完成」。`org_units.level` 已改為自由文字標籤，但申請表單「申請處別/申請課別」下拉選單與 role_types/org_unit_roles 仍依賴舊的 `level === '處'/'課'` 篩選邏輯，無法套用到新匯入的組織節點
-- **待辦**：
-  1. 新增 `unit_type`（處別/課別/其他）欄位，供「申請處別/課別」下拉選單判斷用，不依賴 level 文字內容
-  2. 調整 [AddFundsForm.tsx](src/app/funds-allocation/my-funds/add/_components/AddFundsForm.tsx) 中依 `unit.level === '處'/'課'` 的篩選邏輯
-  3. 評估新匯入節點是否需要指派 role_types/org_unit_roles（處長/課長等職稱）
-  4. `org_unit_members` 找不到對應帳號時是否要自動建立新帳號並連結（目前僅 best-effort 連結既有帳號）
-- **影響範圍確認**：
-  - [ ] funds-allocation 新增/編輯表單（申請處別/課別資料來源）
-  - [ ] funds-payment 新增表單（同上）
-  - [ ] org_unit_roles / role_types / user_positions 資料表結構（新節點職稱指派）
-
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04
@@ -173,6 +159,9 @@
 ---
 
 ## 已完成
+
+**組織架構與職位設定邏輯彈性化 Phase 2：負責人綁定帳號＋申請處別/課別自動對應**（2026-06-12，Riku）
+`org_units` 新增 `unit_type`（處別/課別/不適用）欄位並依舊 level 回填，組織架構頁可在編輯模式手動標記，畫面上以紫色「處別」／天藍色「課別」徽章顯示；「+新增負責人」改為可搜尋帳號下拉（`SearchableSelect`），直接綁定 `app_users` 並依 email 自動產生英文 display_name；新增「重新比對帳號」按鈕，將既有 Excel 匯入的文字標籤負責人依「display_name 去掉姓氏與括號職稱後的英文名」與使用者 email 英文名比對，自動回填 `user_id`（已驗證 Riku、Yumin、Aimee、Suyu 等帳號成功連結）；另以 SQL 清除 `org_unit_members.display_name` 中所有「(課長)」「(專員)」等括號職稱備註，使顯示與比對更乾淨。新增共用邏輯 `lib/orgPositions.ts`：依使用者所有指派節點（`org_unit_members` + `user_positions`）往上尋找最近的課別／處別祖先，推算出該使用者所有可用的（處別,課別）組合；資金分配申請（AddFundsForm、EditFundsForm）與表單設定範本 tab（_template-tab.tsx）的「申請處別/課別」下拉改為僅顯示登入者推算出的組合（多重身份則列出所有組合）。付款憑單建立頁的申請處別/課別為唯讀繼承欄位，無需調整。
 
 **組織架構彈性化 Phase 1.1：預設收合可儲存、匯入範例強化、新增子節點修正**（2026-06-11，Riku）
 新增 `org_units.default_expanded`（預設 true）取代原本依層級名稱猜測的收合邏輯；「排列組織架構」Modal 可調整各節點預設展開/收合，新增「儲存收合設定」按鈕（系統一致藍色樣式）批次套用，套用後主畫面初始展開狀態以此為準；「匯入組織架構」Modal 新增 3 層級範例表格（部門→課→科）說明欄位格式，並新增「下載範例檔案」按鈕（exceljs 產生對應 .xlsx）；修正「+ 新增子節點」表單移除非必要的「層級」「編號」欄位，僅需輸入名稱即可新增；修正點擊「新增」會重複出現兩個相同節點的 bug（新增按鈕加入送出中防重複點擊）。

@@ -1,0 +1,82 @@
+import { OrgUnit } from './types'
+
+export type OrgCombo = {
+  divisionId: number
+  divisionLabel: string
+  sectionId: number | null
+  sectionLabel: string | null
+}
+
+function unitLabel(u: OrgUnit): string {
+  return [u.code, u.name].filter(Boolean).join(' ')
+}
+
+// 從某個組織單位往上（含自己）找最近標記「課別」、再從該節點起往上找最近標記「處別」的祖先節點
+function deriveComboForUnit(unitId: number, unitMap: Map<number, OrgUnit>): OrgCombo | null {
+  const chain: OrgUnit[] = []
+  let cur = unitMap.get(unitId)
+  while (cur) {
+    chain.push(cur)
+    cur = cur.parent_id != null ? unitMap.get(cur.parent_id) : undefined
+  }
+  const sectionIdx = chain.findIndex(u => u.unit_type === 'section')
+  const section = sectionIdx >= 0 ? chain[sectionIdx] : null
+  const division = chain.slice(sectionIdx >= 0 ? sectionIdx : 0).find(u => u.unit_type === 'division') ?? null
+  if (!division) return null
+  return {
+    divisionId: division.id,
+    divisionLabel: unitLabel(division),
+    sectionId: section?.id ?? null,
+    sectionLabel: section ? unitLabel(section) : null,
+  }
+}
+
+// 依使用者在組織架構上的所有指派節點（負責人標籤 + 正式職位），推算出所有不重複的（處別,課別）組合
+export function deriveUserOrgCombos(positionUnitIds: number[], orgUnits: OrgUnit[]): OrgCombo[] {
+  const unitMap = new Map(orgUnits.map(u => [u.id, u]))
+  const combos: OrgCombo[] = []
+  const seen = new Set<string>()
+  for (const unitId of positionUnitIds) {
+    const combo = deriveComboForUnit(unitId, unitMap)
+    if (!combo) continue
+    const key = `${combo.divisionId}-${combo.sectionId ?? ''}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    combos.push(combo)
+  }
+  return combos
+}
+
+export function divisionOptionsFromCombos(combos: OrgCombo[]): { value: string; label: string }[] {
+  const seen = new Set<number>()
+  const options: { value: string; label: string }[] = []
+  for (const c of combos) {
+    if (seen.has(c.divisionId)) continue
+    seen.add(c.divisionId)
+    options.push({ value: String(c.divisionId), label: c.divisionLabel })
+  }
+  return options
+}
+
+export function sectionOptionsFromCombos(combos: OrgCombo[], divisionId: number | null): { value: string; label: string }[] {
+  if (divisionId == null) return []
+  const seen = new Set<number>()
+  const options: { value: string; label: string }[] = []
+  for (const c of combos) {
+    if (c.divisionId !== divisionId || c.sectionId == null) continue
+    if (seen.has(c.sectionId)) continue
+    seen.add(c.sectionId)
+    options.push({ value: String(c.sectionId), label: c.sectionLabel! })
+  }
+  return options
+}
+
+// 找不到使用者的組織位置時的備援清單：列出所有標記處別/課別的節點
+export function allDivisionOptions(orgUnits: OrgUnit[]): { value: string; label: string }[] {
+  return orgUnits.filter(u => u.unit_type === 'division').map(u => ({ value: String(u.id), label: unitLabel(u) }))
+}
+
+export function allSectionOptions(orgUnits: OrgUnit[], divisionId: number | null): { value: string; label: string }[] {
+  if (divisionId == null) return []
+  return orgUnits.filter(u => u.unit_type === 'section' && u.parent_id === divisionId).map(u => ({ value: String(u.id), label: unitLabel(u) }))
+}

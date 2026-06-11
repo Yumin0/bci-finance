@@ -2,20 +2,22 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { OrgUnit, RoleType, RoleLevel, OrgUnitRole, OrgUnitMember, AppUser, UserPosition } from '@/lib/types'
+import { OrgUnit, RoleType, RoleLevel, UnitType, OrgUnitRole, OrgUnitMember, AppUser, UserPosition } from '@/lib/types'
+import { emailToEnglishName, stripSurname } from '@/lib/userNames'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import PageHeader from '@/app/_components/PageHeader'
 import {
   addUserPosition, removeUserPosition,
   insertOrgUnit, updateOrgUnit, deleteOrgUnit, reorderOrgUnits, moveOrgUnit, updateOrgUnitsExpanded,
   addOrgUnitRole, deleteOrgUnitRole,
   addRoleType, updateRoleType, deleteRoleType,
-  addOrgUnitMember, removeOrgUnitMember,
+  addOrgUnitMemberByUser, removeOrgUnitMember, relinkOrgUnitMembers,
   previewOrgImport, commitOrgImport, getOrgImportTemplate,
   type OrgImportPreview, type OrgImportRow,
 } from '@/app/actions/org-structure'
@@ -60,18 +62,6 @@ function computeDefaultCollapsed(allUnits: OrgUnit[]): Set<number> {
 function buildDisplayName(unit: OrgUnit, roleType: RoleType): string {
   const prefix = [unit.code, unit.name].filter(Boolean).join(' ')
   return `${prefix} ${roleType.name}`
-}
-
-// 從 email 取得英文名（@ 前面的部分，首字大寫），例如 riku@hcatwn.com → Riku
-function emailToEnglishName(email: string): string {
-  const local = email.split('@')[0]
-  return local.charAt(0).toUpperCase() + local.slice(1)
-}
-
-// 從「姓氏 英文名」格式去掉姓氏，只取英文名，例如 "Chen Jason" → "Jason"
-function stripSurname(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  return parts.length > 1 ? parts.slice(1).join(' ') : name
 }
 
 // ── RoleRow ───────────────────────────────────────────────────────────────────
@@ -146,22 +136,24 @@ function RoleRow({
 // ── MembersSection（Excel 匯入的暫定負責人）───────────────────────────────────────
 
 function MembersSection({
-  unit, members, indent, onRefresh,
+  unit, members, users, indent, onRefresh,
 }: {
-  unit: OrgUnit; members: OrgUnitMember[]; indent: number; onRefresh: () => void
+  unit: OrgUnit; members: OrgUnitMember[]; users: AppUser[]; indent: number; onRefresh: () => void
 }) {
   const [adding, setAdding] = useState(false)
-  const [name, setName] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const unitMembers = members.filter(m => m.org_unit_id === unit.id).sort((a, b) => a.sort_order - b.sort_order)
+  const assignedUserIds = new Set(unitMembers.map(m => m.user_id).filter((id): id is number => id != null))
+  const availableUsers = users.filter(u => !assignedUserIds.has(u.id))
 
   async function handleAdd() {
-    if (!name.trim()) return
+    if (!selectedUserId) return
     setError(null)
-    const err = await addOrgUnitMember(unit.id, name.trim())
+    const err = await addOrgUnitMemberByUser(unit.id, Number(selectedUserId))
     if (err) { setError(err); return }
-    setName(''); setAdding(false); onRefresh()
+    setSelectedUserId(''); setAdding(false); onRefresh()
   }
 
   async function handleRemove(memberId: number) {
@@ -176,15 +168,22 @@ function MembersSection({
       {unitMembers.map(m => (
         <span key={m.id} className="inline-flex items-center gap-1 rounded-full bg-emerald-100 py-0.5 pl-3 pr-2 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
           {stripSurname(m.display_name)}
+          {m.user_id == null && <span className="text-emerald-400" title="尚未綁定系統帳號">？</span>}
           <button onClick={() => handleRemove(m.id)} title="移除" className="flex cursor-pointer items-center text-base leading-none text-emerald-400 hover:text-emerald-600">×</button>
         </span>
       ))}
 
       {adding ? (
         <span className="inline-flex items-center gap-1.5">
-          <Input value={name} onChange={e => setName(e.target.value)} placeholder="姓名" className="h-7 w-28 text-sm" onKeyDown={e => { if (e.key === 'Enter') handleAdd() }} autoFocus />
-          <button onClick={handleAdd} className={btnSave}>確認</button>
-          <button onClick={() => { setAdding(false); setName('') }} className={btnCancel}>取消</button>
+          <SearchableSelect
+            value={selectedUserId}
+            onChange={setSelectedUserId}
+            options={availableUsers.map(u => ({ value: String(u.id), label: `${u.name}（${emailToEnglishName(u.email)}）` }))}
+            placeholder="搜尋使用者"
+            style={{ height: 28, width: 180, fontSize: 14 }}
+          />
+          <button onClick={handleAdd} disabled={!selectedUserId} className={btnSave}>確認</button>
+          <button onClick={() => { setAdding(false); setSelectedUserId('') }} className={btnCancel}>取消</button>
         </span>
       ) : (
         <button onClick={() => setAdding(true)} className={btnDashed}>+ 新增負責人</button>
@@ -219,6 +218,7 @@ function OrgTreeNode({
   const [editLevel, setEditLevel] = useState(unit.level)
   const [editCode, setEditCode] = useState(unit.code ?? '')
   const [editName, setEditName] = useState(unit.name)
+  const [editUnitType, setEditUnitType] = useState<UnitType>(unit.unit_type)
   const [isAddingChild, setIsAddingChild] = useState(false)
   const [childName, setChildName] = useState('')
   const [addingChild, setAddingChild] = useState(false)
@@ -238,7 +238,7 @@ function OrgTreeNode({
   async function handleEditSave() {
     if (!editName.trim() || !editLevel.trim()) return
     setError(null)
-    const err = await updateOrgUnit(unit.id, editCode.trim() || null, editName.trim(), editLevel.trim())
+    const err = await updateOrgUnit(unit.id, editCode.trim() || null, editName.trim(), editLevel.trim(), editUnitType)
     if (err) { setError(err); return }
     setIsEditing(false); onRefresh()
   }
@@ -293,12 +293,25 @@ function OrgTreeNode({
               <Input value={editLevel} onChange={e => setEditLevel(e.target.value)} placeholder="層級" className="h-7 w-20 text-sm" />
               <Input value={editCode} onChange={e => setEditCode(e.target.value)} placeholder="編號（選填）" className="h-7 w-24 text-sm" />
               <Input value={editName} onChange={e => setEditName(e.target.value)} placeholder="名稱" className="h-7 w-40 text-sm" onKeyDown={e => { if (e.key === 'Enter') handleEditSave() }} autoFocus />
+              <select value={editUnitType ?? ''} onChange={e => setEditUnitType(e.target.value === '' ? null : e.target.value as UnitType)} className={selectCls}>
+                <option value="">對應類型：不適用</option>
+                <option value="division">對應類型：處別</option>
+                <option value="section">對應類型：課別</option>
+              </select>
               <button onClick={handleEditSave} className={btnSave}>保存</button>
-              <button onClick={() => { setIsEditing(false); setEditLevel(unit.level); setEditCode(unit.code ?? ''); setEditName(unit.name) }} className={btnCancel}>取消</button>
+              <button onClick={() => { setIsEditing(false); setEditLevel(unit.level); setEditCode(unit.code ?? ''); setEditName(unit.name); setEditUnitType(unit.unit_type) }} className={btnCancel}>取消</button>
             </div>
           ) : (
-            <span className={`truncate text-foreground ${sizeCls}`}>
-              {[unit.code, unit.name].filter(Boolean).join(' ')}
+            <span className="flex min-w-0 items-center gap-2">
+              <span className={`truncate text-foreground ${sizeCls}`}>
+                {[unit.code, unit.name].filter(Boolean).join(' ')}
+              </span>
+              {unit.unit_type === 'division' && (
+                <span className="shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-[11px] font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-300">處別</span>
+              )}
+              {unit.unit_type === 'section' && (
+                <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300">課別</span>
+              )}
             </span>
           )}
         </div>
@@ -341,7 +354,7 @@ function OrgTreeNode({
         </div>
       )}
 
-      <MembersSection unit={unit} members={members} indent={0} onRefresh={onRefresh} />
+      <MembersSection unit={unit} members={members} users={users} indent={0} onRefresh={onRefresh} />
 
       {isAddingChild && (
         <div className="border-t border-dashed border-border py-2 pl-8">
@@ -804,6 +817,8 @@ export default function OrgStructurePage() {
   const [dragOverId, setDragOverId] = useState<number | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [showArrange, setShowArrange] = useState(false)
+  const [relinking, setRelinking] = useState(false)
+  const [relinkMessage, setRelinkMessage] = useState<string | null>(null)
 
   async function loadAll() {
     setError(null)
@@ -880,6 +895,17 @@ export default function OrgStructurePage() {
     onDragEnd: () => { setDraggedId(null); setDragOverId(null) },
   }
 
+  async function handleRelink() {
+    setRelinking(true)
+    setRelinkMessage(null)
+    setError(null)
+    const err = await relinkOrgUnitMembers()
+    setRelinking(false)
+    if (err) { setError(err); return }
+    setRelinkMessage('已完成帳號比對')
+    loadAll()
+  }
+
   async function handleAddRoot() {
     if (!rootName.trim() || !rootLevel.trim()) return
     setAddRootError(null)
@@ -900,6 +926,7 @@ export default function OrgStructurePage() {
           title="組織架構與職位設定"
           action={
             <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleRelink} disabled={relinking}>{relinking ? '比對中...' : '重新比對帳號'}</Button>
               <Button variant="outline" onClick={() => setShowArrange(true)}>排列組織架構</Button>
               <Button variant="outline" onClick={() => setShowImport(true)}>匯入組織架構</Button>
               {!isAddingRoot && <Button onClick={() => setIsAddingRoot(true)}>+ 新增頂層節點</Button>}
@@ -921,6 +948,7 @@ export default function OrgStructurePage() {
       )}
 
       {error && <p className="text-sm text-destructive">錯誤：{error}</p>}
+      {relinkMessage && <p className="text-sm text-emerald-600">{relinkMessage}</p>}
 
       {topUnits.length === 0 ? (
         <p className="text-sm text-muted-foreground">尚無組織架構資料，請點右上角「+ 新增頂層節點」開始建立，或使用「匯入組織架構」匯入 Excel。</p>

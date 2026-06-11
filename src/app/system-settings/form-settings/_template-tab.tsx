@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsAllocationTemplate, OrgUnit, DropdownOption, ExpenseItem } from '@/lib/types'
+import { allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,10 +16,6 @@ import {
 } from '@/app/actions/fund-templates'
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
-
-function unitLabel(u: OrgUnit) {
-  return [u.code, u.name].filter(Boolean).join(' ')
-}
 
 const CATEGORY_OPTIONS = ['一般', '預支']
 
@@ -175,8 +172,8 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 
   const divisionId = Number(editorValues.apply_division) || null
   const sectionId = Number(editorValues.apply_section) || null
-  const divisions = orgUnits.filter(u => u.level === '處')
-  const sections = orgUnits.filter(u => u.level === '課' && u.parent_id === divisionId)
+  const divisions = allDivisionOptions(orgUnits)
+  const sections = allSectionOptions(orgUnits, divisionId)
   const roleOptions = orgUnitRoles
     .filter(r => r.org_unit_id === sectionId)
     .map(r => r.display_name ?? `${r.role_types.name}`)
@@ -221,7 +218,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
                   <SearchableSelect
                     value={editorValues.apply_division}
                     onChange={v => setVal('apply_division', v)}
-                    options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+                    options={divisions}
                     placeholder="選填"
                   />
                 </FieldRow>
@@ -229,7 +226,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
                   <SearchableSelect
                     value={editorValues.apply_section}
                     onChange={v => setVal('apply_section', v)}
-                    options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+                    options={sections}
                     disabled={!divisionId}
                     placeholder="選填"
                   />

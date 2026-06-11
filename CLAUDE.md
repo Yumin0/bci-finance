@@ -38,8 +38,8 @@
 - `template_payment_accounts`：範本與出款帳號的對應（多對多）
 - `app_users`：系統使用者，含 `system_role_id`、`google_id TEXT`（Google OAuth sub，nullable）；`password_hash` nullable（Google 用戶無密碼）
 - `user_positions`：使用者職位，關聯 `org_unit_role_id`，`is_primary` 標記主職位
-- `org_units`：組織單位，樹狀結構（單一樹根，深度不限，由 `parent_id` 決定階層），`level` 為自由文字標籤（純顯示用，例如「L2 主幹」「處」「課」），支援拖曳調整同層順序與跨層級重新掛載；`default_expanded boolean`（預設 true）控制主畫面初始展開/收合狀態，可在「排列組織架構」Modal 中調整並按「儲存收合設定」批次套用
-- `org_unit_members`：組織單位成員（Excel 匯入的暫定人員），`org_unit_id` 關聯 `org_units`、`display_name` 姓名、`user_id` 可選關聯 `app_users(id)`（依姓名比對既有帳號，找到則連結）
+- `org_units`：組織單位，樹狀結構（單一樹根，深度不限，由 `parent_id` 決定階層），`level` 為自由文字標籤（純顯示用，例如「L2 主幹」「處」「課」）；`unit_type`（'division' | 'section' | null）標記該節點是否為「處別」/「課別」，由組織架構頁手動標記，驅動資金分配申請「申請處別/課別」推算（見 `lib/orgPositions.ts`）；支援拖曳調整同層順序與跨層級重新掛載；`default_expanded boolean`（預設 true）控制主畫面初始展開/收合狀態，可在「排列組織架構」Modal 中調整並按「儲存收合設定」批次套用
+- `org_unit_members`：組織單位成員（負責人），`org_unit_id` 關聯 `org_units`、`display_name` 姓名（依使用者 email 自動產生英文名，或 Excel 匯入的暫定人員）、`user_id` 可選關聯 `app_users(id)`；組織架構頁「+新增負責人」改為搜尋系統使用者直接綁定，既有未綁定的文字標籤可透過「重新比對帳號」依 email 英文名批次回填 `user_id`
 - `role_types`：職位類型
 - `org_unit_roles`：組織單位職位（`org_unit_id` + `role_type_id` 組合）
 - `system_roles`：系統角色，`is_admin` 標記管理員，`allowed_item_ids` 功能菜單權限
@@ -100,7 +100,9 @@ src/
 │   ├── session.ts              # JWT Session 管理
 │   ├── sidebar-config.ts       # 側邊欄預設配置
 │   ├── status-label-config.ts  # 狀態標籤預設設定與型別（含 hexToRgba）
-│   └── dateUtils.ts            # 日期格式化（Asia/Taipei）
+│   ├── dateUtils.ts            # 日期格式化（Asia/Taipei）
+│   ├── orgPositions.ts         # 依使用者指派節點推算（處別,課別）組合
+│   └── userNames.ts            # email ↔ 英文名轉換、去姓氏/括號職稱清理
 └── proxy.ts               # 路由保護中間件
 ```
 

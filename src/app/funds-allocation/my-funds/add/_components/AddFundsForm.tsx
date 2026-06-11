@@ -7,6 +7,7 @@ import { MOCK_USER_ID } from '@/lib/constants'
 import { createFundsAllocation, generateSerialNumber as genSerialNumber } from '@/app/actions/funds-allocation'
 import { DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSchemaRow, FormSlot, TaxRateOption } from '@/lib/types'
 import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtils'
+import { deriveUserOrgCombos, divisionOptionsFromCombos, sectionOptionsFromCombos, allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,6 +56,7 @@ export default function AddFundsForm({
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([])
   const [userPositionRoleIds, setUserPositionRoleIds] = useState<number[]>([])
+  const [memberUnitIds, setMemberUnitIds] = useState<number[]>([])
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
 
   // Cascade state for org units — initialised from template if provided
@@ -167,6 +169,11 @@ export default function AddFundsForm({
         const r = await supabase.from('user_positions').select('org_unit_role_id').eq('user_id', userId)
         if (r.data) setUserPositionRoleIds(r.data.map((p: { org_unit_role_id: number }) => p.org_unit_role_id))
       }
+      const loadMemberUnits = async () => {
+        if (!userId) return
+        const r = await supabase.from('org_unit_members').select('org_unit_id').eq('user_id', userId)
+        if (r.data) setMemberUnitIds(r.data.map((m: { org_unit_id: number }) => m.org_unit_id))
+      }
       const loadDropdowns = async (fields: string[]) => {
         const r = await supabase.from('dropdown_options').select('*').in('field', fields).order('sort_order')
         if (r.data) {
@@ -184,7 +191,7 @@ export default function AddFundsForm({
       }
 
       if (neededSources.has('org_units:division') || neededSources.has('org_units:section') || neededSources.has('org_unit_roles')) {
-        fetches.push(loadOrgUnits(), loadOrgRoles(), loadPositions())
+        fetches.push(loadOrgUnits(), loadOrgRoles(), loadPositions(), loadMemberUnits())
       }
 
       const dropdownFields: string[] = []
@@ -235,22 +242,15 @@ export default function AddFundsForm({
 
   // Derived cascade values
   const unitMap = new Map(orgUnits.map(u => [u.id, u]))
-  const userDivisionIds: Set<number> = (() => {
-    if (!userId || !userPositionRoleIds.length) return new Set()
-    const ids = new Set<number>()
-    for (const roleId of userPositionRoleIds) {
-      const role = orgUnitRoles.find(r => r.id === roleId)
-      if (!role) continue
-      const unit = unitMap.get(role.org_unit_id)
-      if (!unit) continue
-      if (unit.level === '處') ids.add(unit.id)
-      else if (unit.level === '課' && unit.parent_id != null) ids.add(unit.parent_id)
-    }
-    return ids
-  })()
-
-  const divisions = orgUnits.filter(u => u.level === '處' && (userDivisionIds.size === 0 || userDivisionIds.has(u.id)))
-  const sections = orgUnits.filter(u => u.level === '課' && u.parent_id === divisionId)
+  const positionUnitIds = [
+    ...userPositionRoleIds
+      .map(roleId => orgUnitRoles.find(r => r.id === roleId)?.org_unit_id)
+      .filter((id): id is number => id != null),
+    ...memberUnitIds,
+  ]
+  const userCombos = deriveUserOrgCombos(positionUnitIds, orgUnits)
+  const divisions = userCombos.length > 0 ? divisionOptionsFromCombos(userCombos) : allDivisionOptions(orgUnits)
+  const sections = userCombos.length > 0 ? sectionOptionsFromCombos(userCombos, divisionId) : allSectionOptions(orgUnits, divisionId)
   const availableRoles = orgUnitRoles
     .filter(r => r.org_unit_id === sectionId)
     .map(r => r.display_name ?? (unitMap.get(r.org_unit_id) ? `${unitLabel(unitMap.get(r.org_unit_id)!)} ${r.role_types.name}` : r.role_types.name))
@@ -373,7 +373,7 @@ export default function AddFundsForm({
           <SearchableSelect
             value={String(divisionId ?? '')}
             onChange={v => { setDivisionId(Number(v) || null); setSectionId(null); setField('apply_role', '') }}
-            options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+            options={divisions}
             required={required}
           />
         )
@@ -383,7 +383,7 @@ export default function AddFundsForm({
           <SearchableSelect
             value={String(sectionId ?? '')}
             onChange={v => { setSectionId(Number(v) || null); setField('apply_role', '') }}
-            options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+            options={sections}
             disabled={!divisionId}
             required={required}
           />

@@ -61,6 +61,7 @@ export type UserPosition = {
 
 export type OrgLevel = string
 export type RoleLevel = '處' | '課' | '科'
+export type UnitType = 'division' | 'section' | null
 
 export type OrgUnit = {
   id: number
@@ -70,6 +71,7 @@ export type OrgUnit = {
   parent_id: number | null
   sort_order: number
   default_expanded: boolean
+  unit_type: UnitType
   created_at: string
 }
 

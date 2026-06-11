@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSchemaRow, FormSlot, StepDecision, TaxRateOption } from '@/lib/types'
 import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtils'
+import { deriveUserOrgCombos, divisionOptionsFromCombos, sectionOptionsFromCombos, allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
 import ApprovalPanel from '@/app/funds-allocation/_components/ApprovalPanel'
@@ -48,6 +49,8 @@ export default function EditFundsForm({
 
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
   const [orgUnitRoles, setOrgUnitRoles] = useState<RoleRow[]>([])
+  const [userPositionRoleIds, setUserPositionRoleIds] = useState<number[]>([])
+  const [memberUnitIds, setMemberUnitIds] = useState<number[]>([])
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([])
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
@@ -142,11 +145,11 @@ export default function EditFundsForm({
           const units = r.data as OrgUnit[]
           setOrgUnits(units)
           if (record.apply_division) {
-            const divUnit = units.find(u => u.level === '處' && unitLabel(u) === record.apply_division)
+            const divUnit = units.find(u => u.unit_type === 'division' && unitLabel(u) === record.apply_division)
             if (divUnit) {
               setDivisionId(divUnit.id)
               if (record.apply_section) {
-                const secUnit = units.find(u => u.level === '課' && unitLabel(u) === record.apply_section)
+                const secUnit = units.find(u => u.unit_type === 'section' && unitLabel(u) === record.apply_section)
                 if (secUnit) setSectionId(secUnit.id)
               }
             }
@@ -156,6 +159,16 @@ export default function EditFundsForm({
       const loadOrgRoles = async () => {
         const r = await supabase.from('org_unit_roles').select('id, org_unit_id, display_name, role_types(name)').order('sort_order')
         if (r.data) setOrgUnitRoles(r.data as unknown as RoleRow[])
+      }
+      const loadPositions = async () => {
+        if (!userId) return
+        const r = await supabase.from('user_positions').select('org_unit_role_id').eq('user_id', userId)
+        if (r.data) setUserPositionRoleIds(r.data.map((p: { org_unit_role_id: number }) => p.org_unit_role_id))
+      }
+      const loadMemberUnits = async () => {
+        if (!userId) return
+        const r = await supabase.from('org_unit_members').select('org_unit_id').eq('user_id', userId)
+        if (r.data) setMemberUnitIds(r.data.map((m: { org_unit_id: number }) => m.org_unit_id))
       }
       const loadDropdowns = async (fields: string[]) => {
         const r = await supabase.from('dropdown_options').select('*').in('field', fields).order('sort_order')
@@ -174,7 +187,7 @@ export default function EditFundsForm({
       }
 
       if (neededSources.has('org_units:division') || neededSources.has('org_units:section') || neededSources.has('org_unit_roles')) {
-        fetches.push(loadOrgUnits(), loadOrgRoles())
+        fetches.push(loadOrgUnits(), loadOrgRoles(), loadPositions(), loadMemberUnits())
       }
       const dropdownFields: string[] = []
       if (neededSources.has('dropdown_options:institution')) dropdownFields.push('institution')
@@ -262,8 +275,23 @@ export default function EditFundsForm({
   }, [record.id])
 
   const unitMap = new Map(orgUnits.map(u => [u.id, u]))
-  const divisions = orgUnits.filter(u => u.level === '處')
-  const sections = orgUnits.filter(u => u.level === '課' && u.parent_id === divisionId)
+  const positionUnitIds = [
+    ...userPositionRoleIds
+      .map(roleId => orgUnitRoles.find(r => r.id === roleId)?.org_unit_id)
+      .filter((id): id is number => id != null),
+    ...memberUnitIds,
+  ]
+  const userCombos = deriveUserOrgCombos(positionUnitIds, orgUnits)
+  const divisions = userCombos.length > 0 ? divisionOptionsFromCombos(userCombos) : allDivisionOptions(orgUnits)
+  if (divisionId != null && !divisions.some(d => d.value === String(divisionId))) {
+    const u = unitMap.get(divisionId)
+    if (u) divisions.push({ value: String(u.id), label: unitLabel(u) })
+  }
+  const sections = userCombos.length > 0 ? sectionOptionsFromCombos(userCombos, divisionId) : allSectionOptions(orgUnits, divisionId)
+  if (sectionId != null && !sections.some(s => s.value === String(sectionId))) {
+    const u = unitMap.get(sectionId)
+    if (u) sections.push({ value: String(u.id), label: unitLabel(u) })
+  }
   const availableRoles = orgUnitRoles
     .filter(r => r.org_unit_id === sectionId)
     .map(r => r.display_name ?? `${unitLabel(unitMap.get(r.org_unit_id)!)} ${r.role_types.name}`)
@@ -380,7 +408,7 @@ export default function EditFundsForm({
           <SearchableSelect
             value={String(divisionId ?? '')}
             onChange={v => { setDivisionId(Number(v) || null); setSectionId(null); setField('apply_role', '') }}
-            options={divisions.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+            options={divisions}
             disabled={disabled} required={required}
           />
         )
@@ -390,7 +418,7 @@ export default function EditFundsForm({
           <SearchableSelect
             value={String(sectionId ?? '')}
             onChange={v => { setSectionId(Number(v) || null); setField('apply_role', '') }}
-            options={sections.map(u => ({ value: String(u.id), label: unitLabel(u) }))}
+            options={sections}
             disabled={disabled || !divisionId} required={required}
           />
         )

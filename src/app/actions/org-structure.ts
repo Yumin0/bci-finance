@@ -1,7 +1,8 @@
 'use server'
 import ExcelJS from 'exceljs'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
-import { OrgLevel, RoleLevel } from '@/lib/types'
+import { OrgLevel, RoleLevel, UnitType } from '@/lib/types'
+import { emailToEnglishName, stripSurname, cleanDisplayName } from '@/lib/userNames'
 
 // ── user_positions ────────────────────────────────────────────────────────────
 
@@ -38,9 +39,10 @@ export async function insertOrgUnit(params: {
   return error?.message ?? null
 }
 
-export async function updateOrgUnit(id: number, code: string | null, name: string, level?: string): Promise<string | null> {
-  const updates: { code: string | null; name: string; level?: string } = { code, name }
+export async function updateOrgUnit(id: number, code: string | null, name: string, level?: string, unitType?: UnitType): Promise<string | null> {
+  const updates: { code: string | null; name: string; level?: string; unit_type?: UnitType } = { code, name }
   if (level !== undefined) updates.level = level
+  if (unitType !== undefined) updates.unit_type = unitType
   const { error } = await supabase.from('org_units').update(updates).eq('id', id)
   return error?.message ?? null
 }
@@ -126,23 +128,57 @@ export async function deleteRoleType(id: number): Promise<string | null> {
 
 // ── org_unit_members（Excel 匯入的暫定人員）──────────────────────────────────────
 
-export async function addOrgUnitMember(orgUnitId: number, displayName: string): Promise<string | null> {
-  const name = displayName.trim()
-  if (!name) return '姓名不可為空'
-  const { data: users } = await supabase.from('app_users').select('id').eq('name', name).limit(1)
-  const userId = users?.[0]?.id ?? null
+export async function removeOrgUnitMember(memberId: number): Promise<string | null> {
+  const { error } = await supabase.from('org_unit_members').delete().eq('id', memberId)
+  return error?.message ?? null
+}
+
+// 透過搜尋下拉選擇系統使用者，新增為負責人（display_name 依 email 自動產生英文名）
+export async function addOrgUnitMemberByUser(orgUnitId: number, userId: number): Promise<string | null> {
+  const { data: user, error: userErr } = await supabase.from('app_users').select('email').eq('id', userId).single()
+  if (userErr) return userErr.message
+
+  const { data: existing } = await supabase.from('org_unit_members').select('sort_order').eq('org_unit_id', orgUnitId)
+  const maxOrder = (existing ?? []).reduce((m, r) => Math.max(m, r.sort_order), -1)
+
   const { error } = await supabase.from('org_unit_members').insert({
     org_unit_id: orgUnitId,
-    display_name: name,
+    display_name: emailToEnglishName(user.email),
     user_id: userId,
-    sort_order: 0,
+    sort_order: maxOrder + 1,
   })
   return error?.message ?? null
 }
 
-export async function removeOrgUnitMember(memberId: number): Promise<string | null> {
-  const { error } = await supabase.from('org_unit_members').delete().eq('id', memberId)
-  return error?.message ?? null
+// 將尚未綁定帳號的負責人，依「display_name 去掉姓氏後的英文名」與「使用者 email @ 前的英文名」比對，找到相符的就連結帳號
+export async function relinkOrgUnitMembers(): Promise<string | null> {
+  const { data: members, error: memErr } = await supabase
+    .from('org_unit_members').select('id, display_name').is('user_id', null)
+  if (memErr) return memErr.message
+  if (!members || members.length === 0) return null
+
+  const { data: users, error: userErr } = await supabase.from('app_users').select('id, email')
+  if (userErr) return userErr.message
+
+  const userIdByEnglishName = new Map<string, number>()
+  for (const u of users ?? []) {
+    userIdByEnglishName.set(emailToEnglishName(u.email).toLowerCase(), u.id)
+  }
+
+  const updates = members
+    .map(m => {
+      const userId = userIdByEnglishName.get(stripSurname(cleanDisplayName(m.display_name)).toLowerCase())
+      return userId ? { id: m.id, user_id: userId } : null
+    })
+    .filter((u): u is { id: number; user_id: number } => u !== null)
+
+  if (updates.length === 0) return null
+
+  const results = await Promise.all(
+    updates.map(u => supabase.from('org_unit_members').update({ user_id: u.user_id }).eq('id', u.id))
+  )
+  const err = results.find(r => r.error)
+  return err?.error?.message ?? null
 }
 
 // ── Excel 組織架構匯入 ────────────────────────────────────────────────────────────
@@ -270,8 +306,12 @@ export async function previewOrgImport(formData: FormData): Promise<OrgImportPre
 export async function commitOrgImport(rows: OrgImportRow[]): Promise<string | null> {
   if (rows.length === 0) return '沒有可匯入的資料'
 
-  const { data: users } = await supabase.from('app_users').select('id, name')
-  const userIdByName = new Map((users ?? []).map((u: { id: number; name: string }) => [u.name, u.id]))
+  const { data: users } = await supabase.from('app_users').select('id, name, email')
+  const userIdByName = new Map<string, number>()
+  for (const u of (users ?? []) as { id: number; name: string; email: string }[]) {
+    userIdByName.set(u.name, u.id)
+    userIdByName.set(emailToEnglishName(u.email).toLowerCase(), u.id)
+  }
 
   const idMap = new Map<number, number>()
   const remaining = [...rows]
@@ -299,7 +339,7 @@ export async function commitOrgImport(rows: OrgImportRow[]): Promise<string | nu
     return row.members.map((name, i) => ({
       org_unit_id: orgUnitId,
       display_name: name,
-      user_id: userIdByName.get(name) ?? null,
+      user_id: userIdByName.get(name) ?? userIdByName.get(stripSurname(cleanDisplayName(name)).toLowerCase()) ?? null,
       sort_order: i,
     }))
   })
