@@ -59,15 +59,24 @@ export type UserPosition = {
   created_at: string
 }
 
-export type OrgLevel = '部門' | '處' | '課' | '科'
+export type OrgLevel = string
 export type RoleLevel = '處' | '課' | '科'
 
 export type OrgUnit = {
   id: number
   code: string | null
   name: string
-  level: OrgLevel
+  level: string
   parent_id: number | null
+  sort_order: number
+  created_at: string
+}
+
+export type OrgUnitMember = {
+  id: number
+  org_unit_id: number
+  display_name: string
+  user_id: number | null
   sort_order: number
   created_at: string
 }

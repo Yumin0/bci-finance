@@ -7,6 +7,20 @@
 
 ## 進行中
 
+**組織架構與職位設定邏輯彈性化 Phase 2：申請處別/課別與職稱整合**（Riku）
+分支：`feature/riku-org-structure`（延續）
+開始：2026-06-10
+- **背景**：Phase 1（樹狀重構、Excel 匯入、拖曳排列）已完成並移至「已完成」。`org_units.level` 已改為自由文字標籤，但申請表單「申請處別/申請課別」下拉選單與 role_types/org_unit_roles 仍依賴舊的 `level === '處'/'課'` 篩選邏輯，無法套用到新匯入的組織節點
+- **待辦**：
+  1. 新增 `unit_type`（處別/課別/其他）欄位，供「申請處別/課別」下拉選單判斷用，不依賴 level 文字內容
+  2. 調整 [AddFundsForm.tsx](src/app/funds-allocation/my-funds/add/_components/AddFundsForm.tsx) 中依 `unit.level === '處'/'課'` 的篩選邏輯
+  3. 評估新匯入節點是否需要指派 role_types/org_unit_roles（處長/課長等職稱）
+  4. `org_unit_members` 找不到對應帳號時是否要自動建立新帳號並連結（目前僅 best-effort 連結既有帳號）
+- **影響範圍確認**：
+  - [ ] funds-allocation 新增/編輯表單（申請處別/課別資料來源）
+  - [ ] funds-payment 新增表單（同上）
+  - [ ] org_unit_roles / role_types / user_positions 資料表結構（新節點職稱指派）
+
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04
@@ -159,6 +173,9 @@
 ---
 
 ## 已完成
+
+**組織架構彈性化 Phase 1：Excel 匯入＋完整組織圖顯示＋拖曳排列**（2026-06-11，Riku）
+`org_units.level` 改為自由文字標籤，階層完全由 `parent_id` 決定、深度不限；組織架構改為單一樹根（企業主），主頁面重構為通用遞迴樹元件，每個節點可獨立收合/展開（預設收合至「處」「課」層級）；新增「匯入組織架構」功能（exceljs 解析 .xlsx，依「上級職務」欄位自動建立階層，重複名稱列出衝突供使用者指定父節點）；新增 `org_unit_members` 資料表存放 Excel「負責人」暫定人員，依姓名比對既有 `app_users` 帳號；支援拖曳調整同層順序與跨層級重新掛載，並新增「排列組織架構」精簡清單 Modal（僅顯示層級＋名稱，L 數字依節點實際深度即時換算，方便長組織圖拖曳，立即儲存）；統一人名顯示格式（藍/綠 chip 皆採 email 前綴英文名，去除姓氏）；刪除有子節點的單位時顯示友善錯誤訊息；匯入 Modal 檔案選擇按鈕改用 shadcn 樣式。
 
 **Google OAuth 登入／註冊**（2026-06-09，Riku）
 登入頁新增「使用 Google 登入／註冊」按鈕，保留原 Email + Password 流程；callback 以 email 比對 app_users，同 email 自動合併帳號並補上 google_id，找不到則建立新帳號；app_users 新增 google_id 欄位、password_hash 改 nullable；帳號管理頁新增「登入方式」欄顯示 Google / Email。OAuth app 已發布（不限測試使用者）。

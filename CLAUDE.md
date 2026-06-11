@@ -10,6 +10,7 @@
 - **JWT Session**（HTTP-only Secure Cookie，7 天有效期，jose 套件）
 - **路由保護**：`src/proxy.ts` 攔截未登入請求，重導向 `/login`
 - **Server Actions**：所有資料庫操作在 Server Actions 執行，不直接暴露 API
+- **exceljs**：解析上傳的 Excel (.xlsx) 檔案（組織架構匯入，server-side）
 
 ## 已完成功能模組
 
@@ -37,7 +38,8 @@
 - `template_payment_accounts`：範本與出款帳號的對應（多對多）
 - `app_users`：系統使用者，含 `system_role_id`、`google_id TEXT`（Google OAuth sub，nullable）；`password_hash` nullable（Google 用戶無密碼）
 - `user_positions`：使用者職位，關聯 `org_unit_role_id`，`is_primary` 標記主職位
-- `org_units`：組織單位，樹狀結構（部門/處/課/科），含 `parent_id`
+- `org_units`：組織單位，樹狀結構（單一樹根，深度不限，由 `parent_id` 決定階層），`level` 為自由文字標籤（純顯示用，例如「L2 主幹」「處」「課」），支援拖曳調整同層順序與跨層級重新掛載
+- `org_unit_members`：組織單位成員（Excel 匯入的暫定人員），`org_unit_id` 關聯 `org_units`、`display_name` 姓名、`user_id` 可選關聯 `app_users(id)`（依姓名比對既有帳號，找到則連結）
 - `role_types`：職位類型
 - `org_unit_roles`：組織單位職位（`org_unit_id` + `role_type_id` 組合）
 - `system_roles`：系統角色，`is_admin` 標記管理員，`allowed_item_ids` 功能菜單權限
