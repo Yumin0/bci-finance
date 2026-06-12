@@ -160,6 +160,9 @@
 
 ## 已完成
 
+**匯入帳號預設權限＋帳號管理搜尋功能**（2026-06-12，Riku）
+40 筆一次性匯入的職員帳號 `system_role_id` 原為 null（首次 Google 登入後會看到空白側邊欄，無任何功能權限），批次設為「一般職員」；suyu/yumin/riku/aimee 既有權限不變。帳號管理頁列表抽出為 `AccountTableView` client component，新增搜尋框可依帳號/姓名即時過濾，編號仍依原始匯入順序顯示。
+
 **職員帳號一次性匯入＋帳號管理「編號」顯示順序**（2026-06-12，Riku）
 新增 `app_users.sort_order`（nullable）欄位；依職員名單一次性建立 40 筆帳號（僅 name + email，`password_hash`／`google_id` 留空，待使用者首次 Google 登入時依 email 自動比對補上），並為既有 4 筆帳號（suyu/yumin/riku/aimee）補上對應的 `sort_order`；帳號管理頁查詢改依 `sort_order` 排序（空值排最後），「編號」欄位改顯示排序後序號（不再顯示資料庫 id，編輯連結仍用 id 不受影響）。
 
