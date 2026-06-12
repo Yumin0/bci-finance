@@ -26,7 +26,8 @@ export default async function AccountManagementPage() {
   const { data: users, error } = await supabase
     .from('app_users')
     .select('id, email, name, google_id, created_at, updated_at')
-    .order('id')
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('id', { ascending: true })
 
   return (
     <div className="flex flex-col gap-6">
@@ -61,9 +62,9 @@ export default async function AccountManagementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(users as AppUser[] | null)?.map(user => (
+              {(users as AppUser[] | null)?.map((user, index) => (
                 <TableRow key={user.id}>
-                  <TableCell>{user.id}</TableCell>
+                  <TableCell>{index + 1}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.name}</TableCell>
                   <TableCell>

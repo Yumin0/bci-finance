@@ -160,6 +160,9 @@
 
 ## 已完成
 
+**職員帳號一次性匯入＋帳號管理「編號」顯示順序**（2026-06-12，Riku）
+新增 `app_users.sort_order`（nullable）欄位；依職員名單一次性建立 40 筆帳號（僅 name + email，`password_hash`／`google_id` 留空，待使用者首次 Google 登入時依 email 自動比對補上），並為既有 4 筆帳號（suyu/yumin/riku/aimee）補上對應的 `sort_order`；帳號管理頁查詢改依 `sort_order` 排序（空值排最後），「編號」欄位改顯示排序後序號（不再顯示資料庫 id，編輯連結仍用 id 不受影響）。
+
 **組織架構與職位設定邏輯彈性化 Phase 2：負責人綁定帳號＋申請處別/課別自動對應**（2026-06-12，Riku）
 `org_units` 新增 `unit_type`（處別/課別/不適用）欄位並依舊 level 回填，組織架構頁可在編輯模式手動標記，畫面上以紫色「處別」／天藍色「課別」徽章顯示；「+新增負責人」改為可搜尋帳號下拉（`SearchableSelect`），直接綁定 `app_users` 並依 email 自動產生英文 display_name；新增「重新比對帳號」按鈕，將既有 Excel 匯入的文字標籤負責人依「display_name 去掉姓氏與括號職稱後的英文名」與使用者 email 英文名比對，自動回填 `user_id`（已驗證 Riku、Yumin、Aimee、Suyu 等帳號成功連結）；另以 SQL 清除 `org_unit_members.display_name` 中所有「(課長)」「(專員)」等括號職稱備註，使顯示與比對更乾淨。新增共用邏輯 `lib/orgPositions.ts`：依使用者所有指派節點（`org_unit_members` + `user_positions`）往上尋找最近的課別／處別祖先，推算出該使用者所有可用的（處別,課別）組合；資金分配申請（AddFundsForm、EditFundsForm）與表單設定範本 tab（_template-tab.tsx）的「申請處別/課別」下拉改為僅顯示登入者推算出的組合（多重身份則列出所有組合）。付款憑單建立頁的申請處別/課別為唯讀繼承欄位，無需調整。
 
