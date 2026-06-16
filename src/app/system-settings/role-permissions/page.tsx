@@ -150,7 +150,7 @@ function RoleForm({
                   onChange={() => toggleRoleType(rt.id)}
                   className="hidden"
                 />
-                {rt.level} · {rt.name}
+                {rt.name}
               </label>
             ))}
           </div>
@@ -220,7 +220,7 @@ export default function RolePermissionsPage() {
     const [rolesRes, srrtRes, rtRes] = await Promise.all([
       supabase.from('system_roles').select('*').order('sort_order').order('id'),
       supabase.from('system_role_role_types').select('system_role_id, role_type_id'),
-      supabase.from('role_types').select('*').order('level').order('sort_order'),
+      supabase.from('role_types').select('*').order('sort_order'),
     ])
     if (rolesRes.error) { setError(rolesRes.error.message); return }
     if (rtRes.error) { setError(rtRes.error.message); return }

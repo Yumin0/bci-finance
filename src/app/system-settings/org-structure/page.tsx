@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { OrgUnit, RoleType, RoleLevel, UnitType, OrgUnitRole, OrgUnitMember, AppUser, UserPosition } from '@/lib/types'
+import { OrgUnit, RoleType, UnitType, OrgUnitRole, OrgUnitMember, AppUser, UserPosition } from '@/lib/types'
 import { emailToEnglishName, stripSurname } from '@/lib/userNames'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,12 +17,11 @@ import {
   insertOrgUnit, updateOrgUnit, deleteOrgUnit, reorderOrgUnits, moveOrgUnit, updateOrgUnitsExpanded,
   addOrgUnitRole, deleteOrgUnitRole,
   addRoleType, updateRoleType, deleteRoleType,
-  addOrgUnitMemberByUser, removeOrgUnitMember, relinkOrgUnitMembers,
+  addOrgUnitMemberByUser, removeOrgUnitMember, relinkOrgUnitMembers, updateOrgUnitMemberRole,
   previewOrgImport, commitOrgImport, getOrgImportTemplate,
   type OrgImportPreview, type OrgImportRow,
 } from '@/app/actions/org-structure'
 
-const ROLE_LEVELS: RoleLevel[] = ['處', '課', '科']
 
 const btnSave = 'cursor-pointer rounded bg-foreground px-2.5 py-0.5 text-xs text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50'
 const btnCancel = 'cursor-pointer rounded border border-border bg-transparent px-2.5 py-0.5 text-xs text-foreground hover:bg-muted'
@@ -133,15 +132,53 @@ function RoleRow({
   )
 }
 
-// ── MembersSection（Excel 匯入的暫定負責人）───────────────────────────────────────
+// ── MembersSection（負責人清單）───────────────────────────────────────
+
+function MemberChip({ m, roleTypes, onRemove, onRefresh }: {
+  m: OrgUnitMember; roleTypes: RoleType[]; onRemove: () => void; onRefresh: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [selectedRoleId, setSelectedRoleId] = useState(String(m.role_type_id ?? ''))
+  const roleType = roleTypes.find(r => r.id === m.role_type_id)
+
+  async function handleSaveRole() {
+    const err = await updateOrgUnitMemberRole(m.id, selectedRoleId ? Number(selectedRoleId) : null)
+    if (err) return
+    setEditing(false); onRefresh()
+  }
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <select value={selectedRoleId} onChange={e => setSelectedRoleId(e.target.value)} autoFocus className="h-7 rounded border border-border bg-background px-1.5 text-xs text-foreground">
+          <option value="">（無職稱）</option>
+          {roleTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
+        </select>
+        <button onClick={handleSaveRole} className={btnSave}>確認</button>
+        <button onClick={() => { setEditing(false); setSelectedRoleId(String(m.role_type_id ?? '')) }} className={btnCancel}>取消</button>
+      </span>
+    )
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 py-0.5 pl-3 pr-2 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+      {roleType && <span className="font-medium">{roleType.name}・</span>}
+      {stripSurname(m.display_name)}
+      {m.user_id == null && <span className="text-emerald-400" title="尚未綁定系統帳號">？</span>}
+      <button onClick={() => setEditing(true)} title="設定職稱" className="ml-0.5 flex cursor-pointer items-center text-xs leading-none text-emerald-400 hover:text-emerald-600">✎</button>
+      <button onClick={onRemove} title="移除" className="flex cursor-pointer items-center text-base leading-none text-emerald-400 hover:text-emerald-600">×</button>
+    </span>
+  )
+}
 
 function MembersSection({
-  unit, members, users, indent, onRefresh,
+  unit, members, users, roleTypes, indent, onRefresh,
 }: {
-  unit: OrgUnit; members: OrgUnitMember[]; users: AppUser[]; indent: number; onRefresh: () => void
+  unit: OrgUnit; members: OrgUnitMember[]; users: AppUser[]; roleTypes: RoleType[]; indent: number; onRefresh: () => void
 }) {
   const [adding, setAdding] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState('')
+  const [selectedRoleTypeId, setSelectedRoleTypeId] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const unitMembers = members.filter(m => m.org_unit_id === unit.id).sort((a, b) => a.sort_order - b.sort_order)
@@ -151,9 +188,9 @@ function MembersSection({
   async function handleAdd() {
     if (!selectedUserId) return
     setError(null)
-    const err = await addOrgUnitMemberByUser(unit.id, Number(selectedUserId))
+    const err = await addOrgUnitMemberByUser(unit.id, Number(selectedUserId), selectedRoleTypeId ? Number(selectedRoleTypeId) : undefined)
     if (err) { setError(err); return }
-    setSelectedUserId(''); setAdding(false); onRefresh()
+    setSelectedUserId(''); setSelectedRoleTypeId(''); setAdding(false); onRefresh()
   }
 
   async function handleRemove(memberId: number) {
@@ -166,15 +203,11 @@ function MembersSection({
   return (
     <div className="flex flex-wrap items-center gap-1.5 py-1 text-sm" style={{ paddingLeft: indent + 28 }}>
       {unitMembers.map(m => (
-        <span key={m.id} className="inline-flex items-center gap-1 rounded-full bg-emerald-100 py-0.5 pl-3 pr-2 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-          {stripSurname(m.display_name)}
-          {m.user_id == null && <span className="text-emerald-400" title="尚未綁定系統帳號">？</span>}
-          <button onClick={() => handleRemove(m.id)} title="移除" className="flex cursor-pointer items-center text-base leading-none text-emerald-400 hover:text-emerald-600">×</button>
-        </span>
+        <MemberChip key={m.id} m={m} roleTypes={roleTypes} onRemove={() => handleRemove(m.id)} onRefresh={onRefresh} />
       ))}
 
       {adding ? (
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex flex-wrap items-center gap-1.5">
           <SearchableSelect
             value={selectedUserId}
             onChange={setSelectedUserId}
@@ -182,8 +215,13 @@ function MembersSection({
             placeholder="搜尋使用者"
             style={{ height: 28, width: 180, fontSize: 14 }}
           />
+          <select value={selectedRoleTypeId} onChange={e => setSelectedRoleTypeId(e.target.value)} className="h-7 rounded border border-border bg-background px-1.5 text-xs text-foreground">
+            <option value="">選擇職稱（選填）</option>
+            {roleTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
+          </select>
           <button onClick={handleAdd} disabled={!selectedUserId} className={btnSave}>確認</button>
-          <button onClick={() => { setAdding(false); setSelectedUserId('') }} className={btnCancel}>取消</button>
+          <button onClick={() => { setAdding(false); setSelectedUserId(''); setSelectedRoleTypeId('') }} className={btnCancel}>取消</button>
+          {error && <span className="text-xs text-destructive">{error}</span>}
         </span>
       ) : (
         <button onClick={() => setAdding(true)} className={btnDashed}>+ 新增負責人</button>
@@ -231,9 +269,8 @@ function OrgTreeNode({
   const hasChildren = children.length > 0
   const isCollapsed = collapsedUnits.has(unit.id)
   const unitRoles = orgUnitRoles.filter(r => r.org_unit_id === unit.id).sort((a, b) => a.sort_order - b.sort_order)
-  const applicableRoleTypes = roleTypes.filter(r => r.level === unit.level)
   const usedRoleTypeIds = new Set(unitRoles.map(r => r.role_type_id))
-  const availableRoleTypes = applicableRoleTypes.filter(r => !usedRoleTypeIds.has(r.id))
+  const availableRoleTypes = roleTypes.filter(r => !usedRoleTypeIds.has(r.id))
 
   async function handleEditSave() {
     if (!editName.trim() || !editLevel.trim()) return
@@ -337,7 +374,7 @@ function OrgTreeNode({
         />
       ))}
 
-      {applicableRoleTypes.length > 0 && (
+      {roleTypes.length > 0 && (
         <div className="py-1 pl-7">
           {isAddingRole ? (
             <div className="flex items-center gap-2">
@@ -354,7 +391,7 @@ function OrgTreeNode({
         </div>
       )}
 
-      <MembersSection unit={unit} members={members} users={users} indent={0} onRefresh={onRefresh} />
+      <MembersSection unit={unit} members={members} users={users} roleTypes={roleTypes} indent={0} onRefresh={onRefresh} />
 
       {isAddingChild && (
         <div className="border-t border-dashed border-border py-2 pl-8">
@@ -488,12 +525,11 @@ function ArrangeModal({ units, drag, onClose, onSavedExpand }: { units: OrgUnit[
 
 function RoleTypeRow({ r, onRefresh, onError }: { r: RoleType; onRefresh: () => void; onError: (msg: string) => void }) {
   const [isEditing, setIsEditing] = useState(false)
-  const [editLevel, setEditLevel] = useState<RoleLevel>(r.level)
   const [editName, setEditName] = useState(r.name)
 
   async function handleSave() {
     if (!editName.trim()) return
-    const err = await updateRoleType(r.id, editLevel, editName.trim())
+    const err = await updateRoleType(r.id, editName.trim())
     if (err) { onError(err); return }
     setIsEditing(false); onRefresh()
   }
@@ -509,16 +545,11 @@ function RoleTypeRow({ r, onRefresh, onError }: { r: RoleType; onRefresh: () => 
     return (
       <TableRow>
         <TableCell>
-          <select value={editLevel} onChange={e => setEditLevel(e.target.value as RoleLevel)} className={selectCls}>
-            {ROLE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-        </TableCell>
-        <TableCell>
           <Input value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSave() }} className="h-7 w-36 text-sm" autoFocus />
         </TableCell>
         <TableCell className="whitespace-nowrap">
           <button onClick={handleSave} className={`${btnSave} mr-1`}>保存</button>
-          <button onClick={() => { setIsEditing(false); setEditLevel(r.level); setEditName(r.name) }} className={btnCancel}>取消</button>
+          <button onClick={() => { setIsEditing(false); setEditName(r.name) }} className={btnCancel}>取消</button>
         </TableCell>
       </TableRow>
     )
@@ -526,7 +557,6 @@ function RoleTypeRow({ r, onRefresh, onError }: { r: RoleType; onRefresh: () => 
 
   return (
     <TableRow>
-      <TableCell className="text-sm">{r.level}</TableCell>
       <TableCell className="text-sm">{r.name}</TableCell>
       <TableCell className="whitespace-nowrap">
         <button onClick={() => setIsEditing(true)} className="mr-2 text-xs text-foreground hover:underline">編輯</button>
@@ -539,14 +569,13 @@ function RoleTypeRow({ r, onRefresh, onError }: { r: RoleType; onRefresh: () => 
 function RoleTypesPanel({ roleTypes, onRefresh }: { roleTypes: RoleType[]; onRefresh: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const [name, setName] = useState('')
-  const [level, setLevel] = useState<RoleLevel>('課')
   const [error, setError] = useState<string | null>(null)
 
   async function handleAdd() {
     if (!name.trim()) return
     setError(null)
-    const maxOrder = roleTypes.filter(r => r.level === level).reduce((m, r) => Math.max(m, r.sort_order), -1)
-    const err = await addRoleType(name.trim(), level, maxOrder + 1)
+    const maxOrder = roleTypes.reduce((m, r) => Math.max(m, r.sort_order), -1)
+    const err = await addRoleType(name.trim(), maxOrder + 1)
     if (err) { setError(err); return }
     setName(''); onRefresh()
   }
@@ -563,7 +592,7 @@ function RoleTypesPanel({ roleTypes, onRefresh }: { roleTypes: RoleType[]; onRef
         </CardTitle>
       </CardHeader>
       <p className="-mt-2 px-4 pb-2 text-sm text-muted-foreground">
-        管理各層級可用的職稱（如課長、處長），新增後才能在上方樹狀圖中選用。
+        管理可用的職稱（如課長、處長），新增後才能在上方樹狀圖的負責人中選用。
       </p>
 
       {expanded && (
@@ -572,7 +601,6 @@ function RoleTypesPanel({ roleTypes, onRefresh }: { roleTypes: RoleType[]; onRef
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>適用層級</TableHead>
                 <TableHead>職稱名稱</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
@@ -580,7 +608,7 @@ function RoleTypesPanel({ roleTypes, onRefresh }: { roleTypes: RoleType[]; onRef
             <TableBody>
               {roleTypes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-sm text-muted-foreground">尚無職稱</TableCell>
+                  <TableCell colSpan={2} className="text-sm text-muted-foreground">尚無職稱</TableCell>
                 </TableRow>
               ) : roleTypes.map(r => (
                 <RoleTypeRow key={r.id} r={r} onRefresh={onRefresh} onError={setError} />
@@ -588,9 +616,6 @@ function RoleTypesPanel({ roleTypes, onRefresh }: { roleTypes: RoleType[]; onRef
             </TableBody>
           </Table>
           <div className="flex items-center gap-2">
-            <select value={level} onChange={e => setLevel(e.target.value as RoleLevel)} className={selectCls}>
-              {ROLE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
             <Input
               value={name}
               onChange={e => setName(e.target.value)}

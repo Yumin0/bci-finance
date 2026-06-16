@@ -1,7 +1,7 @@
 'use server'
 import ExcelJS from 'exceljs'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
-import { OrgLevel, RoleLevel, UnitType } from '@/lib/types'
+import { OrgLevel, UnitType } from '@/lib/types'
 import { emailToEnglishName, stripSurname, cleanDisplayName } from '@/lib/userNames'
 
 // ── user_positions ────────────────────────────────────────────────────────────
@@ -99,13 +99,13 @@ export async function deleteOrgUnitRole(roleId: number): Promise<string | null> 
 
 // ── role_types ────────────────────────────────────────────────────────────────
 
-export async function addRoleType(name: string, level: RoleLevel, sortOrder: number): Promise<string | null> {
-  const { error } = await supabase.from('role_types').insert({ name, level, sort_order: sortOrder })
+export async function addRoleType(name: string, sortOrder: number): Promise<string | null> {
+  const { error } = await supabase.from('role_types').insert({ name, sort_order: sortOrder })
   return error?.message ?? null
 }
 
-export async function updateRoleType(id: number, level: RoleLevel, name: string): Promise<string | null> {
-  const { error } = await supabase.from('role_types').update({ level, name }).eq('id', id)
+export async function updateRoleType(id: number, name: string): Promise<string | null> {
+  const { error } = await supabase.from('role_types').update({ name }).eq('id', id)
   return error?.message ?? null
 }
 
@@ -134,7 +134,7 @@ export async function removeOrgUnitMember(memberId: number): Promise<string | nu
 }
 
 // 透過搜尋下拉選擇系統使用者，新增為負責人（display_name 依 email 自動產生英文名）
-export async function addOrgUnitMemberByUser(orgUnitId: number, userId: number): Promise<string | null> {
+export async function addOrgUnitMemberByUser(orgUnitId: number, userId: number, roleTypeId?: number): Promise<string | null> {
   const { data: user, error: userErr } = await supabase.from('app_users').select('email').eq('id', userId).single()
   if (userErr) return userErr.message
 
@@ -145,8 +145,14 @@ export async function addOrgUnitMemberByUser(orgUnitId: number, userId: number):
     org_unit_id: orgUnitId,
     display_name: emailToEnglishName(user.email),
     user_id: userId,
+    role_type_id: roleTypeId ?? null,
     sort_order: maxOrder + 1,
   })
+  return error?.message ?? null
+}
+
+export async function updateOrgUnitMemberRole(memberId: number, roleTypeId: number | null): Promise<string | null> {
+  const { error } = await supabase.from('org_unit_members').update({ role_type_id: roleTypeId }).eq('id', memberId)
   return error?.message ?? null
 }
 
