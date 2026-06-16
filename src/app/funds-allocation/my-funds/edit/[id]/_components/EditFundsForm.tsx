@@ -19,7 +19,6 @@ import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUp
 import { getAttachmentsByAllocationId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
 import { deleteFundsAllocation, updateFundsAllocation } from '@/app/actions/funds-allocation'
 
-type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
 function unitLabel(u: OrgUnit) {
   return [u.code, u.name].filter(Boolean).join(' ')
@@ -48,9 +47,8 @@ export default function EditFundsForm({
   const [error, setError] = useState<string | null>(null)
 
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
-  const [orgUnitRoles, setOrgUnitRoles] = useState<RoleRow[]>([])
-  const [userPositionRoleIds, setUserPositionRoleIds] = useState<number[]>([])
   const [memberUnitIds, setMemberUnitIds] = useState<number[]>([])
+  const [userRoleNames, setUserRoleNames] = useState<string[]>([])
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([])
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
@@ -156,19 +154,17 @@ export default function EditFundsForm({
           }
         }
       }
-      const loadOrgRoles = async () => {
-        const r = await supabase.from('org_unit_roles').select('id, org_unit_id, display_name, role_types(name)').order('sort_order')
-        if (r.data) setOrgUnitRoles(r.data as unknown as RoleRow[])
-      }
-      const loadPositions = async () => {
+      const loadMyMemberships = async () => {
         if (!userId) return
-        const r = await supabase.from('user_positions').select('org_unit_role_id').eq('user_id', userId)
-        if (r.data) setUserPositionRoleIds(r.data.map((p: { org_unit_role_id: number }) => p.org_unit_role_id))
-      }
-      const loadMemberUnits = async () => {
-        if (!userId) return
-        const r = await supabase.from('org_unit_members').select('org_unit_id').eq('user_id', userId)
-        if (r.data) setMemberUnitIds(r.data.map((m: { org_unit_id: number }) => m.org_unit_id))
+        const r = await supabase
+          .from('org_unit_members')
+          .select('org_unit_id, role_types(name)')
+          .eq('user_id', userId)
+        if (r.data) {
+          const rows = r.data as unknown as { org_unit_id: number; role_types: { name: string } | null }[]
+          setMemberUnitIds(rows.map(m => m.org_unit_id))
+          setUserRoleNames(rows.map(m => m.role_types?.name).filter((n): n is string => !!n))
+        }
       }
       const loadDropdowns = async (fields: string[]) => {
         const r = await supabase.from('dropdown_options').select('*').in('field', fields).order('sort_order')
@@ -187,7 +183,7 @@ export default function EditFundsForm({
       }
 
       if (neededSources.has('org_units:division') || neededSources.has('org_units:section') || neededSources.has('org_unit_roles')) {
-        fetches.push(loadOrgUnits(), loadOrgRoles(), loadPositions(), loadMemberUnits())
+        fetches.push(loadOrgUnits(), loadMyMemberships())
       }
       const dropdownFields: string[] = []
       if (neededSources.has('dropdown_options:institution')) dropdownFields.push('institution')
@@ -275,13 +271,7 @@ export default function EditFundsForm({
   }, [record.id])
 
   const unitMap = new Map(orgUnits.map(u => [u.id, u]))
-  const positionUnitIds = [
-    ...userPositionRoleIds
-      .map(roleId => orgUnitRoles.find(r => r.id === roleId)?.org_unit_id)
-      .filter((id): id is number => id != null),
-    ...memberUnitIds,
-  ]
-  const userCombos = deriveUserOrgCombos(positionUnitIds, orgUnits)
+  const userCombos = deriveUserOrgCombos(memberUnitIds, orgUnits)
   const divisions = userCombos.length > 0 ? divisionOptionsFromCombos(userCombos) : allDivisionOptions(orgUnits)
   if (divisionId != null && !divisions.some(d => d.value === String(divisionId))) {
     const u = unitMap.get(divisionId)
@@ -292,9 +282,7 @@ export default function EditFundsForm({
     const u = unitMap.get(sectionId)
     if (u) sections.push({ value: String(u.id), label: unitLabel(u) })
   }
-  const availableRoles = orgUnitRoles
-    .filter(r => r.org_unit_id === sectionId)
-    .map(r => r.display_name ?? `${unitLabel(unitMap.get(r.org_unit_id)!)} ${r.role_types.name}`)
+  const availableRoles = [...new Set(userRoleNames)]
 
   const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
   for (const block of schema) {
