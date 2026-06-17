@@ -3,9 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, ApprovalRecord, StepDecision, FormBlock, FundAttachment } from '@/lib/types'
-import { submitApprovalDecision } from '@/app/actions/approval-flow'
+import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approval-flow'
+import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import FundsAllocationDetail from '@/app/funds-allocation/_components/FundsAllocationDetail'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
@@ -39,6 +39,8 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true)
   const [schema, setSchema] = useState<FormBlock[]>([])
   const [attachments, setAttachments] = useState<FundAttachment[]>([])
+  const [userId, setUserId] = useState<number | null>(null)
+  const [canReviewStep, setCanReviewStep] = useState(false)
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -49,31 +51,43 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
       const { id } = await params
       const numId = Number(id)
 
-      const [recRes, pastRes, config] = await Promise.all([
+      const [recRes, pastRes, config, session] = await Promise.all([
         supabase.from('funds_allocation').select('*').eq('id', numId).single(),
         supabase.from('approval_records').select('*').eq('funds_allocation_id', numId).order('step_number'),
         getStatusLabelConfig(),
+        getMySession(),
       ])
       setLabelConfig(config)
+      setUserId(session.userId)
 
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
       const allocation = recRes.data as FundsAllocation
       setPastRecords((pastRes.data as ApprovalRecord[]) ?? [])
 
+      let steps: StepDef[] = []
       if (allocation.flow_template_id) {
         const [tmplRes, stepsRes] = await Promise.all([
           supabase.from('approval_flow_templates').select('id, name').eq('id', allocation.flow_template_id).single(),
           supabase.from('approval_flow_steps').select('id, step_number, step_name, reviewer_type, role_type_id, system_role_id').eq('template_id', allocation.flow_template_id).order('step_number'),
         ])
+        steps = (stepsRes.data ?? []) as StepDef[]
         setRecord({
           ...allocation,
           approval_flow_templates: tmplRes.data
-            ? { id: tmplRes.data.id, name: tmplRes.data.name, approval_flow_steps: (stepsRes.data ?? []) as StepDef[] }
+            ? { id: tmplRes.data.id, name: tmplRes.data.name, approval_flow_steps: steps }
             : null,
         })
       } else {
         setRecord({ ...allocation, approval_flow_templates: null })
+      }
+
+      if (session.userId && allocation.status === 'pending' && allocation.current_step !== null) {
+        const stepDef = steps.find(s => s.step_number === allocation.current_step)
+        if (stepDef) {
+          const canReview = await checkCanReviewStep({ userId: session.userId, stepDef })
+          setCanReviewStep(canReview)
+        }
       }
 
       getAttachmentsByAllocationId(numId).then(setAttachments)
@@ -88,7 +102,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
     .sort((a, b) => a.step_number - b.step_number) ?? []
 
   const currentStep = record?.current_step ?? null
-  const canReview = record?.status === 'pending' && currentStep !== null
+  const canReview = record?.status === 'pending' && currentStep !== null && canReviewStep
 
   async function handleSubmit() {
     if (!record || !decision || !currentStep) return
@@ -103,7 +117,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         stepName: stepDef.step_name,
         decision,
         comment,
-        reviewerId: MOCK_USER_ID,
+        reviewerId: String(userId ?? ''),
         totalSteps: steps.length,
       })
       router.push('/funds-allocation/review')

@@ -3,9 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MOCK_USER_ID } from '@/lib/constants'
 import { ApprovalRecord, FormBlock, FormSlot, StepDecision } from '@/lib/types'
-import { submitApprovalDecision } from '@/app/actions/approval-flow'
+import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approval-flow'
+import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -66,6 +66,8 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
   const [record, setRecord] = useState<TempVoucher | null>(null)
   const [pastRecords, setPastRecords] = useState<ApprovalRecord[]>([])
   const [schema, setSchema] = useState<FormBlock[]>([])
+  const [userId, setUserId] = useState<number | null>(null)
+  const [canReviewStep, setCanReviewStep] = useState(false)
   const [loading, setLoading] = useState(true)
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
@@ -77,29 +79,41 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       const { id } = await params
       const numId = Number(id)
 
-      const [recRes, pastRes] = await Promise.all([
+      const [recRes, pastRes, session] = await Promise.all([
         supabase.from('temp_vouchers').select('*').eq('id', numId).single(),
         supabase.from('approval_records').select('*').eq('temp_voucher_id', numId).order('step_number'),
+        getMySession(),
       ])
+      setUserId(session.userId)
 
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
       const voucher = recRes.data as TempVoucher
       setPastRecords((pastRes.data as ApprovalRecord[]) ?? [])
 
+      let steps: StepDef[] = []
       if (voucher.flow_template_id) {
         const [tmplRes, stepsRes] = await Promise.all([
           supabase.from('approval_flow_templates').select('id, name').eq('id', voucher.flow_template_id).single(),
           supabase.from('approval_flow_steps').select('id, step_number, step_name, reviewer_type, role_type_id, system_role_id').eq('template_id', voucher.flow_template_id).order('step_number'),
         ])
+        steps = (stepsRes.data ?? []) as StepDef[]
         setRecord({
           ...voucher,
           approval_flow_templates: tmplRes.data
-            ? { id: tmplRes.data.id, name: tmplRes.data.name, approval_flow_steps: (stepsRes.data ?? []) as StepDef[] }
+            ? { id: tmplRes.data.id, name: tmplRes.data.name, approval_flow_steps: steps }
             : null,
         })
       } else {
         setRecord({ ...voucher, approval_flow_templates: null })
+      }
+
+      if (session.userId && voucher.status === 'pending' && voucher.current_step !== null) {
+        const stepDef = steps.find(s => s.step_number === voucher.current_step)
+        if (stepDef) {
+          const canReview = await checkCanReviewStep({ userId: session.userId, stepDef })
+          setCanReviewStep(canReview)
+        }
       }
 
       setLoading(false)
@@ -110,7 +124,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
 
   const steps = record?.approval_flow_templates?.approval_flow_steps?.slice().sort((a, b) => a.step_number - b.step_number) ?? []
   const currentStep = record?.current_step ?? null
-  const canReview = record?.status === 'pending' && currentStep !== null
+  const canReview = record?.status === 'pending' && currentStep !== null && canReviewStep
 
   async function handleSubmit() {
     if (!record || !decision || !currentStep) return
@@ -125,7 +139,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
         stepName: stepDef.step_name,
         decision,
         comment,
-        reviewerId: MOCK_USER_ID,
+        reviewerId: String(userId ?? ''),
         totalSteps: steps.length,
       })
       router.push('/funds-voucher/review')

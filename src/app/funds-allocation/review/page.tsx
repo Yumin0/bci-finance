@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, ApprovalRecord } from '@/lib/types'
+import { getPendingAllocationsForReviewer } from '@/app/actions/approval-flow'
+import { getMySession } from '@/app/actions/auth'
 import Link from 'next/link'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
@@ -53,32 +54,28 @@ export default function ReviewPage() {
     async function load() {
       setLoading(true)
 
-      const [config, pendingRes, historyRaw] = await Promise.all([
+      const [config, session] = await Promise.all([
         getStatusLabelConfig(),
-        supabase
-          .from('funds_allocation')
-          .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number))`)
-          .eq('status', 'pending')
-          .order('created_at', { ascending: true }),
+        getMySession(),
+      ])
+      setLabelConfig(config)
+
+      const userId = session.userId
+      if (!userId) { setLoading(false); return }
+
+      const [pendingData, historyRaw] = await Promise.all([
+        getPendingAllocationsForReviewer(userId),
         supabase
           .from('approval_records')
           .select(`*, funds_allocation:funds_allocation_id(id, name, amount, status, serial_number, apply_division, apply_section, applicant, apply_role, payment_account, expense_item)`)
-          .eq('reviewer_id', MOCK_USER_ID)
+          .eq('reviewer_id', String(userId))
           .not('decision', 'is', null)
           .not('funds_allocation_id', 'is', null)
           .order('reviewed_at', { ascending: false })
           .limit(500),
       ])
 
-      setLabelConfig(config)
-
-      const pendingMapped: PendingItem[] = (pendingRes.data ?? []).map((r: FundsAllocation & {
-        approval_flow_templates: { name: string; approval_flow_steps: Array<{ step_name: string; step_number: number }> } | null
-      }) => {
-        const steps = r.approval_flow_templates?.approval_flow_steps ?? []
-        const step = steps.find(s => s.step_number === r.current_step)
-        return { ...r, step_name: step?.step_name ?? `第 ${r.current_step ?? 1} 步` }
-      })
+      const pendingMapped: PendingItem[] = (pendingData as unknown as PendingItem[])
 
       const seen = new Map<number, HistoryItem>()
       for (const r of (historyRaw.data ?? []) as HistoryItem[]) {

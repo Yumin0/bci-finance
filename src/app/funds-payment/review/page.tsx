@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MOCK_USER_ID } from '@/lib/constants'
 import { FundsPayment, ApprovalRecord, FormSlot } from '@/lib/types'
+import { getPendingPaymentsForReviewer } from '@/app/actions/approval-flow'
+import { getMySession } from '@/app/actions/auth'
 import Link from 'next/link'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { getFormSchemas } from '@/app/actions/form-schema'
@@ -51,22 +52,10 @@ export default function PaymentReviewPage() {
     async function load() {
       setLoading(true)
 
-      const [config, schemas, pendingRes, historyRaw] = await Promise.all([
+      const [config, schemas, session] = await Promise.all([
         getStatusLabelConfig(),
         getFormSchemas(),
-        supabase
-          .from('funds_payment')
-          .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number))`)
-          .eq('status', 'pending')
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('approval_records')
-          .select(`*, funds_payment:funds_payment_id(id, name, amount, status, purchase_order_number, payment_method, extra_data)`)
-          .eq('reviewer_id', MOCK_USER_ID)
-          .not('decision', 'is', null)
-          .not('funds_payment_id', 'is', null)
-          .order('reviewed_at', { ascending: false })
-          .limit(500),
+        getMySession(),
       ])
 
       const label = schemas.payment_voucher
@@ -74,16 +63,24 @@ export default function PaymentReviewPage() {
         .find((s): s is NonNullable<FormSlot> => s !== null && s.dataSource?.startsWith('payee_records:') === true)
         ?.label ?? null
       setPayeeLabel(label)
-
       setLabelConfig(config)
 
-      const pendingMapped: PendingItem[] = (pendingRes.data ?? []).map((r: FundsPayment & {
-        approval_flow_templates: { name: string; approval_flow_steps: Array<{ step_name: string; step_number: number }> } | null
-      }) => {
-        const steps = r.approval_flow_templates?.approval_flow_steps ?? []
-        const step = steps.find(s => s.step_number === r.current_step)
-        return { ...r, step_name: step?.step_name ?? `第 ${r.current_step ?? 1} 步` }
-      })
+      const userId = session.userId
+      if (!userId) { setLoading(false); return }
+
+      const [pendingData, historyRaw] = await Promise.all([
+        getPendingPaymentsForReviewer(userId),
+        supabase
+          .from('approval_records')
+          .select(`*, funds_payment:funds_payment_id(id, name, amount, status, purchase_order_number, payment_method, extra_data)`)
+          .eq('reviewer_id', String(userId))
+          .not('decision', 'is', null)
+          .not('funds_payment_id', 'is', null)
+          .order('reviewed_at', { ascending: false })
+          .limit(500),
+      ])
+
+      const pendingMapped: PendingItem[] = (pendingData as unknown as PendingItem[])
 
       const seen = new Map<number, HistoryItem>()
       for (const r of (historyRaw.data ?? []) as HistoryItem[]) {

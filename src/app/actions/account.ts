@@ -3,6 +3,22 @@ import bcrypt from 'bcryptjs'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
+export async function getAccountsForManagement() {
+  const { data } = await supabase
+    .from('app_users')
+    .select('id, email, name, google_id, system_role_id, sort_order, created_at')
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('id', { ascending: true })
+  return data ?? []
+}
+
+export async function updateAccountRole(userId: number, roleId: number | null) {
+  await supabase
+    .from('app_users')
+    .update({ system_role_id: roleId, updated_at: new Date().toISOString() })
+    .eq('id', userId)
+}
+
 type UpdateState =
   | { errors?: { name?: string[]; email?: string[]; password?: string[] }; message?: string }
   | undefined

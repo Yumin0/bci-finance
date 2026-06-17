@@ -2,7 +2,12 @@
 import bcrypt from 'bcryptjs'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
-import { createSession, deleteSession } from '@/lib/session'
+import { createSession, deleteSession, getSession } from '@/lib/session'
+
+export async function getMySession() {
+  const session = await getSession()
+  return { userId: session?.userId ?? null, name: session?.name ?? null }
+}
 
 export type LoginState =
   | { error?: string }

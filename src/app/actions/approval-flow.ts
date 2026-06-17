@@ -226,6 +226,110 @@ export async function submitApprovalDecision(params: {
   }
 }
 
+// ── 審核人資格驗證與待審清單 ─────────────────────────────────
+
+type StepRef = {
+  step_number: number
+  step_name: string
+  reviewer_type: string
+  role_type_id: number | null
+  system_role_id: number | null
+}
+
+async function getReviewerInfo(userId: number) {
+  const [membershipsRes, userRes] = await Promise.all([
+    supabase.from('org_unit_members').select('org_unit_id, role_type_id').eq('user_id', userId),
+    supabase.from('app_users').select('system_role_id').eq('id', userId).single(),
+  ])
+  const memberships = (membershipsRes.data ?? []) as { org_unit_id: number; role_type_id: number | null }[]
+  const systemRoleId = (userRes.data as { system_role_id: number | null } | null)?.system_role_id ?? null
+  return {
+    roleTypeIds: new Set(memberships.map(m => m.role_type_id).filter((id): id is number => id !== null)),
+    systemRoleId,
+  }
+}
+
+function stepMatchesReviewer(
+  stepDef: StepRef,
+  reviewerInfo: { roleTypeIds: Set<number>; systemRoleId: number | null }
+): boolean {
+  if (stepDef.reviewer_type === 'system_role') {
+    return stepDef.system_role_id !== null && stepDef.system_role_id === reviewerInfo.systemRoleId
+  }
+  if (stepDef.reviewer_type === 'org_role') {
+    return stepDef.role_type_id !== null && reviewerInfo.roleTypeIds.has(stepDef.role_type_id)
+  }
+  return false
+}
+
+export async function checkCanReviewStep(params: {
+  userId: number
+  stepDef: {
+    reviewer_type: 'org_role' | 'system_role'
+    role_type_id: number | null
+    system_role_id: number | null
+    step_number?: number
+    step_name?: string
+  }
+}): Promise<boolean> {
+  const reviewerInfo = await getReviewerInfo(params.userId)
+  return stepMatchesReviewer(params.stepDef as StepRef, reviewerInfo)
+}
+
+export async function getPendingAllocationsForReviewer(userId: number) {
+  const reviewerInfo = await getReviewerInfo(userId)
+  const { data } = await supabase
+    .from('funds_allocation')
+    .select('*, approval_flow_templates(name, approval_flow_steps(step_number, step_name, reviewer_type, role_type_id, system_role_id))')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+  return ((data ?? []) as unknown as Array<{ current_step: number | null; approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
+    .filter(r => {
+      const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+      return stepDef ? stepMatchesReviewer(stepDef, reviewerInfo) : false
+    })
+    .map(r => {
+      const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+      return { ...r, step_name: stepDef?.step_name ?? `第 ${r.current_step ?? 1} 步` }
+    })
+}
+
+export async function getPendingPaymentsForReviewer(userId: number) {
+  const reviewerInfo = await getReviewerInfo(userId)
+  const { data } = await supabase
+    .from('funds_payment')
+    .select('*, approval_flow_templates(name, approval_flow_steps(step_number, step_name, reviewer_type, role_type_id, system_role_id))')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+  return ((data ?? []) as unknown as Array<{ current_step: number | null; approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
+    .filter(r => {
+      const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+      return stepDef ? stepMatchesReviewer(stepDef, reviewerInfo) : false
+    })
+    .map(r => {
+      const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+      return { ...r, step_name: stepDef?.step_name ?? `第 ${r.current_step ?? 1} 步` }
+    })
+}
+
+export async function getPendingVouchersForReviewer(userId: number) {
+  const reviewerInfo = await getReviewerInfo(userId)
+  const { data } = await supabase
+    .from('temp_vouchers')
+    .select('*, approval_flow_templates(approval_flow_steps(step_number, step_name, reviewer_type, role_type_id, system_role_id))')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+  return ((data ?? []) as unknown as Array<{ current_step: number | null; approval_flow_templates: { approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
+    .filter(r => {
+      const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+      return stepDef ? stepMatchesReviewer(stepDef, reviewerInfo) : false
+    })
+    .map(r => {
+      const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+      return { ...r, step_name: stepDef?.step_name ?? `第 ${r.current_step ?? 1} 步` }
+    })
+}
+
 // ── 查詢已被其他範本使用的出款帳號 ───────────────────
 
 export async function getUsedPaymentAccountIds(

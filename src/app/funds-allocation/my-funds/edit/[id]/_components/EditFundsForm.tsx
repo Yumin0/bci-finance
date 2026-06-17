@@ -48,7 +48,7 @@ export default function EditFundsForm({
 
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
   const [memberUnitIds, setMemberUnitIds] = useState<number[]>([])
-  const [userRoleNames, setUserRoleNames] = useState<string[]>([])
+  const [memberRoleMap, setMemberRoleMap] = useState<Record<number, string[]>>({})
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([])
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
@@ -163,7 +163,15 @@ export default function EditFundsForm({
         if (r.data) {
           const rows = r.data as unknown as { org_unit_id: number; role_types: { name: string } | null }[]
           setMemberUnitIds(rows.map(m => m.org_unit_id))
-          setUserRoleNames(rows.map(m => m.role_types?.name).filter((n): n is string => !!n))
+          const roleMap: Record<number, string[]> = {}
+          for (const m of rows) {
+            const name = m.role_types?.name
+            if (name) {
+              if (!roleMap[m.org_unit_id]) roleMap[m.org_unit_id] = []
+              roleMap[m.org_unit_id].push(name)
+            }
+          }
+          setMemberRoleMap(roleMap)
         }
       }
       const loadDropdowns = async (fields: string[]) => {
@@ -282,7 +290,13 @@ export default function EditFundsForm({
     const u = unitMap.get(sectionId)
     if (u) sections.push({ value: String(u.id), label: unitLabel(u) })
   }
-  const availableRoles = [...new Set(userRoleNames)]
+  const sectionRoles = sectionId ? (memberRoleMap[sectionId] ?? []) : []
+  const divisionRoles = divisionId ? (memberRoleMap[divisionId] ?? []) : []
+  const availableRoles = sectionRoles.length > 0
+    ? [...new Set(sectionRoles)]
+    : divisionRoles.length > 0
+    ? [...new Set(divisionRoles)]
+    : [...new Set(Object.values(memberRoleMap).flat())]
 
   const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
   for (const block of schema) {
@@ -395,7 +409,13 @@ export default function EditFundsForm({
         return (
           <SearchableSelect
             value={String(divisionId ?? '')}
-            onChange={v => { setDivisionId(Number(v) || null); setSectionId(null); setField('apply_role', '') }}
+            onChange={v => {
+              const newDivId = Number(v) || null
+              setDivisionId(newDivId)
+              setSectionId(null)
+              const divRoles = newDivId ? (memberRoleMap[newDivId] ?? []) : []
+              setField('apply_role', divRoles.length === 1 ? divRoles[0] : '')
+            }}
             options={divisions}
             disabled={disabled} required={required}
           />
@@ -405,7 +425,14 @@ export default function EditFundsForm({
         return (
           <SearchableSelect
             value={String(sectionId ?? '')}
-            onChange={v => { setSectionId(Number(v) || null); setField('apply_role', '') }}
+            onChange={v => {
+              const newSecId = Number(v) || null
+              setSectionId(newSecId)
+              const secRoles = newSecId ? (memberRoleMap[newSecId] ?? []) : []
+              const divRoles = divisionId ? (memberRoleMap[divisionId] ?? []) : []
+              const roles = secRoles.length > 0 ? secRoles : divRoles
+              setField('apply_role', roles.length === 1 ? roles[0] : '')
+            }}
             options={sections}
             disabled={disabled || !divisionId} required={required}
           />
@@ -417,7 +444,7 @@ export default function EditFundsForm({
             value={fieldValues.apply_role ?? ''}
             onChange={v => setField('apply_role', v)}
             options={availableRoles.map(name => ({ value: name, label: name }))}
-            disabled={disabled || !sectionId} required={required}
+            disabled={disabled || !divisionId} required={required}
           />
         )
       }

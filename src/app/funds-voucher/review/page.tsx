@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { MOCK_USER_ID } from '@/lib/constants'
 import { ApprovalRecord } from '@/lib/types'
+import { getPendingVouchersForReviewer } from '@/app/actions/approval-flow'
+import { getMySession } from '@/app/actions/auth'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
@@ -59,30 +60,28 @@ export default function VoucherReviewPage() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const [config, pendingRes, historyRaw] = await Promise.all([
+      const [config, session] = await Promise.all([
         getStatusLabelConfig(),
-        supabase
-          .from('temp_vouchers')
-          .select(`*, approval_flow_templates(approval_flow_steps(step_name, step_number))`)
-          .eq('status', 'pending')
-          .order('created_at', { ascending: true }),
+        getMySession(),
+      ])
+      setLabelConfig(config)
+
+      const userId = session.userId
+      if (!userId) { setLoading(false); return }
+
+      const [pendingData, historyRaw] = await Promise.all([
+        getPendingVouchersForReviewer(userId),
         supabase
           .from('approval_records')
           .select(`*, temp_voucher:temp_voucher_id(id, applicant, apply_section, amount, status)`)
-          .eq('reviewer_id', MOCK_USER_ID)
+          .eq('reviewer_id', String(userId))
           .not('decision', 'is', null)
           .not('temp_voucher_id', 'is', null)
           .order('reviewed_at', { ascending: false })
           .limit(500),
       ])
 
-      setLabelConfig(config)
-
-      const pendingMapped: TempVoucherRow[] = ((pendingRes.data ?? []) as TempVoucherRow[]).map(r => {
-        const steps = r.approval_flow_templates?.approval_flow_steps ?? []
-        const step = steps.find(s => s.step_number === r.current_step)
-        return { ...r, step_name: step?.step_name ?? `第 ${r.current_step ?? 1} 步` }
-      })
+      const pendingMapped: TempVoucherRow[] = (pendingData as unknown as TempVoucherRow[])
 
       const seen = new Map<number, HistoryItem>()
       for (const r of (historyRaw.data ?? []) as HistoryItem[]) {

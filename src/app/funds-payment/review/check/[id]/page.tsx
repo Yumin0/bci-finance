@@ -3,9 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { MOCK_USER_ID } from '@/lib/constants'
 import { FundsPayment, ApprovalRecord, StepDecision, FormBlock, FundAttachment } from '@/lib/types'
-import { submitApprovalDecision } from '@/app/actions/approval-flow'
+import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approval-flow'
+import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getAttachmentsByAllocationId, getAttachmentsByPaymentId } from '@/app/actions/attachments'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
@@ -35,6 +35,8 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
   const [record, setRecord] = useState<RecordWithTemplate | null>(null)
   const [pastRecords, setPastRecords] = useState<ApprovalRecord[]>([])
   const [schema, setSchema] = useState<FormBlock[]>([])
+  const [userId, setUserId] = useState<number | null>(null)
+  const [canReviewStep, setCanReviewStep] = useState(false)
   const [loading, setLoading] = useState(true)
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
@@ -48,30 +50,41 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
       const { id } = await params
       const numId = Number(id)
 
-      const [recRes, pastRes] = await Promise.all([
+      const [recRes, pastRes, session] = await Promise.all([
         supabase.from('funds_payment').select('*').eq('id', numId).single(),
         supabase.from('approval_records').select('*').eq('funds_payment_id', numId).order('step_number'),
+        getMySession(),
       ])
+      setUserId(session.userId)
 
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
       const payment = recRes.data as FundsPayment
       setPastRecords((pastRes.data as ApprovalRecord[]) ?? [])
 
-      // 分開查詢 template + steps（避免 FK join cache 問題）
+      let steps: StepDef[] = []
       if (payment.flow_template_id) {
         const [tmplRes, stepsRes] = await Promise.all([
           supabase.from('approval_flow_templates').select('id, name').eq('id', payment.flow_template_id).single(),
           supabase.from('approval_flow_steps').select('id, step_number, step_name, reviewer_type, role_type_id, system_role_id').eq('template_id', payment.flow_template_id).order('step_number'),
         ])
+        steps = (stepsRes.data ?? []) as StepDef[]
         setRecord({
           ...payment,
           approval_flow_templates: tmplRes.data
-            ? { id: tmplRes.data.id, name: tmplRes.data.name, approval_flow_steps: (stepsRes.data ?? []) as StepDef[] }
+            ? { id: tmplRes.data.id, name: tmplRes.data.name, approval_flow_steps: steps }
             : null,
         })
       } else {
         setRecord({ ...payment, approval_flow_templates: null })
+      }
+
+      if (session.userId && payment.status === 'pending' && payment.current_step !== null) {
+        const stepDef = steps.find(s => s.step_number === payment.current_step)
+        if (stepDef) {
+          const canReview = await checkCanReviewStep({ userId: session.userId, stepDef })
+          setCanReviewStep(canReview)
+        }
       }
 
       // 載入附件
@@ -90,7 +103,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
     ?.slice().sort((a, b) => a.step_number - b.step_number) ?? []
 
   const currentStep = record?.current_step ?? null
-  const canReview = record?.status === 'pending' && currentStep !== null
+  const canReview = record?.status === 'pending' && currentStep !== null && canReviewStep
 
   async function handleSubmit() {
     if (!record || !decision || !currentStep) return
@@ -105,7 +118,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         stepName: stepDef.step_name,
         decision,
         comment,
-        reviewerId: MOCK_USER_ID,
+        reviewerId: String(userId ?? ''),
         totalSteps: steps.length,
       })
       router.push('/funds-payment/review')
