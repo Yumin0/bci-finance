@@ -20,7 +20,7 @@ export async function getTemplateWithSteps(templateId: number) {
     supabase.from('approval_flow_templates').select('*').eq('id', templateId).single(),
     supabase
       .from('approval_flow_steps')
-      .select('*, role_types(name), system_roles(name)')
+      .select('*, role_types(name), system_roles(name), approval_groups(name)')
       .eq('template_id', templateId)
       .order('step_number', { ascending: true }),
   ])
@@ -29,10 +29,11 @@ export async function getTemplateWithSteps(templateId: number) {
 
   const steps: ApprovalFlowStepWithRole[] = (stepsRes.data ?? []).map((s: {
     id: number; template_id: number; step_number: number; step_name: string;
-    reviewer_type: 'org_role' | 'system_role'; role_type_id: number | null;
-    system_role_id: number | null;
+    reviewer_type: 'org_role' | 'system_role' | 'approval_group';
+    role_type_id: number | null; system_role_id: number | null; approval_group_id: number | null;
     role_types: { name: string } | null;
     system_roles: { name: string } | null;
+    approval_groups: { name: string } | null;
   }) => ({
     id: s.id,
     template_id: s.template_id,
@@ -41,8 +42,10 @@ export async function getTemplateWithSteps(templateId: number) {
     reviewer_type: s.reviewer_type,
     role_type_id: s.role_type_id,
     system_role_id: s.system_role_id,
+    approval_group_id: s.approval_group_id,
     role_type_name: s.role_types?.name ?? null,
     system_role_name: s.system_roles?.name ?? null,
+    approval_group_name: s.approval_groups?.name ?? null,
   }))
 
   return { template: templateRes.data as ApprovalFlowTemplate, steps }
@@ -128,9 +131,10 @@ export async function saveTemplateSteps(
   steps: Array<{
     step_number: number
     step_name: string
-    reviewer_type: 'org_role' | 'system_role'
+    reviewer_type: 'org_role' | 'system_role' | 'approval_group'
     role_type_id: number | null
     system_role_id: number | null
+    approval_group_id: number | null
   }>
 ) {
   const { error: deleteError } = await supabase
@@ -234,24 +238,28 @@ type StepRef = {
   reviewer_type: string
   role_type_id: number | null
   system_role_id: number | null
+  approval_group_id: number | null
 }
 
 async function getReviewerInfo(userId: number) {
-  const [membershipsRes, userRes] = await Promise.all([
+  const [membershipsRes, userRes, groupsRes] = await Promise.all([
     supabase.from('org_unit_members').select('org_unit_id, role_type_id').eq('user_id', userId),
     supabase.from('app_users').select('system_role_id').eq('id', userId).single(),
+    supabase.from('approval_group_members').select('group_id').eq('user_id', userId),
   ])
   const memberships = (membershipsRes.data ?? []) as { org_unit_id: number; role_type_id: number | null }[]
   const systemRoleId = (userRes.data as { system_role_id: number | null } | null)?.system_role_id ?? null
+  const groupIds = new Set((groupsRes.data ?? []).map((r: { group_id: number }) => r.group_id))
   return {
     roleTypeIds: new Set(memberships.map(m => m.role_type_id).filter((id): id is number => id !== null)),
     systemRoleId,
+    groupIds,
   }
 }
 
 function stepMatchesReviewer(
   stepDef: StepRef,
-  reviewerInfo: { roleTypeIds: Set<number>; systemRoleId: number | null }
+  reviewerInfo: { roleTypeIds: Set<number>; systemRoleId: number | null; groupIds: Set<number> }
 ): boolean {
   if (stepDef.reviewer_type === 'system_role') {
     return stepDef.system_role_id !== null && stepDef.system_role_id === reviewerInfo.systemRoleId
@@ -259,15 +267,19 @@ function stepMatchesReviewer(
   if (stepDef.reviewer_type === 'org_role') {
     return stepDef.role_type_id !== null && reviewerInfo.roleTypeIds.has(stepDef.role_type_id)
   }
+  if (stepDef.reviewer_type === 'approval_group') {
+    return stepDef.approval_group_id !== null && reviewerInfo.groupIds.has(stepDef.approval_group_id)
+  }
   return false
 }
 
 export async function checkCanReviewStep(params: {
   userId: number
   stepDef: {
-    reviewer_type: 'org_role' | 'system_role'
+    reviewer_type: 'org_role' | 'system_role' | 'approval_group'
     role_type_id: number | null
     system_role_id: number | null
+    approval_group_id: number | null
     step_number?: number
     step_name?: string
   }
@@ -276,11 +288,13 @@ export async function checkCanReviewStep(params: {
   return stepMatchesReviewer(params.stepDef as StepRef, reviewerInfo)
 }
 
+const STEP_SELECT = 'step_number, step_name, reviewer_type, role_type_id, system_role_id, approval_group_id'
+
 export async function getPendingAllocationsForReviewer(userId: number) {
   const reviewerInfo = await getReviewerInfo(userId)
   const { data } = await supabase
     .from('funds_allocation')
-    .select('*, approval_flow_templates(name, approval_flow_steps(step_number, step_name, reviewer_type, role_type_id, system_role_id))')
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT}))`)
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
   return ((data ?? []) as unknown as Array<{ current_step: number | null; approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
@@ -298,7 +312,7 @@ export async function getPendingPaymentsForReviewer(userId: number) {
   const reviewerInfo = await getReviewerInfo(userId)
   const { data } = await supabase
     .from('funds_payment')
-    .select('*, approval_flow_templates(name, approval_flow_steps(step_number, step_name, reviewer_type, role_type_id, system_role_id))')
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT}))`)
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
   return ((data ?? []) as unknown as Array<{ current_step: number | null; approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
@@ -316,7 +330,7 @@ export async function getPendingVouchersForReviewer(userId: number) {
   const reviewerInfo = await getReviewerInfo(userId)
   const { data } = await supabase
     .from('temp_vouchers')
-    .select('*, approval_flow_templates(approval_flow_steps(step_number, step_name, reviewer_type, role_type_id, system_role_id))')
+    .select(`*, approval_flow_templates(approval_flow_steps(${STEP_SELECT}))`)
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
   return ((data ?? []) as unknown as Array<{ current_step: number | null; approval_flow_templates: { approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)

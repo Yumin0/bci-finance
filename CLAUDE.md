@@ -33,7 +33,9 @@
 - `temp_vouchers`：暫付款沖銷憑單，關聯 `funds_payment_id`（限已付款+預支），`status`（draft/pending/approved/rejected）；`created_by bigint` 關聯 `app_users(id)`
 - `status_label_config`：狀態標籤自訂設定（單列 JSON，含各模組 status 的標籤名稱、顏色 hex、是否顯示步驟名）
 - `approval_flow_templates`：審核流程範本（`form_type`: funds_allocation | payment_voucher | temp_voucher）
-- `approval_flow_steps`：步驟定義（`reviewer_type`: org_role | system_role）
+- `approval_flow_steps`：步驟定義（`reviewer_type`: org_role | system_role | approval_group，`approval_group_id` 關聯 `approval_groups`）
+- `approval_groups`：審核群組（名稱、sort_order）；讓審核步驟可以指定「需要哪個群組的人來審」，例如諮詢議會、主管議會
+- `approval_group_members`：審核群組成員（`group_id` 關聯 `approval_groups`、`user_id` 關聯 `app_users`）；一人可屬於多個群組
 - `approval_records`：每筆審核動作記錄（取代舊 step1~5_* 欄位）
 - `template_payment_accounts`：範本與出款帳號的對應（多對多）
 - `app_users`：系統使用者，含 `system_role_id`、`google_id TEXT`（Google OAuth sub，nullable）；`password_hash` nullable（Google 用戶無密碼）；`sort_order INTEGER` nullable，帳號管理頁「編號」依此排序顯示（空值排最後），可先建立尚未登入帳號（僅 name + email），待使用者首次 Google 登入時依 email 自動比對補上 `google_id`

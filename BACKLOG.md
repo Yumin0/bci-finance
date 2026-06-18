@@ -141,10 +141,12 @@
 - [ ] 側邊欄移除「角色功能權限設定」獨立入口，只留「帳號管理」
 
 #### [審核群組（諮詢議會/主管議會）]（Riku）
-- [ ] 資料庫新增 `approval_groups`、`approval_group_members` 表
-- [ ] 組織架構頁新增「審核群組」獨立區塊，可新增群組並直接加入帳號
-- [ ] 審核流程步驟新增第三種審核人類型「審核群組」
-- [ ] 後端審核邏輯（`checkCanReviewStep`、`getPendingXxxForReviewer`）支援群組比對
+分支：`feature/riku-role-restructure`
+開始：2026-06-18
+- [x] 資料庫新增 `approval_groups`、`approval_group_members` 表（SQL 已提供，需在 Supabase 執行）
+- [x] 審核流程管理頁新增「審核群組」Tab，可新增群組並搜尋帳號加入成員
+- [x] 審核流程步驟新增第三種審核人類型「審核群組」
+- [x] 後端審核邏輯（`checkCanReviewStep`、`getPendingXxxForReviewer`）支援群組比對
 
 #### [帳號支援綁定多個系統角色]
 - **問題**：`app_users` 目前只有一個系統角色欄位，一個帳號只能同時是一種系統角色（例如只能是財務長，不能同時是諮詢議會成員）

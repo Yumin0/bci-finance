@@ -286,7 +286,21 @@ export type FundsAllocation = {
   step5_at: string | null
 }
 
-export type ReviewerType = 'org_role' | 'system_role'
+export type ReviewerType = 'org_role' | 'system_role' | 'approval_group'
+
+export type ApprovalGroup = {
+  id: number
+  name: string
+  sort_order: number
+  created_at: string
+}
+
+export type ApprovalGroupMember = {
+  id: number
+  group_id: number
+  user_id: number
+  created_at: string
+}
 
 export type ApprovalFlowTemplate = {
   id: number
@@ -304,6 +318,7 @@ export type ApprovalFlowStep = {
   reviewer_type: ReviewerType
   role_type_id: number | null
   system_role_id: number | null
+  approval_group_id: number | null
   created_at: string
 }
 
@@ -315,8 +330,10 @@ export type ApprovalFlowStepWithRole = {
   reviewer_type: ReviewerType
   role_type_id: number | null
   system_role_id: number | null
+  approval_group_id: number | null
   role_type_name: string | null
   system_role_name: string | null
+  approval_group_name: string | null
 }
 
 export type ApprovalRecord = {

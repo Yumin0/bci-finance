@@ -18,12 +18,24 @@ function mergeWithDefaults(saved: SidebarCategory[]): SidebarCategory[] {
     const defaultCat = DEFAULT_SIDEBAR_CONFIG.find(d => d.id === savedCat.id)
     if (!defaultCat) return null // 整個分類已從預設移除
 
-    // 只保留預設裡仍存在的項目（移除已廢棄的 id）
+    // 只保留預設裡仍存在的項目（移除已廢棄的 id），並以 DEFAULT 的 label/href 覆蓋
     const filteredEntries = savedCat.entries
       .map(e => {
-        if (e.kind === 'item') return validItemIds.has(e.id) ? e : null
-        const filteredItems = e.items.filter(i => validItemIds.has(i.id))
-        return filteredItems.length > 0 ? { ...e, items: filteredItems } : null
+        if (e.kind === 'item') {
+          if (!validItemIds.has(e.id)) return null
+          const defaultItem = defaultCat.entries.find(de => de.kind === 'item' && de.id === e.id) as typeof e | undefined
+          return defaultItem ? { ...e, label: defaultItem.label, href: defaultItem.href } : e
+        }
+        const defaultGroup = defaultCat.entries.find(de => de.kind === 'group' && de.id === e.id) as typeof e | undefined
+        const filteredItems = e.items
+          .filter(i => validItemIds.has(i.id))
+          .map(item => {
+            const defaultItem = defaultGroup?.items.find(di => di.id === item.id)
+            return defaultItem ? { ...item, label: defaultItem.label, href: defaultItem.href } : item
+          })
+        return filteredItems.length > 0
+          ? { ...e, label: defaultGroup?.label ?? e.label, items: filteredItems }
+          : null
       })
       .filter((e): e is NonNullable<typeof e> => e !== null)
 

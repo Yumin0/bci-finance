@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/table'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import PageHeader from '@/app/_components/PageHeader'
+import OrgApprovalTabNav from '@/app/_components/OrgApprovalTabNav'
 import {
   addUserPosition, removeUserPosition,
   insertOrgUnit, updateOrgUnit, deleteOrgUnit, reorderOrgUnits, moveOrgUnit, updateOrgUnitsExpanded,
@@ -948,7 +949,7 @@ export default function OrgStructurePage() {
     <div className="flex flex-col gap-6">
       <div>
         <PageHeader
-          title="組織架構與職位設定"
+          title="組織架構與審核管理"
           action={
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={handleRelink} disabled={relinking}>{relinking ? '比對中...' : '重新比對帳號'}</Button>
@@ -960,6 +961,8 @@ export default function OrgStructurePage() {
         />
         <p className="mt-1 text-sm text-muted-foreground">管理組織單位的階層結構，設定各職位，並指派對應的使用者。每個節點可獨立收合展開。</p>
       </div>
+
+      <OrgApprovalTabNav />
 
       {isAddingRoot && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border bg-muted/50 px-4 py-3">

@@ -18,9 +18,10 @@ type StepDef = {
   id: number
   step_number: number
   step_name: string
-  reviewer_type: 'org_role' | 'system_role'
+  reviewer_type: 'org_role' | 'system_role' | 'approval_group'
   role_type_id: number | null
   system_role_id: number | null
+  approval_group_id: number | null
 }
 
 type RecordWithTemplate = FundsAllocation & {
@@ -69,7 +70,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
       if (allocation.flow_template_id) {
         const [tmplRes, stepsRes] = await Promise.all([
           supabase.from('approval_flow_templates').select('id, name').eq('id', allocation.flow_template_id).single(),
-          supabase.from('approval_flow_steps').select('id, step_number, step_name, reviewer_type, role_type_id, system_role_id').eq('template_id', allocation.flow_template_id).order('step_number'),
+          supabase.from('approval_flow_steps').select('id, step_number, step_name, reviewer_type, role_type_id, system_role_id, approval_group_id').eq('template_id', allocation.flow_template_id).order('step_number'),
         ])
         steps = (stepsRes.data ?? []) as StepDef[]
         setRecord({
