@@ -76,49 +76,17 @@ export async function getUserAllowedItemIds(userId: number): Promise<string[] | 
     .eq('id', userId)
     .single()
 
-  if (user?.system_role_id) {
-    const { data: role } = await supabase
-      .from('system_roles')
-      .select('is_admin, allowed_item_ids')
-      .eq('id', user.system_role_id)
-      .single()
-    if (role?.is_admin) return 'all'
-    if (role) return role.allowed_item_ids as string[]
-  }
+  if (!user?.system_role_id) return []
 
-  const { data: positions } = await supabase
-    .from('user_positions')
-    .select('org_unit_role_id')
-    .eq('user_id', userId)
-
-  if (!positions?.length) return []
-
-  const orgUnitRoleIds = positions.map((p: { org_unit_role_id: number }) => p.org_unit_role_id)
-  const { data: orgUnitRoles } = await supabase
-    .from('org_unit_roles')
-    .select('role_type_id')
-    .in('id', orgUnitRoleIds)
-
-  if (!orgUnitRoles?.length) return []
-
-  const roleTypeIds = orgUnitRoles.map((r: { role_type_id: number }) => r.role_type_id)
-  const { data: srrt } = await supabase
-    .from('system_role_role_types')
-    .select('system_role_id')
-    .in('role_type_id', roleTypeIds)
-
-  if (!srrt?.length) return []
-
-  const systemRoleIds = [...new Set(srrt.map((r: { system_role_id: number }) => r.system_role_id))]
-  const { data: systemRoles } = await supabase
+  const { data: role } = await supabase
     .from('system_roles')
     .select('is_admin, allowed_item_ids')
-    .in('id', systemRoleIds)
+    .eq('id', user.system_role_id)
+    .single()
 
-  if (systemRoles?.some((r: { is_admin: boolean }) => r.is_admin)) return 'all'
-
-  const allAllowed = systemRoles?.flatMap((r: { allowed_item_ids: string[] }) => r.allowed_item_ids) ?? []
-  return [...new Set(allAllowed)] as string[]
+  if (!role) return []
+  if (role.is_admin) return 'all'
+  return role.allowed_item_ids as string[]
 }
 
 function filterSidebarConfig(config: SidebarCategory[], allowedIds: string[]): SidebarCategory[] {

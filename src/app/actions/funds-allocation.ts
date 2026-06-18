@@ -7,6 +7,8 @@ type FundsAllocationPayload = {
   applicant: string
   apply_division: string | null
   apply_section: string | null
+  apply_division_id: number | null
+  apply_section_id: number | null
   apply_role: string | null
   institution: string | null
   payment_account: string | null

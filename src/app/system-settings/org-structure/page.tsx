@@ -261,8 +261,6 @@ function OrgTreeNode({
   const [isAddingChild, setIsAddingChild] = useState(false)
   const [childName, setChildName] = useState('')
   const [addingChild, setAddingChild] = useState(false)
-  const [isAddingRole, setIsAddingRole] = useState(false)
-  const [selectedRoleTypeId, setSelectedRoleTypeId] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const sizeCls = depthSizeClass(depth)
@@ -270,8 +268,6 @@ function OrgTreeNode({
   const hasChildren = children.length > 0
   const isCollapsed = collapsedUnits.has(unit.id)
   const unitRoles = orgUnitRoles.filter(r => r.org_unit_id === unit.id).sort((a, b) => a.sort_order - b.sort_order)
-  const usedRoleTypeIds = new Set(unitRoles.map(r => r.role_type_id))
-  const availableRoleTypes = roleTypes.filter(r => !usedRoleTypeIds.has(r.id))
 
   async function handleEditSave() {
     if (!editName.trim() || !editLevel.trim()) return
@@ -298,15 +294,6 @@ function OrgTreeNode({
     setAddingChild(false)
     if (err) { setError(err); return }
     setChildName(''); setIsAddingChild(false); onRefresh()
-  }
-
-  async function handleAddRole() {
-    if (!selectedRoleTypeId) return
-    setError(null)
-    const maxOrder = orgUnitRoles.filter(r => r.org_unit_id === unit.id).reduce((m, r) => Math.max(m, r.sort_order), -1)
-    const err = await addOrgUnitRole(unit.id, Number(selectedRoleTypeId), maxOrder + 1)
-    if (err) { setError(err); return }
-    setSelectedRoleTypeId(''); setIsAddingRole(false); onRefresh()
   }
 
   async function handleDeleteRole(roleId: number) {
@@ -375,22 +362,7 @@ function OrgTreeNode({
         />
       ))}
 
-      {roleTypes.length > 0 && (
-        <div className="py-1 pl-7">
-          {isAddingRole ? (
-            <div className="flex items-center gap-2">
-              <select value={selectedRoleTypeId} onChange={e => setSelectedRoleTypeId(e.target.value)} autoFocus className={selectCls}>
-                <option value="">選擇職稱</option>
-                {availableRoleTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
-              </select>
-              <button onClick={handleAddRole} disabled={!selectedRoleTypeId} className={btnSave}>新增</button>
-              <button onClick={() => { setIsAddingRole(false); setSelectedRoleTypeId('') }} className={btnCancel}>取消</button>
-            </div>
-          ) : availableRoleTypes.length > 0 ? (
-            <button onClick={() => setIsAddingRole(true)} className={btnDashed}>+ 新增職位</button>
-          ) : null}
-        </div>
-      )}
+
 
       <MembersSection unit={unit} members={members} users={users} roleTypes={roleTypes} indent={0} onRefresh={onRefresh} />
 

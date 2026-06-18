@@ -595,6 +595,8 @@ export default function AddFundsForm({
       applicant: applicantName,
       apply_division: divUnit ? unitLabel(divUnit) : (fieldValues.apply_division ?? null),
       apply_section: secUnit ? unitLabel(secUnit) : (fieldValues.apply_section ?? null),
+      apply_division_id: divisionId,
+      apply_section_id: sectionId,
       apply_role: fieldValues.apply_role || null,
       institution: fieldValues.institution || null,
       payment_account: fieldValues.payment_account || null,

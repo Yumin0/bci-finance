@@ -142,7 +142,10 @@ export default function EditFundsForm({
         if (r.data) {
           const units = r.data as OrgUnit[]
           setOrgUnits(units)
-          if (record.apply_division) {
+          if (record.apply_division_id) {
+            setDivisionId(record.apply_division_id)
+            if (record.apply_section_id) setSectionId(record.apply_section_id)
+          } else if (record.apply_division) {
             const divUnit = units.find(u => u.unit_type === 'division' && unitLabel(u) === record.apply_division)
             if (divUnit) {
               setDivisionId(divUnit.id)
@@ -602,6 +605,8 @@ export default function EditFundsForm({
       date: fieldValues.date || record.date,
       apply_division: divUnit ? unitLabel(divUnit) : (fieldValues.apply_division ?? null),
       apply_section: secUnit ? unitLabel(secUnit) : (fieldValues.apply_section ?? null),
+      apply_division_id: divisionId,
+      apply_section_id: sectionId,
       apply_role: fieldValues.apply_role || null,
       institution: fieldValues.institution || null,
       payment_account: fieldValues.payment_account || null,

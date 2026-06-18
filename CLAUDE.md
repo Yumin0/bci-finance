@@ -28,12 +28,12 @@
 
 ## 主要資料模型（Supabase 資料表）
 
-- `funds_allocation`：資金分配申請，含 `flow_template_id`、`current_step`、`status`（draft/pending/approved/rejected）；舊 `step1~5_*` 欄位保留備份
+- `funds_allocation`：資金分配申請，含 `flow_template_id`、`current_step`、`status`（draft/pending/approved/rejected）；`apply_division_id` / `apply_section_id` 關聯 `org_units(id)`，驅動審核人判斷（依對應節點的 `org_unit_members` 找負責人）；舊 `step1~5_*` 欄位保留備份
 - `funds_payment`：付款憑單，關聯 `funds_allocation_id`，套用同一套彈性審核架構；`status`（draft/pending/approved/rejected/paid）；`extra_data jsonb` 儲存動態表單自訂欄位值（key 為 slot.label）
 - `temp_vouchers`：暫付款沖銷憑單，關聯 `funds_payment_id`（限已付款+預支），`status`（draft/pending/approved/rejected）；`created_by bigint` 關聯 `app_users(id)`
 - `status_label_config`：狀態標籤自訂設定（單列 JSON，含各模組 status 的標籤名稱、顏色 hex、是否顯示步驟名）
 - `approval_flow_templates`：審核流程範本（`form_type`: funds_allocation | payment_voucher | temp_voucher）
-- `approval_flow_steps`：步驟定義（`reviewer_type`: org_role | system_role | approval_group，`approval_group_id` 關聯 `approval_groups`）
+- `approval_flow_steps`：步驟定義（`reviewer_type`: org_role | system_role | approval_group，`approval_group_id` 關聯 `approval_groups`）；`org_unit_type`（'division' | 'section' | null）當 `reviewer_type = org_role` 時指定層級，搭配申請單的 `apply_division_id`/`apply_section_id` 動態解析審核人
 - `approval_groups`：審核群組（名稱、sort_order）；讓審核步驟可以指定「需要哪個群組的人來審」，例如諮詢議會、主管議會
 - `approval_group_members`：審核群組成員（`group_id` 關聯 `approval_groups`、`user_id` 關聯 `app_users`）；一人可屬於多個群組
 - `approval_records`：每筆審核動作記錄（取代舊 step1~5_* 欄位）

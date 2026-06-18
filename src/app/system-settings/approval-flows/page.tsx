@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { ApprovalFlowTemplate, ApprovalFlowStepWithRole, DropdownOption, RoleType, SystemRole, ApprovalGroup } from '@/lib/types'
+import { ApprovalFlowTemplate, ApprovalFlowStepWithRole, DropdownOption, SystemRole, ApprovalGroup } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,6 +25,7 @@ type StepDraft = {
   step_name: string
   reviewer_type: 'org_role' | 'system_role' | 'approval_group'
   role_type_id: number | null
+  org_unit_type: 'division' | 'section' | null
   system_role_id: number | null
   approval_group_id: number | null
 }
@@ -311,7 +312,6 @@ function GroupsTab() {
 function TemplatesTab() {
   const [creatingForType, setCreatingForType] = useState<FormType>('funds_allocation')
   const [templates, setTemplates] = useState<ApprovalFlowTemplate[]>([])
-  const [roleTypes, setRoleTypes] = useState<{ id: number; name: string }[]>([])
   const [systemRoles, setSystemRoles] = useState<SystemRole[]>([])
   const [approvalGroups, setApprovalGroups] = useState<ApprovalGroup[]>([])
   const [paymentAccounts, setPaymentAccounts] = useState<DropdownOption[]>([])
@@ -328,15 +328,13 @@ function TemplatesTab() {
 
   const loadData = useCallback(async () => {
     setLoading(true)
-    const [tmplRes, rtRes, srRes, paRes, grpData] = await Promise.all([
+    const [tmplRes, srRes, paRes, grpData] = await Promise.all([
       supabase.from('approval_flow_templates').select('*').order('created_at', { ascending: true }),
-      supabase.from('role_types').select('*').order('sort_order'),
       supabase.from('system_roles').select('*').order('sort_order'),
       supabase.from('dropdown_options').select('*').eq('field', 'payment_account').order('sort_order'),
       getApprovalGroups(),
     ])
     setTemplates((tmplRes.data as ApprovalFlowTemplate[]) ?? [])
-    setRoleTypes((rtRes.data as { id: number; name: string }[]) ?? [])
     setSystemRoles((srRes.data as SystemRole[]) ?? [])
     setPaymentAccounts((paRes.data as DropdownOption[]) ?? [])
     setApprovalGroups(grpData)
@@ -368,6 +366,7 @@ function TemplatesTab() {
       step_name: s.step_name,
       reviewer_type: s.reviewer_type,
       role_type_id: s.role_type_id,
+      org_unit_type: s.org_unit_type,
       system_role_id: s.system_role_id,
       approval_group_id: s.approval_group_id,
     }))
@@ -397,7 +396,7 @@ function TemplatesTab() {
     if (currentType !== 'temp_voucher' && editPaymentAccountIds.length === 0) { setError('請選擇至少一個出款帳號'); return }
     for (const s of editSteps) {
       if (!s.step_name.trim()) { setError('步驟名稱不能空白'); return }
-      if (s.reviewer_type === 'org_role' && !s.role_type_id) { setError('請選擇組織職位'); return }
+      if (s.reviewer_type === 'org_role' && !s.org_unit_type) { setError('請選擇審核層級（處別或課別）'); return }
       if (s.reviewer_type === 'system_role' && !s.system_role_id) { setError('請選擇系統角色'); return }
       if (s.reviewer_type === 'approval_group' && !s.approval_group_id) { setError('請選擇審核群組'); return }
     }
@@ -420,7 +419,12 @@ function TemplatesTab() {
       setSelectedTemplate(null)
       setIsPanelOpen(false)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '儲存失敗')
+      const msg = e instanceof Error ? e.message : ''
+      if (msg.includes('approval_flow_steps_check') || msg.includes('reviewer_type_check')) {
+        setError('儲存失敗：審核步驟設定不完整，請確認每個步驟都有選擇層級或群組')
+      } else {
+        setError('儲存失敗，請稍後再試')
+      }
     } finally {
       setSaving(false)
     }
@@ -441,7 +445,7 @@ function TemplatesTab() {
   function addStep() {
     setEditSteps(prev => [
       ...prev,
-      { step_number: prev.length + 1, step_name: '', reviewer_type: 'org_role', role_type_id: null, system_role_id: null, approval_group_id: null },
+      { step_number: prev.length + 1, step_name: '', reviewer_type: 'org_role', role_type_id: null, org_unit_type: null, system_role_id: null, approval_group_id: null },
     ])
   }
 
@@ -614,32 +618,24 @@ function TemplatesTab() {
                         onChange={e => updateStep(i, {
                           reviewer_type: e.target.value as 'org_role' | 'approval_group',
                           role_type_id: null,
+                          org_unit_type: null,
                           system_role_id: null,
                           approval_group_id: null,
                         })}
                         className={selectClass}
                       >
-                        <option value="org_role">組織職位</option>
+                        <option value="org_role">組織層級</option>
                         <option value="approval_group">審核群組</option>
                       </select>
                       {step.reviewer_type === 'org_role' && (
                         <select
-                          value={step.role_type_id ?? ''}
-                          onChange={e => updateStep(i, { role_type_id: Number(e.target.value) || null })}
+                          value={step.org_unit_type ?? ''}
+                          onChange={e => updateStep(i, { org_unit_type: (e.target.value as 'division' | 'section') || null })}
                           className={selectClass}
                         >
-                          <option value="">選擇職位</option>
-                          {roleTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
-                        </select>
-                      )}
-                      {step.reviewer_type === 'system_role' && (
-                        <select
-                          value={step.system_role_id ?? ''}
-                          onChange={e => updateStep(i, { system_role_id: Number(e.target.value) || null })}
-                          className={selectClass}
-                        >
-                          <option value="">選擇角色</option>
-                          {systemRoles.map(sr => <option key={sr.id} value={sr.id}>{sr.name}</option>)}
+                          <option value="">選擇層級</option>
+                          <option value="division">處別</option>
+                          <option value="section">課別</option>
                         </select>
                       )}
                       {step.reviewer_type === 'approval_group' && (

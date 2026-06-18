@@ -260,6 +260,8 @@ export type FundsAllocation = {
   applicant: string | null
   apply_division: string | null
   apply_section: string | null
+  apply_division_id: number | null
+  apply_section_id: number | null
   apply_role: string | null
   serial_number: string | null
   extra_data: Record<string, string> | null
@@ -329,6 +331,7 @@ export type ApprovalFlowStepWithRole = {
   step_name: string
   reviewer_type: ReviewerType
   role_type_id: number | null
+  org_unit_type: 'division' | 'section' | null
   system_role_id: number | null
   approval_group_id: number | null
   role_type_name: string | null
