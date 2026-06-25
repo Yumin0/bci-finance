@@ -2,6 +2,7 @@
 
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
+import { notifyReviewersForStep } from './notifications'
 
 export async function createTempVoucher(
   fundsPaymentId: number,
@@ -68,5 +69,19 @@ export async function submitTempVoucher(id: number): Promise<{ error: string | n
     .eq('status', 'draft')
 
   if (error) return { error: error.message }
+
+  if (flowTemplateId) {
+    notifyReviewersForStep({
+      templateId: flowTemplateId,
+      stepNumber: 1,
+      applyDivisionId: null,
+      applySectionId: null,
+      title: '暫付款沖銷憑單待審核',
+      body: null,
+      link: `/funds-voucher/review/check/${id}`,
+      tempVoucherId: id,
+    }).catch(e => console.error('Notification error:', e))
+  }
+
   return { error: null }
 }

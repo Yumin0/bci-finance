@@ -4,6 +4,7 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { FundsPayment, FundsAllocation } from '@/lib/types'
 import { PAYMENT_STATUS } from '@/lib/constants'
+import { notifyReviewersForStep } from './notifications'
 
 export async function getMyPayment(id: number): Promise<{ data: FundsPayment | null; error: string | null }> {
   const session = await getSession()
@@ -163,5 +164,24 @@ export async function submitMyPayment(id: number): Promise<{ error: string | nul
     .eq('created_by', String(session.userId))
 
   if (error) return { error: error.message }
+
+  if (flowTemplateId) {
+    const { data: payment } = await supabase
+      .from('funds_payment')
+      .select('name')
+      .eq('id', id)
+      .single()
+    notifyReviewersForStep({
+      templateId: flowTemplateId,
+      stepNumber: 1,
+      applyDivisionId: null,
+      applySectionId: null,
+      title: '付款憑單待審核',
+      body: payment?.name ?? null,
+      link: `/funds-payment/review/check/${id}`,
+      fundsPaymentId: id,
+    }).catch(e => console.error('Notification error:', e))
+  }
+
   return { error: null }
 }

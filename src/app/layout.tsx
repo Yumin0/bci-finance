@@ -5,8 +5,10 @@ import { getSession } from "@/lib/session";
 import SidebarLayout from "@/app/_components/SidebarLayout";
 import ThemeProvider from "@/app/_components/ThemeProvider";
 import UserAvatar from "@/app/_components/UserAvatar";
+import NotificationBell from "@/app/_components/NotificationBell";
 import { getSidebarConfigForUser } from "@/app/actions/sidebar-config";
 import { getUserAvatarUrl } from "@/app/actions/account";
+import { getUnreadCount } from "@/app/actions/notifications";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,6 +37,7 @@ export default async function RootLayout({
   const session = await getSession()
   const sidebarConfig = session ? await getSidebarConfigForUser(session.userId) : []
   const avatarUrl = session ? await getUserAvatarUrl(session.userId) : null
+  const unreadCount = session ? await getUnreadCount(session.userId) : 0
 
   return (
     <html
@@ -53,7 +56,8 @@ export default async function RootLayout({
                 <Link href="/" style={{ fontWeight: 'bold', fontSize: 16, textDecoration: 'none', color: 'var(--text-title)' }}>
                   BCI 財務系統
                 </Link>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <NotificationBell userId={session.userId} initialUnreadCount={unreadCount} />
                   <UserAvatar userId={session.userId} name={session.name} initialAvatarUrl={avatarUrl} />
                 </div>
               </header>

@@ -1,6 +1,7 @@
 'use server'
 
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
+import { notifyReviewersForStep } from './notifications'
 
 type FundsAllocationPayload = {
   date: string
@@ -32,6 +33,20 @@ export async function createFundsAllocation(payload: FundsAllocationPayload) {
     .select('id')
     .single()
   if (error) return { data: null, error: error.message }
+
+  if (payload.status === 'pending' && payload.flow_template_id && data) {
+    notifyReviewersForStep({
+      templateId: payload.flow_template_id,
+      stepNumber: 1,
+      applyDivisionId: payload.apply_division_id,
+      applySectionId: payload.apply_section_id,
+      title: '資金分配申請待審核',
+      body: payload.name,
+      link: `/funds-allocation/review/check/${data.id}`,
+      fundsAllocationId: data.id,
+    }).catch(e => console.error('Notification error:', e))
+  }
+
   return { data, error: null }
 }
 
@@ -41,6 +56,20 @@ export async function updateFundsAllocation(
 ): Promise<{ error: string | null }> {
   const { error } = await supabase.from('funds_allocation').update(updates).eq('id', id)
   if (error) return { error: error.message }
+
+  if (updates.status === 'pending' && updates.flow_template_id) {
+    notifyReviewersForStep({
+      templateId: updates.flow_template_id,
+      stepNumber: 1,
+      applyDivisionId: updates.apply_division_id ?? null,
+      applySectionId: updates.apply_section_id ?? null,
+      title: '資金分配申請待審核',
+      body: updates.name ?? null,
+      link: `/funds-allocation/review/check/${id}`,
+      fundsAllocationId: id,
+    }).catch(e => console.error('Notification error:', e))
+  }
+
   return { error: null }
 }
 

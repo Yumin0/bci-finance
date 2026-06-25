@@ -2,6 +2,7 @@
 
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { ApprovalFlowTemplate, ApprovalFlowStep, ApprovalFlowStepWithRole } from '@/lib/types'
+import { notifyReviewersForStep, notifyApplicant } from './notifications'
 
 // ── 查詢 ──────────────────────────────────────────────
 
@@ -230,6 +231,142 @@ export async function submitApprovalDecision(params: {
       .update({ status: newStatus, current_step: newCurrentStep, updated_at: new Date().toISOString() })
       .eq('id', tempVoucherId)
     if (error) throw new Error(error.message)
+  }
+
+  // ── 通知（失敗不影響主流程）────────────────────────────────
+  try {
+    if (fundsAllocationId) {
+      const { data: alloc } = await supabase
+        .from('funds_allocation')
+        .select('created_by, apply_division_id, apply_section_id, flow_template_id, name')
+        .eq('id', fundsAllocationId)
+        .single()
+      if (alloc) {
+        const applicantId = parseInt(String(alloc.created_by), 10)
+        if (decision === 'approved' && !isLastStep) {
+          await notifyReviewersForStep({
+            templateId: alloc.flow_template_id,
+            stepNumber: stepNumber + 1,
+            applyDivisionId: alloc.apply_division_id,
+            applySectionId: alloc.apply_section_id,
+            title: '資金分配申請待審核',
+            body: alloc.name,
+            link: `/funds-allocation/review/check/${fundsAllocationId}`,
+            fundsAllocationId,
+          })
+        } else if (decision === 'approved' && isLastStep) {
+          await notifyApplicant({
+            userId: applicantId,
+            type: 'approved',
+            title: '資金分配申請已核准',
+            body: alloc.name,
+            link: `/funds-allocation/my-funds/edit/${fundsAllocationId}`,
+            fundsAllocationId,
+          })
+          await notifyApplicant({
+            userId: applicantId,
+            type: 'payment_ready',
+            title: '可建立付款憑單',
+            body: alloc.name,
+            link: `/funds-payment/my-payment/add/${fundsAllocationId}`,
+            fundsAllocationId,
+          })
+        } else if (decision === 'rejected') {
+          await notifyApplicant({
+            userId: applicantId,
+            type: 'rejected',
+            title: '資金分配申請已退回',
+            body: alloc.name,
+            link: `/funds-allocation/my-funds/edit/${fundsAllocationId}`,
+            fundsAllocationId,
+          })
+        }
+      }
+    }
+
+    if (fundsPaymentId) {
+      const { data: payment } = await supabase
+        .from('funds_payment')
+        .select('created_by, flow_template_id, name')
+        .eq('id', fundsPaymentId)
+        .single()
+      if (payment) {
+        const applicantId = parseInt(String(payment.created_by), 10)
+        if (decision === 'approved' && !isLastStep) {
+          await notifyReviewersForStep({
+            templateId: payment.flow_template_id,
+            stepNumber: stepNumber + 1,
+            applyDivisionId: null,
+            applySectionId: null,
+            title: '付款憑單待審核',
+            body: payment.name,
+            link: `/funds-payment/review/check/${fundsPaymentId}`,
+            fundsPaymentId,
+          })
+        } else if (decision === 'approved' && isLastStep) {
+          await notifyApplicant({
+            userId: applicantId,
+            type: 'approved',
+            title: '付款憑單已核准',
+            body: payment.name,
+            link: `/funds-payment/my-payment/${fundsPaymentId}`,
+            fundsPaymentId,
+          })
+        } else if (decision === 'rejected') {
+          await notifyApplicant({
+            userId: applicantId,
+            type: 'rejected',
+            title: '付款憑單已退回',
+            body: payment.name,
+            link: `/funds-payment/my-payment/${fundsPaymentId}`,
+            fundsPaymentId,
+          })
+        }
+      }
+    }
+
+    if (tempVoucherId) {
+      const { data: voucher } = await supabase
+        .from('temp_vouchers')
+        .select('created_by, flow_template_id')
+        .eq('id', tempVoucherId)
+        .single()
+      if (voucher) {
+        const applicantId = Number(voucher.created_by)
+        if (decision === 'approved' && !isLastStep) {
+          await notifyReviewersForStep({
+            templateId: voucher.flow_template_id,
+            stepNumber: stepNumber + 1,
+            applyDivisionId: null,
+            applySectionId: null,
+            title: '暫付款沖銷憑單待審核',
+            body: null,
+            link: `/funds-voucher/review/check/${tempVoucherId}`,
+            tempVoucherId,
+          })
+        } else if (decision === 'approved' && isLastStep) {
+          await notifyApplicant({
+            userId: applicantId,
+            type: 'approved',
+            title: '暫付款沖銷憑單已核准',
+            body: null,
+            link: `/funds-voucher/my-voucher/${tempVoucherId}`,
+            tempVoucherId,
+          })
+        } else if (decision === 'rejected') {
+          await notifyApplicant({
+            userId: applicantId,
+            type: 'rejected',
+            title: '暫付款沖銷憑單已退回',
+            body: null,
+            link: `/funds-voucher/my-voucher/${tempVoucherId}`,
+            tempVoucherId,
+          })
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Notification error:', e)
   }
 }
 

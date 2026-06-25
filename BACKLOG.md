@@ -7,6 +7,10 @@
 
 ## 進行中
 
+**通知功能**（Riku）
+分支：`feature/riku-notification`
+開始：2026-06-25
+
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04
