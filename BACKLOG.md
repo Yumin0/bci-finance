@@ -7,10 +7,6 @@
 
 ## 進行中
 
-**通知功能**（Riku）
-分支：`feature/riku-notification`
-開始：2026-06-25
-
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04
@@ -158,6 +154,14 @@
 
 ### 🟢 低優先 / 未來探索
 
+#### [站外通知（推播）]（Riku）
+- **目標**：在現有站內通知基礎上，支援站外推播，讓使用者不開瀏覽器也能收到通知
+- **備選方案**：
+  - **Browser Push Notification**：Web Push API + Service Worker，使用者同意後可在瀏覽器背景推播（不需 App）
+  - **Email 通知**：寄信到使用者 email，適合低頻重要事件（最終核准/退回）
+  - **Line Notify / Line Bot**：若公司內部使用 Line，接入 Line Notify 或 Messaging API
+- **備註**：現有 `notifications` 資料表架構已可擴充；推播 token 需新增欄位儲存（`app_users.push_token`）；優先確認公司偏好的通知管道再實作
+
 #### [剩餘金額計算（個人儀表板畫面）]
 - **目標**：在個人儀表板顯示個人剩餘可用金額，讓申請人掌握自身預算狀況
 
@@ -212,6 +216,9 @@
 ---
 
 ## 已完成
+
+**~~[通知功能]~~**（2026-06-25，Riku）
+頂列頭像左側新增鈴鐺通知圖示；表單送出時通知第一步審核人（資金分配/付款憑單/暫付款沖銷）；審核核准時通知下一步審核人；最終核准/退回時通知申請人；資金分配最終核准額外通知可建立付款憑單；新增 `notifications` 資料表與 Server Action；通知顯示申請人英文名（email 衍生），每 60 秒自動更新未讀數。
 
 **審核流程 Phase 2：處別/課別驅動審核人 + 申請單存 org_unit ID**（2026-06-18，Riku）
 審核流程步驟設定改為選「處別」/「課別」取代舊的職稱列表（`org_unit_type` 欄位取代 `role_type_id`）；`funds_allocation` 新增 `apply_division_id`、`apply_section_id` 欄位（關聯 `org_units`）；新增/編輯申請單時同步儲存所選節點 ID；`stepMatchesReviewer` 改為依 `org_unit_type` 找申請單對應節點的負責人（`org_unit_members`）；`checkCanReviewStep` 與 `getPendingAllocationsForReviewer` 接上新邏輯；換人負責只需更新組織架構，後續單子自動流向新負責人；移除組織架構「+ 新增職位」按鈕（改以「+ 新增負責人」統一管理）。

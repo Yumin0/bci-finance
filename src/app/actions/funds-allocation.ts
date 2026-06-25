@@ -2,6 +2,7 @@
 
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { notifyReviewersForStep } from './notifications'
+import { emailToEnglishName } from '@/lib/userNames'
 
 type FundsAllocationPayload = {
   date: string
@@ -35,16 +36,23 @@ export async function createFundsAllocation(payload: FundsAllocationPayload) {
   if (error) return { data: null, error: error.message }
 
   if (payload.status === 'pending' && payload.flow_template_id && data) {
-    notifyReviewersForStep({
-      templateId: payload.flow_template_id,
-      stepNumber: 1,
-      applyDivisionId: payload.apply_division_id,
-      applySectionId: payload.apply_section_id,
-      title: '資金分配申請待審核',
-      body: payload.name,
-      link: `/funds-allocation/review/check/${data.id}`,
-      fundsAllocationId: data.id,
-    }).catch(e => console.error('Notification error:', e))
+    ;(async () => {
+      try {
+        const createdById = parseInt(String(payload.created_by), 10)
+        const { data: user } = await supabase.from('app_users').select('email').eq('id', createdById).single()
+        const body = user?.email ? `申請人：${emailToEnglishName(user.email)}` : payload.name
+        await notifyReviewersForStep({
+          templateId: payload.flow_template_id!,
+          stepNumber: 1,
+          applyDivisionId: payload.apply_division_id,
+          applySectionId: payload.apply_section_id,
+          title: '資金分配申請待審核',
+          body,
+          link: `/funds-allocation/review/check/${data!.id}`,
+          fundsAllocationId: data!.id,
+        })
+      } catch (e) { console.error('Notification error:', e) }
+    })()
   }
 
   return { data, error: null }
@@ -58,16 +66,32 @@ export async function updateFundsAllocation(
   if (error) return { error: error.message }
 
   if (updates.status === 'pending' && updates.flow_template_id) {
-    notifyReviewersForStep({
-      templateId: updates.flow_template_id,
-      stepNumber: 1,
-      applyDivisionId: updates.apply_division_id ?? null,
-      applySectionId: updates.apply_section_id ?? null,
-      title: '資金分配申請待審核',
-      body: updates.name ?? null,
-      link: `/funds-allocation/review/check/${id}`,
-      fundsAllocationId: id,
-    }).catch(e => console.error('Notification error:', e))
+    const createdById = updates.created_by ? parseInt(String(updates.created_by), 10) : null
+    const doNotify = async (body: string | null) => {
+      try {
+        await notifyReviewersForStep({
+          templateId: updates.flow_template_id!,
+          stepNumber: 1,
+          applyDivisionId: updates.apply_division_id ?? null,
+          applySectionId: updates.apply_section_id ?? null,
+          title: '資金分配申請待審核',
+          body,
+          link: `/funds-allocation/review/check/${id}`,
+          fundsAllocationId: id,
+        })
+      } catch (e) { console.error('Notification error:', e) }
+    }
+
+    ;(async () => {
+      try {
+        let body: string | null = updates.name ?? null
+        if (createdById) {
+          const { data: user } = await supabase.from('app_users').select('email').eq('id', createdById).single()
+          if (user?.email) body = `申請人：${emailToEnglishName(user.email)}`
+        }
+        await doNotify(body)
+      } catch (e) { console.error('Notification error:', e) }
+    })()
   }
 
   return { error: null }

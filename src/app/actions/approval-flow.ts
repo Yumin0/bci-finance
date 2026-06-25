@@ -3,6 +3,7 @@
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { ApprovalFlowTemplate, ApprovalFlowStep, ApprovalFlowStepWithRole } from '@/lib/types'
 import { notifyReviewersForStep, notifyApplicant } from './notifications'
+import { emailToEnglishName } from '@/lib/userNames'
 
 // ── 查詢 ──────────────────────────────────────────────
 
@@ -243,6 +244,8 @@ export async function submitApprovalDecision(params: {
         .single()
       if (alloc) {
         const applicantId = parseInt(String(alloc.created_by), 10)
+        const { data: creator } = await supabase.from('app_users').select('email').eq('id', applicantId).single()
+        const allocBody = creator?.email ? `申請人：${emailToEnglishName(creator.email)}` : alloc.name
         if (decision === 'approved' && !isLastStep) {
           await notifyReviewersForStep({
             templateId: alloc.flow_template_id,
@@ -250,7 +253,7 @@ export async function submitApprovalDecision(params: {
             applyDivisionId: alloc.apply_division_id,
             applySectionId: alloc.apply_section_id,
             title: '資金分配申請待審核',
-            body: alloc.name,
+            body: allocBody,
             link: `/funds-allocation/review/check/${fundsAllocationId}`,
             fundsAllocationId,
           })
@@ -259,7 +262,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'approved',
             title: '資金分配申請已核准',
-            body: alloc.name,
+            body: allocBody,
             link: `/funds-allocation/my-funds/edit/${fundsAllocationId}`,
             fundsAllocationId,
           })
@@ -267,7 +270,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'payment_ready',
             title: '可建立付款憑單',
-            body: alloc.name,
+            body: allocBody,
             link: `/funds-payment/my-payment/add/${fundsAllocationId}`,
             fundsAllocationId,
           })
@@ -276,7 +279,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'rejected',
             title: '資金分配申請已退回',
-            body: alloc.name,
+            body: allocBody,
             link: `/funds-allocation/my-funds/edit/${fundsAllocationId}`,
             fundsAllocationId,
           })
@@ -292,6 +295,8 @@ export async function submitApprovalDecision(params: {
         .single()
       if (payment) {
         const applicantId = parseInt(String(payment.created_by), 10)
+        const { data: paymentCreator } = await supabase.from('app_users').select('email').eq('id', applicantId).single()
+        const paymentBody = paymentCreator?.email ? `申請人：${emailToEnglishName(paymentCreator.email)}` : payment.name
         if (decision === 'approved' && !isLastStep) {
           await notifyReviewersForStep({
             templateId: payment.flow_template_id,
@@ -299,7 +304,7 @@ export async function submitApprovalDecision(params: {
             applyDivisionId: null,
             applySectionId: null,
             title: '付款憑單待審核',
-            body: payment.name,
+            body: paymentBody,
             link: `/funds-payment/review/check/${fundsPaymentId}`,
             fundsPaymentId,
           })
@@ -308,7 +313,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'approved',
             title: '付款憑單已核准',
-            body: payment.name,
+            body: paymentBody,
             link: `/funds-payment/my-payment/${fundsPaymentId}`,
             fundsPaymentId,
           })
@@ -317,7 +322,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'rejected',
             title: '付款憑單已退回',
-            body: payment.name,
+            body: paymentBody,
             link: `/funds-payment/my-payment/${fundsPaymentId}`,
             fundsPaymentId,
           })
