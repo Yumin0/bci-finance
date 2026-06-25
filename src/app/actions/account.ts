@@ -3,6 +3,15 @@ import bcrypt from 'bcryptjs'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
+export async function getUserAvatarUrl(userId: number): Promise<string | null> {
+  const { data } = await supabase
+    .from('app_users')
+    .select('avatar_url')
+    .eq('id', userId)
+    .single()
+  return data?.avatar_url ?? null
+}
+
 export async function getAccountsForManagement() {
   const { data } = await supabase
     .from('app_users')

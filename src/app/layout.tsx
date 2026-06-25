@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
-import { logout } from "@/app/actions/auth";
 import SidebarLayout from "@/app/_components/SidebarLayout";
 import ThemeProvider from "@/app/_components/ThemeProvider";
-import ThemeToggle from "@/app/_components/ThemeToggle";
+import UserAvatar from "@/app/_components/UserAvatar";
 import { getSidebarConfigForUser } from "@/app/actions/sidebar-config";
+import { getUserAvatarUrl } from "@/app/actions/account";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,6 +34,7 @@ export default async function RootLayout({
 }>) {
   const session = await getSession()
   const sidebarConfig = session ? await getSidebarConfigForUser(session.userId) : []
+  const avatarUrl = session ? await getUserAvatarUrl(session.userId) : null
 
   return (
     <html
@@ -48,18 +49,12 @@ export default async function RootLayout({
         <ThemeProvider>
           {session ? (
             <>
-              <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 52, background: 'var(--bg-header)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+              <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 52, background: 'var(--bg-header)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 48px 0 24px' }}>
                 <Link href="/" style={{ fontWeight: 'bold', fontSize: 16, textDecoration: 'none', color: 'var(--text-title)' }}>
                   BCI 財務系統
                 </Link>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <ThemeToggle />
-                  <span style={{ fontSize: 14, color: 'var(--text-body)' }}>{session.name}</span>
-                  <form action={logout}>
-                    <button type="submit" style={{ fontSize: 13, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--btn-border)', borderRadius: 4, padding: '4px 12px', cursor: 'pointer' }}>
-                      登出
-                    </button>
-                  </form>
+                  <UserAvatar userId={session.userId} name={session.name} initialAvatarUrl={avatarUrl} />
                 </div>
               </header>
               <SidebarLayout config={sidebarConfig}>

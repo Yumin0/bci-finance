@@ -38,7 +38,7 @@
 - `approval_group_members`：審核群組成員（`group_id` 關聯 `approval_groups`、`user_id` 關聯 `app_users`）；一人可屬於多個群組
 - `approval_records`：每筆審核動作記錄（取代舊 step1~5_* 欄位）
 - `template_payment_accounts`：範本與出款帳號的對應（多對多）
-- `app_users`：系統使用者，含 `system_role_id`、`google_id TEXT`（Google OAuth sub，nullable）；`password_hash` nullable（Google 用戶無密碼）；`sort_order INTEGER` nullable，帳號管理頁「編號」依此排序顯示（空值排最後），可先建立尚未登入帳號（僅 name + email），待使用者首次 Google 登入時依 email 自動比對補上 `google_id`
+- `app_users`：系統使用者，含 `system_role_id`、`google_id TEXT`（Google OAuth sub，nullable）；`password_hash` nullable（Google 用戶無密碼）；`sort_order INTEGER` nullable，帳號管理頁「編號」依此排序顯示（空值排最後）；`avatar_url TEXT` nullable，頭像圖片公開 URL（上傳至 Storage Bucket `avatars`，路徑：`{userId}/{timestamp}`）；可先建立尚未登入帳號（僅 name + email），待使用者首次 Google 登入時依 email 自動比對補上 `google_id`
 - `user_positions`：使用者職位，關聯 `org_unit_role_id`，`is_primary` 標記主職位
 - `org_units`：組織單位，樹狀結構（單一樹根，深度不限，由 `parent_id` 決定階層），`level` 為自由文字標籤（純顯示用，例如「L2 主幹」「處」「課」）；`unit_type`（'division' | 'section' | null）標記該節點是否為「處別」/「課別」，由組織架構頁手動標記，驅動資金分配申請「申請處別/課別」推算（見 `lib/orgPositions.ts`）；支援拖曳調整同層順序與跨層級重新掛載；`default_expanded boolean`（預設 true）控制主畫面初始展開/收合狀態，可在「排列組織架構」Modal 中調整並按「儲存收合設定」批次套用
 - `org_unit_members`：組織單位成員（負責人），`org_unit_id` 關聯 `org_units`、`display_name` 姓名（依使用者 email 自動產生英文名，或 Excel 匯入的暫定人員）、`user_id` 可選關聯 `app_users(id)`；組織架構頁「+新增負責人」改為搜尋系統使用者直接綁定，既有未綁定的文字標籤可透過「重新比對帳號」依 email 英文名批次回填 `user_id`
@@ -60,6 +60,7 @@
 - `application_cycle_config`：申請週期設定（單列），`allowed_weekdays int[]`（0=日～6=六）、`weeks_ahead int`（預設 3）；空陣列代表不限制，僅套用於資金分配申請的申請日期欄位
 - `tax_rate_options`：稅額選項設定，`label` 名稱、`formula_steps jsonb`（步驟陣列，每步含 `op: +/-/*/\/` 與 `value: number`）、`sort_order`；搭配表單欄位 `dataSource: 'tax_rates'` 使用，支援多步驟連乘除計算
 - **Storage Bucket** `issue-images`：問題回報圖片（路徑：`{issueId}/{timestamp}.{ext}`）
+- **Storage Bucket** `avatars`：使用者頭像（Public，路徑：`{userId}/{timestamp}`）；對應 `app_users.avatar_url`，上傳 API：`/api/upload-avatar`
 
 ## 目錄結構
 
