@@ -9,6 +9,7 @@ import NotificationBell from "@/app/_components/NotificationBell";
 import { getSidebarConfigForUser } from "@/app/actions/sidebar-config";
 import { getUserAvatarUrl } from "@/app/actions/account";
 import { getUnreadCount } from "@/app/actions/notifications";
+import { DevEnvBadge } from "@/app/_components/DevEnvBadge";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -68,6 +69,7 @@ export default async function RootLayout({
           ) : (
             children
           )}
+          <DevEnvBadge />
         </ThemeProvider>
       </body>
     </html>

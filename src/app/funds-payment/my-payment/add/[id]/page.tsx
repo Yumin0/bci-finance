@@ -185,6 +185,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
                   fullRecords.push({ label, searchKey, fieldValuesByLabel })
                 }
               }
+              options.sort((a, b) => parseFloat(a.label) - parseFloat(b.label))
               setDynamicSelectOptions(prev => ({ ...prev, [src]: options }))
               if (isPayee) {
                 setPayeeFullRecords(prev => ({ ...prev, [src]: fullRecords }))

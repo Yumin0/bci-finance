@@ -214,6 +214,7 @@ export default function EditFundsForm({
           const label = vals.join(' ')
           return { value: label, label }
         }).filter(o => o.label)
+          .sort((a, b) => parseFloat(a.label) - parseFloat(b.label))
         setDynamicSelectOptions(prev => ({ ...prev, [sourceKey]: options }))
       }
       for (const src of neededSources) {
