@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
-import { FundsAllocation, DropdownOption, ExpenseItem, OrgUnit, FormBlock, FormSchemaRow, FormSlot, StepDecision, TaxRateOption } from '@/lib/types'
+import { FundsAllocation, DropdownOption, OrgUnit, FormBlock, FormSchemaRow, FormSlot, StepDecision, TaxRateOption } from '@/lib/types'
 import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtils'
 import { deriveUserOrgCombos, divisionOptionsFromCombos, sectionOptionsFromCombos, allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
@@ -50,7 +50,6 @@ export default function EditFundsForm({
   const [memberUnitIds, setMemberUnitIds] = useState<number[]>([])
   const [memberRoleMap, setMemberRoleMap] = useState<Record<number, string[]>>({})
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
-  const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([])
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
 
   const [divisionId, setDivisionId] = useState<number | null>(null)
@@ -188,11 +187,6 @@ export default function EditFundsForm({
           setDropdownOptions(grouped)
         }
       }
-      const loadExpenseItems = async () => {
-        const r = await supabase.from('expense_items').select('*').order('sort_order')
-        if (r.data) setExpenseItems(r.data as ExpenseItem[])
-      }
-
       if (neededSources.has('org_units:division') || neededSources.has('org_units:section') || neededSources.has('org_unit_roles')) {
         fetches.push(loadOrgUnits(), loadMyMemberships())
       }
@@ -200,7 +194,6 @@ export default function EditFundsForm({
       if (neededSources.has('dropdown_options:institution')) dropdownFields.push('institution')
       if (neededSources.has('dropdown_options:payment_account')) dropdownFields.push('payment_account')
       if (dropdownFields.length) fetches.push(loadDropdowns(dropdownFields))
-      if (neededSources.has('expense_items')) fetches.push(loadExpenseItems())
       if (neededSources.has('tax_rates')) {
         fetches.push(getTaxRateOptions().then(data => setTaxRateOptions(data)))
       }
@@ -485,7 +478,6 @@ export default function EditFundsForm({
     if (type === 'select') {
       let options: { value: string; label: string }[] = []
       if (dataSource === 'static') options = (staticOptions ?? []).map(o => ({ value: o, label: o }))
-      else if (dataSource === 'expense_items') options = expenseItems.map(i => ({ value: i.label, label: i.label }))
       else if (dataSource.startsWith('dropdown_options:')) {
         options = (dropdownOptions[dataSource.replace('dropdown_options:', '')] ?? []).map(o => ({ value: o.label, label: o.label }))
       } else if (dataSource.startsWith('fee_records:') || dataSource.startsWith('payee_records:')) {

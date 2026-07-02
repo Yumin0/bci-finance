@@ -235,12 +235,6 @@ export type FormBlock = {
   showWhen?: { fieldId: string; value: string }
 }
 
-export type ExpenseItem = {
-  id: number
-  label: string
-  sort_order: number
-  created_at: string
-}
 
 export type FundsAllocation = {
   id: number

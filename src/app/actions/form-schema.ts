@@ -12,7 +12,6 @@ const FALLBACK_DATA_SOURCES: FormDataSourceDef[] = [
   { id: 6,  label: '今天日期（自動帶入）', source_key: 'today_date',                    applicable_types: ['date'],                          is_static_options: false, sort_order: 50 },
   { id: 7,  label: '系統自動流水號',       source_key: 'auto_number',                   applicable_types: ['text','number'],                 is_static_options: false, sort_order: 60 },
   { id: 8,  label: '自訂選項（手動輸入）', source_key: 'static',                        applicable_types: ['select','radio'],                is_static_options: true,  sort_order: 70 },
-  { id: 9,  label: '費用項目清單',         source_key: 'expense_items',                 applicable_types: ['select'],                        is_static_options: false, sort_order: 80 },
   { id: 10, label: '機構清單',             source_key: 'dropdown_options:institution',  applicable_types: ['select'],                        is_static_options: false, sort_order: 90 },
   { id: 11, label: '出款帳戶清單',         source_key: 'dropdown_options:payment_account', applicable_types: ['select'],                     is_static_options: false, sort_order: 100 },
   { id: 12, label: '組織單位（處）',       source_key: 'org_units:division',            applicable_types: ['select'],                        is_static_options: false, sort_order: 110 },
@@ -89,7 +88,7 @@ const DEFAULT_FUNDS_BLOCKS: FormBlock[] = [
         { fieldId: 'payment_account', label: '出款帳戶', required: false, type: 'select', dataSource: 'dropdown_options:payment_account' },
       ]},
       { id: 'r5', cols: 2, slots: [
-        { fieldId: 'expense_item', label: '費用項目', required: false, type: 'select', dataSource: 'expense_items' },
+        null,
         { fieldId: 'name', label: '項目', required: true, type: 'text', dataSource: 'none' },
       ]},
       { id: 'r6', cols: 2, slots: [
@@ -131,7 +130,7 @@ const DEFAULT_PAYMENT_BLOCKS: FormBlock[] = [
         { fieldId: 'payment_account', label: '出款帳戶', required: false, type: 'select', dataSource: 'dropdown_options:payment_account' },
       ]},
       { id: 'r5', cols: 2, slots: [
-        { fieldId: 'expense_item', label: '費用項目', required: false, type: 'select', dataSource: 'expense_items' },
+        null,
         { fieldId: 'name', label: '項目', required: false, type: 'text', dataSource: 'none' },
       ]},
       { id: 'r6', cols: 2, slots: [

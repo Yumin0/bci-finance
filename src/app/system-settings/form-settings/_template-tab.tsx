@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsAllocationTemplate, OrgUnit, DropdownOption, ExpenseItem } from '@/lib/types'
+import { FundsAllocationTemplate, OrgUnit, DropdownOption } from '@/lib/types'
 import { allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Button } from '@/components/ui/button'
@@ -26,7 +26,6 @@ type EditorValues = {
   apply_role: string
   institution: string
   payment_account: string
-  expense_item: string
   item_name: string
   amount: string
   category: string
@@ -35,7 +34,7 @@ type EditorValues = {
 
 const EMPTY_EDITOR: EditorValues = {
   name: '', apply_division: '', apply_section: '', apply_role: '',
-  institution: '', payment_account: '', expense_item: '',
+  institution: '', payment_account: '',
   item_name: '', amount: '', category: '', note: '',
 }
 
@@ -48,7 +47,6 @@ function templateToEditor(t: FundsAllocationTemplate): EditorValues {
     apply_role: v.apply_role ?? '',
     institution: v.institution ?? '',
     payment_account: v.payment_account ?? '',
-    expense_item: v.expense_item ?? '',
     item_name: v.name ?? '',
     amount: v.amount ?? '',
     category: v.category ?? '',
@@ -63,7 +61,6 @@ function editorToFieldValues(ev: EditorValues): Record<string, string> {
     apply_role: ev.apply_role,
     institution: ev.institution,
     payment_account: ev.payment_account,
-    expense_item: ev.expense_item,
     name: ev.item_name,
     amount: ev.amount,
     category: ev.category,
@@ -83,7 +80,6 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
   const [orgUnitRoles, setOrgUnitRoles] = useState<RoleRow[]>([])
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
-  const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([])
   const [dataLoaded, setDataLoaded] = useState(false)
 
   useEffect(() => {
@@ -98,11 +94,10 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 
   async function loadDataSources() {
     if (dataLoaded) return
-    const [ouRes, orRes, doRes, eiRes] = await Promise.all([
+    const [ouRes, orRes, doRes] = await Promise.all([
       supabase.from('org_units').select('*').order('sort_order'),
       supabase.from('org_unit_roles').select('id, org_unit_id, display_name, role_types(name)').order('sort_order'),
       supabase.from('dropdown_options').select('*').in('field', ['institution', 'payment_account']).order('sort_order'),
-      supabase.from('expense_items').select('*').order('sort_order'),
     ])
     if (ouRes.data) setOrgUnits(ouRes.data as OrgUnit[])
     if (orRes.data) setOrgUnitRoles(orRes.data as unknown as RoleRow[])
@@ -114,7 +109,6 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
       }
       setDropdownOptions(grouped)
     }
-    if (eiRes.data) setExpenseItems(eiRes.data as ExpenseItem[])
     setDataLoaded(true)
   }
 
@@ -180,7 +174,6 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 
   const institutionOptions = (dropdownOptions['institution'] ?? []).map(o => ({ value: o.label, label: o.label }))
   const paymentAccountOptions = (dropdownOptions['payment_account'] ?? []).map(o => ({ value: o.label, label: o.label }))
-  const expenseItemOptions = expenseItems.map(i => ({ value: i.label, label: i.label }))
 
   if (loading) return <p className="text-sm text-muted-foreground">載入中...</p>
 
@@ -253,14 +246,6 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
                     value={editorValues.payment_account}
                     onChange={v => setVal('payment_account', v)}
                     options={paymentAccountOptions}
-                    placeholder="選填"
-                  />
-                </FieldRow>
-                <FieldRow label="費用項目">
-                  <SearchableSelect
-                    value={editorValues.expense_item}
-                    onChange={v => setVal('expense_item', v)}
-                    options={expenseItemOptions}
                     placeholder="選填"
                   />
                 </FieldRow>

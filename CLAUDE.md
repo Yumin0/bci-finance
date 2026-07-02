@@ -20,7 +20,7 @@
 | 付款憑單 | `/funds-payment` | 新增、動態審核流程（共用同一套範本架構）、審核管理頁、全部付款紀錄；繼承申請單附件（唯讀）＋可補傳本憑單附件 |
 | 暫付款沖銷憑單 | `/funds-voucher` | 從付款憑單（已付款+預支）建立、我的列表、詳細頁（送出審核）、審核管理頁、全部紀錄 |
 | 財務管理 | `/finance` | 資金管理與付款憑單總覽 |
-| 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位、側邊欄自定義、角色權限、表單設定、狀態標籤設定、付款對象設定 |
+| 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位（機構/出款帳戶）、側邊欄自定義、角色權限、表單設定、狀態標籤設定、付款對象設定 |
 | 費用類型設定 | `/settings/fee` | 自訂費用類別（Tab 式切換）、各類別自訂欄位（文字/數字/下拉/日期）、費用項目資料管理 |
 | 問題回報 | `/report-issue` | Rich Text + 圖片上傳、狀態追蹤、影響模組標籤 |
 | 登入 | `/login` | Email + Password；Google OAuth（保留 Email 登入，同 email 自動合併帳號）|
@@ -46,7 +46,6 @@
 - `org_unit_roles`：組織單位職位（`org_unit_id` + `role_type_id` 組合）
 - `system_roles`：系統角色，`is_admin` 標記管理員，`allowed_item_ids` 功能菜單權限
 - `dropdown_options`：下拉選項（institution / payment_account 欄位）
-- `expense_items`：費用項目
 - `dev_tracker`：問題回報（type: bug/feature/improvement/performance）
 - `fund_attachments`：資金申請/付款憑單附件（`funds_allocation_id`、`funds_payment_id`、`slot_label`、`storage_path`、`file_type`）；對應 Storage Bucket `fund-attachments`
 - `form_schema_rows` / `form_slots`：動態表單配置

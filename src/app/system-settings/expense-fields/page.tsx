@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { DropdownOption, DropdownField, ExpenseItem } from '@/lib/types'
+import { DropdownOption, DropdownField } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -78,7 +78,6 @@ function OptionSection({
 
 export default function ExpenseFieldsPage() {
   const [dropdownOptions, setDropdownOptions] = useState<DropdownOption[]>([])
-  const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -86,17 +85,11 @@ export default function ExpenseFieldsPage() {
     institution: '',
     payment_account: '',
   })
-  const [newExpenseLabel, setNewExpenseLabel] = useState('')
 
   async function loadAll() {
-    const [optRes, expRes] = await Promise.all([
-      supabase.from('dropdown_options').select('*').order('field').order('sort_order'),
-      supabase.from('expense_items').select('*').order('sort_order'),
-    ])
+    const optRes = await supabase.from('dropdown_options').select('*').order('field').order('sort_order')
     if (optRes.error) setError(optRes.error.message)
     else setDropdownOptions((optRes.data as DropdownOption[]) ?? [])
-    if (expRes.error) setError(expRes.error.message)
-    else setExpenseItems((expRes.data as ExpenseItem[]) ?? [])
     setLoading(false)
   }
 
@@ -119,25 +112,6 @@ export default function ExpenseFieldsPage() {
     if (!confirm('確定要刪除此選項嗎？')) return
     setError(null)
     const { error: e } = await supabase.from('dropdown_options').delete().eq('id', id)
-    if (e) { setError(e.message); return }
-    await loadAll()
-  }
-
-  async function handleAddExpense() {
-    const label = newExpenseLabel.trim()
-    if (!label) return
-    setError(null)
-    const maxOrder = expenseItems.reduce((max, o) => Math.max(max, o.sort_order), -1)
-    const { error: e } = await supabase.from('expense_items').insert({ label, sort_order: maxOrder + 1 })
-    if (e) { setError(e.message); return }
-    setNewExpenseLabel('')
-    await loadAll()
-  }
-
-  async function handleDeleteExpense(id: number) {
-    if (!confirm('確定要刪除此費用項目嗎？')) return
-    setError(null)
-    const { error: e } = await supabase.from('expense_items').delete().eq('id', id)
     if (e) { setError(e.message); return }
     await loadAll()
   }
@@ -166,14 +140,6 @@ export default function ExpenseFieldsPage() {
           />
         ))}
 
-        <OptionSection
-          title="費用項目"
-          items={expenseItems}
-          newLabel={newExpenseLabel}
-          onNewLabelChange={setNewExpenseLabel}
-          onAdd={handleAddExpense}
-          onDelete={handleDeleteExpense}
-        />
       </div>
     </div>
   )
