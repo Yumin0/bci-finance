@@ -7,6 +7,12 @@
 
 ## 進行中
 
+**修復 Google OAuth 登入跨網域失敗**（Yumin）
+分支：`feature/yumin-google-oauth-domain-fix`
+開始：2026-07-03
+問題：`allocation.boptaipei.com`（正式機自訂網域）點 Google 登入會失敗，因 redirectUri 寫死抓 `NEXT_PUBLIC_APP_URL`（`bci-finance.vercel.app`），跨網域導致 state cookie 對不上；同樣影響新設定的 `allocation-staging.boptaipei.com`
+解法：`/api/auth/google`、`/api/auth/google/callback` 改用 `req.nextUrl.origin` 動態組 redirectUri；需同步在 Google Cloud Console 補上新網域的授權重新導向 URI
+
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04

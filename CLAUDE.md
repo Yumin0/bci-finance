@@ -128,6 +128,12 @@ src/
 - 兩人同時有開發任務時，**一律開分支**，不直接在 main 上改動
 - 只有一人在改且另一人沒有進行中任務時，才可直接在 main 上進行
 
+## 測試環境（staging）
+
+- 固定分支 `staging`，對應固定測試網址：**https://allocation-staging.boptaipei.com**
+- 正式機網址：**https://allocation.boptaipei.com**（對應 `main` 分支）
+- 所有 feature 分支完成本機測試後，**先合併到 `staging` 測試，使用者確認 OK 後才合併到 `main`**，`staging` 分支本身不刪除、長期存在
+
 ## 每次對話開始時，依序確認以下事項：
 
 1. **確認說話者身份**：如果無法從上下文判斷是 Yumin 還是 Riku，先詢問：「請問你是 Yumin 還是 Riku？」後續的 BACKLOG 記錄與分支命名都需要這個資訊。
@@ -167,12 +173,19 @@ src/
 
 8. **文件改動也要推 GitHub**：如果本次對話中有修改任何文件檔（包含 CLAUDE.md、AGENTS.md、BACKLOG.md、協作 SOP 文件），完成後也要主動提示 commit 並 push，說明：「文件有更新，協作者需要拉取才看得到，我幫你一起推上去。」這類改動不需要通過 localhost:3000 測試，確認即可直接執行。
 
-9. **merge 回 main**：push 到 feature 分支後，必須**主動**引導執行以下步驟，不等使用者自己發現：
+9. **merge 到 staging 測試**：push 到 feature 分支後，必須**主動**引導執行以下步驟，不等使用者自己發現：
    ```
-   git checkout main && git pull && git merge feature/{分支名} && git push
+   git checkout staging && git pull && git merge feature/{分支名} && git push
    ```
-   完成後告知：「已合併到 main，Riku 現在可以 git pull 拿到最新版。」
-   **不得只推 feature 分支就結束**，協作者 pull 的是 main，feature 分支不 merge 對方看不到。
+   完成後告知：「已推到 staging，測試網址：https://allocation-staging.boptaipei.com，麻煩測試看看，確認沒問題後跟我說『推正式機』，我再幫你合併到 main。」
+   **不得跳過 staging 直接合併到 main**，staging 是唯一的把關測試站，避免未經測試的程式碼直接影響正式機使用者。
+
+10. **使用者確認 staging 測試 OK 後，才 merge 回 main**：只有使用者明確表示 staging 測試沒問題（如「推正式機」「OK 上正式」）才可執行：
+    ```
+    git checkout main && git pull && git merge feature/{分支名} && git push
+    ```
+    完成後告知：「已合併到 main 正式機，Riku 現在可以 git pull 拿到最新版，正式機網址也會自動更新。」
+    **不得只推 feature 分支或 staging 就結束**，協作者 pull 的是 main，且正式機網址只跟著 main 更新。
 
 # 橫切關注點完成確認規則
 
