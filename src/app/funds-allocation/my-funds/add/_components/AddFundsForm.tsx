@@ -159,20 +159,10 @@ export default function AddFundsForm({
         if (!userId) return
         const r = await supabase
           .from('org_unit_members')
-          .select('org_unit_id, role_types(name)')
+          .select('org_unit_id')
           .eq('user_id', userId)
         if (r.data) {
-          const rows = r.data as unknown as { org_unit_id: number; role_types: { name: string } | null }[]
-          setMemberUnitIds(rows.map(m => m.org_unit_id))
-          const roleMap: Record<number, string[]> = {}
-          for (const m of rows) {
-            const name = m.role_types?.name
-            if (name) {
-              if (!roleMap[m.org_unit_id]) roleMap[m.org_unit_id] = []
-              roleMap[m.org_unit_id].push(name)
-            }
-          }
-          setMemberRoleMap(roleMap)
+          setMemberUnitIds((r.data as { org_unit_id: number }[]).map(m => m.org_unit_id))
         }
       }
       const loadDropdowns = async (fields: string[]) => {
@@ -396,12 +386,24 @@ export default function AddFundsForm({
         )
       }
       if (fieldId === 'apply_role') {
+        const memberUnits = memberUnitIds
+          .map(id => orgUnits.find(u => u.id === id))
+          .filter((u): u is OrgUnit => u !== null)
         return (
           <SearchableSelect
             value={fieldValues.apply_role ?? ''}
-            onChange={v => setField('apply_role', v)}
-            options={availableRoles.map(name => ({ value: name, label: name }))}
-            disabled={!divisionId}
+            onChange={v => {
+              setField('apply_role', v)
+              const unit = memberUnits.find(u => unitLabel(u) === v)
+              if (unit) {
+                const combos = deriveUserOrgCombos([unit.id], orgUnits)
+                if (combos.length > 0) {
+                  setDivisionId(combos[0].divisionId)
+                  setSectionId(combos[0].sectionId)
+                }
+              }
+            }}
+            options={memberUnits.map(u => ({ value: unitLabel(u), label: unitLabel(u) }))}
             required={required}
           />
         )
