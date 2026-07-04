@@ -14,14 +14,7 @@ export function useTheme() {
 }
 
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('system')
-
-  useEffect(() => {
-    const saved = localStorage.getItem('bci-theme') as Theme | null
-    if (saved === 'light' || saved === 'dark' || saved === 'system') {
-      setThemeState(saved)
-    }
-  }, [])
+  const [theme, setThemeState] = useState<Theme>('light')
 
   useEffect(() => {
     const root = document.documentElement

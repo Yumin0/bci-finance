@@ -7,12 +7,6 @@
 
 ## 進行中
 
-**修復 Google OAuth 登入跨網域失敗**（Yumin）
-分支：`feature/yumin-google-oauth-domain-fix`
-開始：2026-07-03
-問題：`allocation.boptaipei.com`（正式機自訂網域）點 Google 登入會失敗，因 redirectUri 寫死抓 `NEXT_PUBLIC_APP_URL`（`bci-finance.vercel.app`），跨網域導致 state cookie 對不上；同樣影響新設定的 `allocation-staging.boptaipei.com`
-解法：`/api/auth/google`、`/api/auth/google/callback` 改用 `req.nextUrl.origin` 動態組 redirectUri；需同步在 Google Cloud Console 補上新網域的授權重新導向 URI
-
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04
@@ -222,6 +216,9 @@
 ---
 
 ## 已完成
+
+**修復 Google OAuth 登入跨網域失敗**（2026-07-03，Yumin）
+`allocation.boptaipei.com`（正式機自訂網域）、`allocation-staging.boptaipei.com`（staging）點 Google 登入會失敗，因 `/api/auth/google`、`/api/auth/google/callback` 的 redirectUri 原本寫死抓 `NEXT_PUBLIC_APP_URL` 環境變數，跨網域時 state cookie 對不上；改為用 `req.nextUrl.origin` 動態組成，不再依賴該環境變數；同步在 Google Cloud Console 補上 `allocation.boptaipei.com`、`allocation-staging.boptaipei.com` 兩組授權重新導向 URI；另修正本機 `.env.local` 誤指向本地 Supabase（127.0.0.1:54321）的問題，改回 `bci-finance-dev` 專案。新增固定 `staging` 分支＋測試網址 `allocation-staging.boptaipei.com`，之後 feature 分支需先過 staging 測試才可合併 main（詳見 CLAUDE.md 協作流程規則）。
 
 **支出欄位設定移除費用項目、整合費用類型設定**（2026-07-02，Riku）
 支出欄位設定頁移除「費用項目」Card（原管理 `expense_items` 資料表）；表單資料來源移除 `expense_items` 選項（改用費用類型設定的 `fee_records:{cat.id}`）；移除 `ExpenseItem` 型別及所有相關程式碼（AddFundsForm、EditFundsForm、_template-tab、_client.tsx）；支出欄位設定頁現只管理「機構」和「出款帳戶」兩個下拉選項。
