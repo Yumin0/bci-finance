@@ -27,8 +27,8 @@ export const metadata: Metadata = {
   description: "BCI 內部財務管理系統",
 };
 
-// 在 React hydration 前就設好 class，避免淺色→深色的閃爍
-const themeInitScript = `(function(){try{var t=localStorage.getItem('bci-theme');if(t==='dark'||((!t||t==='system')&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})()`;
+// 暫時強制淺色：移除 dark class，不讀 localStorage
+const themeInitScript = `document.documentElement.classList.remove('dark')`;
 
 export default async function RootLayout({
   children,
