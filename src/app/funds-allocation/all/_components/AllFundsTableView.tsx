@@ -84,7 +84,7 @@ export default function AllFundsTableView({
         <Table>
           <TableHeader>
             <TableRow>
-              {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
+              {['狀態', '單號', '申請處別', '申請課別', '申請人', '職務', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
                 <TableHead key={i}>{col}</TableHead>
               ))}
             </TableRow>

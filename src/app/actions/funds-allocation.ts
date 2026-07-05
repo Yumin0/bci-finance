@@ -98,6 +98,7 @@ export async function updateFundsAllocation(
 }
 
 export async function deleteFundsAllocation(id: number): Promise<{ error: string | null }> {
+  await supabase.from('notifications').delete().eq('funds_allocation_id', id)
   const { error } = await supabase.from('funds_allocation').delete().eq('id', id)
   if (error) return { error: error.message }
   return { error: null }

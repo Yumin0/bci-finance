@@ -793,9 +793,31 @@ export default function AddFundsForm({
       apply_role: fieldValues.apply_role || null,
       institution: fieldValues.institution || null,
       payment_account: fieldValues.payment_account || null,
-      expense_item: fieldValues.expense_item || null,
+      expense_item: (() => {
+        const thirdBlock = schema[2]
+        if (thirdBlock) {
+          const allThirdSlots = thirdBlock.rows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+          const feeSlot = allThirdSlots.find(s => s.dataSource?.startsWith('fee_records:'))
+          if (feeSlot) {
+            const fromField = fieldValues[feeSlot.fieldId]
+            if (fromField) return fromField
+            const fromGroup = (groupInstances[thirdBlock.id]?.[0])?.[feeSlot.fieldId]
+            if (fromGroup) return fromGroup
+          }
+        }
+        return fieldValues.expense_item || null
+      })(),
       name: fieldValues.name || null,
-      amount: Number(fieldValues.amount) || 0,
+      amount: (() => {
+        const thirdBlock = schema[2]
+        if (thirdBlock) {
+          const grp = groupBlockSummary[thirdBlock.id]
+          if (grp !== undefined) return grp.total
+          const blk = blockTaxMap[thirdBlock.id]
+          if (blk) return blk.total
+        }
+        return Number(fieldValues.amount) || 0
+      })(),
       category: fieldValues.category || null,
       note: fieldValues.note || null,
       extra_data: extraData,
