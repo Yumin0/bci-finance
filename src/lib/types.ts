@@ -226,6 +226,7 @@ export type FormSchemaRow = {
   cols: FormColCount
   slots: FormSlot[]
   repeatable?: boolean
+  rowGroupStart?: boolean  // 從這列開始（含）以下整組可重複新增
 }
 
 export type FormBlock = {

@@ -148,6 +148,15 @@ export default function FormSettingsClient({
     setBlockRows(blockId, prev => prev.map(r => r.id === rowId ? { ...r, repeatable: value } : r))
   }
 
+  function setRowGroupStart(blockId: string, rowId: string, value: boolean) {
+    setBlockRows(blockId, prev => prev.map(r => {
+      if (r.id === rowId) return { ...r, rowGroupStart: value, repeatable: value ? false : r.repeatable }
+      // 同區塊只能有一個起始列
+      if (value && r.rowGroupStart) return { ...r, rowGroupStart: false }
+      return r
+    }))
+  }
+
   function moveRow(blockId: string, rowId: string, dir: 'up' | 'down') {
     setBlockRows(blockId, prev => {
       const idx = prev.findIndex(r => r.id === rowId)
@@ -520,6 +529,21 @@ export default function FormSettingsClient({
                       borderColor: (selectedRow.repeatable ?? false) === val ? '#2563eb' : '#d1d5db', borderRadius: 6,
                       background: (selectedRow.repeatable ?? false) === val ? '#2563eb' : 'white',
                       color: (selectedRow.repeatable ?? false) === val ? 'white' : '#374151', cursor: 'pointer' }}>
+                    {val ? '是' : '否'}
+                  </button>
+                ))}
+              </div>
+              <p style={panelLabel}>整組重複新增起始列</p>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.5 }}>
+                設為「是」後，從這列開始到區塊底部的所有列會整組一起可以新增多筆。
+              </p>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+                {[true, false].map(val => (
+                  <button key={String(val)} onClick={() => setRowGroupStart(selectedBlock.id, selectedRow.id, val)}
+                    style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid',
+                      borderColor: (selectedRow.rowGroupStart ?? false) === val ? '#16a34a' : '#d1d5db', borderRadius: 6,
+                      background: (selectedRow.rowGroupStart ?? false) === val ? '#16a34a' : 'white',
+                      color: (selectedRow.rowGroupStart ?? false) === val ? 'white' : '#374151', cursor: 'pointer' }}>
                     {val ? '是' : '否'}
                   </button>
                 ))}

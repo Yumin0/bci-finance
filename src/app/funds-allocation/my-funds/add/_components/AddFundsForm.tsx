@@ -82,6 +82,9 @@ export default function AddFundsForm({
   // 可重複列資料（key = rowId, value = 每筆的欄位值陣列）
   const [repeatableValues, setRepeatableValues] = useState<Record<string, Record<string, string>[]>>({})
 
+  // 群組重複資料（key = blockId, value = 每筆的欄位值陣列）
+  const [groupInstances, setGroupInstances] = useState<Record<string, Record<string, string>[]>>({})
+
   // 稅額選項
   const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
 
@@ -93,6 +96,16 @@ export default function AddFundsForm({
   const repeatableSlotFieldIds = new Set(
     allRows.filter(r => r.repeatable).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId))
   )
+
+  function getGroupRows(block: FormBlock): FormSchemaRow[] {
+    const startIdx = block.rows.findIndex(r => r.rowGroupStart)
+    if (startIdx === -1) return []
+    return block.rows.slice(startIdx)
+  }
+  const groupSlotFieldIds = new Set(
+    schema.flatMap(b => getGroupRows(b).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId)))
+  )
+
   const neededSources = new Set(allSlots.map(s => s.dataSource))
 
   const setField = useCallback((id: string, val: string) => {
@@ -117,6 +130,37 @@ export default function AddFundsForm({
       const instances = (prev[rowId] ?? [{}]).filter((_, i) => i !== idx)
       return { ...prev, [rowId]: instances.length ? instances : [{}] }
     })
+  }
+
+  function setGroupField(blockId: string, instIdx: number, fieldId: string, val: string) {
+    setGroupInstances(prev => {
+      const instances = [...(prev[blockId] ?? [{}])]
+      instances[instIdx] = { ...instances[instIdx], [fieldId]: val }
+      return { ...prev, [blockId]: instances }
+    })
+  }
+  function addGroupInstance(blockId: string) {
+    setGroupInstances(prev => ({ ...prev, [blockId]: [...(prev[blockId] ?? [{}]), {}] }))
+  }
+  function removeGroupInstance(blockId: string, instIdx: number) {
+    setGroupInstances(prev => {
+      const instances = (prev[blockId] ?? [{}]).filter((_, i) => i !== instIdx)
+      return { ...prev, [blockId]: instances.length ? instances : [{}] }
+    })
+  }
+  function computeGroupInstanceTax(groupSlots: NonNullable<FormSlot>[], instValues: Record<string, string>) {
+    const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+    if (!taxSelectSlot?.taxConfig) return null
+    const { baseFieldId, totalFieldId, taxAmountFieldId } = taxSelectSlot.taxConfig
+    const fee = parseFloat(instValues[baseFieldId] ?? '0') || 0
+    const label = instValues[taxSelectSlot.fieldId] ?? ''
+    const opt = taxRateOptions.find(o => o.label === label)
+    const tax = opt ? Math.floor(applyTaxFormula(fee, opt.formula_steps)) : 0
+    const otherNums = groupSlots.filter(s =>
+      s.type === 'number' && s.fieldId !== totalFieldId && (!taxAmountFieldId || s.fieldId !== taxAmountFieldId)
+    )
+    const numsSum = otherNums.reduce((sum, s) => sum + (parseFloat(instValues[s.fieldId] ?? '0') || 0), 0)
+    return { taxAmountFieldId, totalFieldId, tax, total: numsSum + tax, fee }
   }
 
   // 當出款帳號改變時，自動查找對應的審核流程範本
@@ -240,7 +284,34 @@ export default function AddFundsForm({
 
   // 稅額計算（純 derived，每次 render 重新算，不放進 state 避免無限迴圈）
   const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
+  // 群組區塊的彙總顯示（key = blockId）
+  const groupBlockSummary: Record<string, { taxBase: number; handling: number; taxAmount: number; total: number }> = {}
   for (const block of schema) {
+    const groupRows = getGroupRows(block)
+    if (groupRows.length > 0) {
+      // 群組區塊：加總所有實例（使用儲存值，保留使用者手動修改的稅額）
+      const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+      const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+      const baseFieldId = taxSelectSlot?.taxConfig?.baseFieldId ?? ''
+      const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+      const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
+      // 手續費 = 所有 number 欄位，排除費用、稅額、合計
+      const handlingSlots = groupSlots.filter(s =>
+        s.type === 'number' &&
+        s.fieldId !== baseFieldId &&
+        (!taxAmtFieldId || s.fieldId !== taxAmtFieldId) &&
+        (!totalFieldId || s.fieldId !== totalFieldId)
+      )
+      const instances = groupInstances[block.id] ?? [{}]
+      let totalBase = 0, totalHandling = 0, totalTax = 0
+      for (const inst of instances) {
+        totalBase += parseFloat(inst[baseFieldId] ?? '0') || 0
+        totalHandling += handlingSlots.reduce((acc, s) => acc + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0)
+        totalTax += taxAmtFieldId ? (parseFloat(inst[taxAmtFieldId] ?? '0') || 0) : 0
+      }
+      groupBlockSummary[block.id] = { taxBase: totalBase, handling: totalHandling, taxAmount: totalTax, total: totalBase + totalHandling + totalTax }
+      continue
+    }
     // Aggregate repeatable row values (summed) so tax calculation sees correct amounts
     const aggregatedValues = { ...fieldValues }
     for (const row of block.rows) {
@@ -277,6 +348,12 @@ export default function AddFundsForm({
       .filter(s => s.dataSource === 'tax_rates' && s.taxConfig)
       .reduce((acc, s) => ({ ...acc, [s.fieldId]: fieldValues[s.fieldId] ?? '' }), {} as Record<string, string>)
   )
+  // 費用欄位的目前值（用於 effect dep，讓先選稅額後打費用也能觸發計算）
+  const taxFeeStr = JSON.stringify(
+    allSlots
+      .filter(s => s.dataSource === 'tax_rates' && s.taxConfig)
+      .reduce((acc, s) => ({ ...acc, [s.taxConfig!.baseFieldId]: fieldValues[s.taxConfig!.baseFieldId] ?? '' }), {} as Record<string, string>)
+  )
   // 每列稅額自動計算 + 總額彙總
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -285,6 +362,9 @@ export default function AddFundsForm({
     const repeatableUpdates: Record<string, Record<string, string>[]> = {}
 
     for (const block of schema) {
+      // 群組區塊的稅額在 render 時即時計算，不由此 effect 處理
+      if (block.rows.some(r => r.rowGroupStart)) continue
+
       const allBlockSlots = block.rows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
       const taxSelectSlot = allBlockSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
       if (!taxSelectSlot?.taxConfig) continue
@@ -334,7 +414,7 @@ export default function AddFundsForm({
         return changed ? { ...prev, ...fieldUpdates } : prev
       })
     }
-  }, [repeatableValues, taxSelectorStr, taxRateOptions])
+  }, [repeatableValues, taxSelectorStr, taxFeeStr, taxRateOptions])
 
   function renderFieldFor(
     slot: NonNullable<FormSlot>,
@@ -388,7 +468,7 @@ export default function AddFundsForm({
       if (fieldId === 'apply_role') {
         const memberUnits = memberUnitIds
           .map(id => orgUnits.find(u => u.id === id))
-          .filter((u): u is OrgUnit => u !== null)
+          .filter((u): u is OrgUnit => u != null)
         return (
           <SearchableSelect
             value={fieldValues.apply_role ?? ''}
@@ -520,6 +600,98 @@ export default function AddFundsForm({
     return renderFieldFor(slot, fieldValues, setField)
   }
 
+  function renderGroupInstances(block: FormBlock) {
+    const groupRows = getGroupRows(block)
+    if (groupRows.length === 0) return null
+    const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+    const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+    const instances = groupInstances[block.id] ?? [{}]
+
+    // 費用或稅額選擇改變時，自動帶入稅額（但不鎖定，使用者仍可手動覆寫）
+    function setInstFieldWithAutoTax(instIdx: number, fieldId: string, val: string) {
+      setGroupInstances(prev => {
+        const allInst = [...(prev[block.id] ?? [{}])]
+        const newInst = { ...allInst[instIdx], [fieldId]: val }
+        if (taxSelectSlot?.taxConfig) {
+          const { baseFieldId, taxAmountFieldId } = taxSelectSlot.taxConfig
+          if (taxAmountFieldId && (fieldId === baseFieldId || fieldId === taxSelectSlot.fieldId)) {
+            const fee = parseFloat(fieldId === baseFieldId ? val : (newInst[baseFieldId] ?? '0')) || 0
+            const label = fieldId === taxSelectSlot.fieldId ? val : (newInst[taxSelectSlot.fieldId] ?? '')
+            const opt = taxRateOptions.find(o => o.label === label)
+            newInst[taxAmountFieldId] = String(opt ? Math.floor(applyTaxFormula(fee, opt.formula_steps)) : 0)
+          }
+        }
+        allInst[instIdx] = newInst
+        return { ...prev, [block.id]: allInst }
+      })
+    }
+
+    return (
+      <div>
+        {instances.map((instValues, instIdx) => {
+          const setInstField = (fid: string, val: string) => setInstFieldWithAutoTax(instIdx, fid, val)
+
+          // 合計 = 其他數字欄位 + 已儲存的稅額（使用者可手動覆寫）
+          const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
+          const taxAmountFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+          const storedTax = taxAmountFieldId ? (parseFloat(instValues[taxAmountFieldId] ?? '0') || 0) : 0
+          const otherNums = taxSelectSlot?.taxConfig
+            ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmountFieldId)
+            : []
+          const computedTotal = otherNums.reduce((sum, s) => sum + (parseFloat(instValues[s.fieldId] ?? '0') || 0), 0) + storedTax
+
+          return (
+            <div key={instIdx} style={{
+              position: 'relative',
+              paddingBottom: 16,
+              marginBottom: instances.length > 1 && instIdx < instances.length - 1 ? 16 : 0,
+              borderBottom: instances.length > 1 && instIdx < instances.length - 1 ? '1px dashed var(--border-color)' : undefined,
+            }}>
+              {groupRows.map(row => (
+                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
+                  {row.slots.map((slot, slotIdx) => {
+                    if (!slot) return <div key={slotIdx} />
+                    // 合計唯讀（稅額 + 其他數字加總）
+                    if (totalFieldId && slot.fieldId === totalFieldId) {
+                      return (
+                        <div key={slotIdx}>
+                          <label style={labelStyle}>{slot.label}</label>
+                          <Input value={String(computedTotal)} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+                        </div>
+                      )
+                    }
+                    // 其他欄位（含稅額）：可編輯，費用/稅額選擇變動時自動帶入稅額
+                    return (
+                      <div key={slotIdx}>
+                        <label style={labelStyle}>
+                          {slot.label}
+                          {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                        </label>
+                        {renderFieldFor(slot, instValues, setInstField, true)}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+              {instances.length > 1 && (
+                <button type="button" onClick={() => removeGroupInstance(block.id, instIdx)}
+                  style={{ position: 'absolute', right: -76, top: 0, width: 56, padding: '4px 8px', fontSize: 12,
+                    border: '1px solid #fca5a5', borderRadius: 6, background: 'white', color: '#dc2626', cursor: 'pointer' }}>
+                  刪除
+                </button>
+              )}
+            </div>
+          )
+        })}
+        <button type="button" onClick={() => addGroupInstance(block.id)}
+          style={{ padding: '6px 14px', fontSize: 13, border: '1.5px dashed #d1d5db',
+            borderRadius: 6, background: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginTop: 4 }}>
+          ＋ 新增項目
+        </button>
+      </div>
+    )
+  }
+
   function renderRepeatableRow(row: FormSchemaRow) {
     const instances = getRepeatableInstances(row.id)
     return (
@@ -568,7 +740,7 @@ export default function AddFundsForm({
     const secUnit = orgUnits.find(u => u.id === sectionId)
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
-      if (slot.fieldId.startsWith('custom_') && !repeatableSlotFieldIds.has(slot.fieldId)) {
+      if (slot.fieldId.startsWith('custom_') && !repeatableSlotFieldIds.has(slot.fieldId) && !groupSlotFieldIds.has(slot.fieldId)) {
         extraData[slot.label] = fieldValues[slot.fieldId] ?? computedTotals[slot.fieldId] ?? ''
       }
     }
@@ -582,6 +754,34 @@ export default function AddFundsForm({
         return obj
       })
       extraData[`__repeatable_${row.id}`] = JSON.stringify(labeled)
+    }
+    // 群組重複資料
+    for (const block of schema) {
+      const groupRows = getGroupRows(block)
+      if (groupRows.length === 0) continue
+      const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+      const instances = groupInstances[block.id] ?? [{}]
+      const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+      const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
+      const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+      const otherNums = taxSelectSlot?.taxConfig
+        ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmtFieldId)
+        : []
+      const labeled = instances.map(inst => {
+        const storedTax = taxAmtFieldId ? (parseFloat(inst[taxAmtFieldId] ?? '0') || 0) : 0
+        const numsSum = otherNums.reduce((sum, s) => sum + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0)
+        const total = numsSum + storedTax
+        const obj: Record<string, string> = {}
+        for (const slot of groupSlots) {
+          if (totalFieldId && slot.fieldId === totalFieldId) {
+            obj[slot.label] = String(total)
+          } else {
+            obj[slot.label] = inst[slot.fieldId] ?? ''
+          }
+        }
+        return obj
+      })
+      extraData[`__group_${block.id}`] = JSON.stringify(labeled)
     }
     return {
       date: fieldValues.date || today(),
@@ -663,7 +863,7 @@ export default function AddFundsForm({
             borderRadius: 10,
             background: 'var(--bg-card)',
           }}>
-            {(block.title || blockTaxMap[block.id]) && (
+            {(block.title || blockTaxMap[block.id] || groupBlockSummary[block.id]) && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 20px',
@@ -672,23 +872,43 @@ export default function AddFundsForm({
                 borderRadius: '9px 9px 0 0',
               }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
-                {blockTaxMap[block.id] && (() => {
-                  const info = blockTaxMap[block.id]!
+                {(blockTaxMap[block.id] || groupBlockSummary[block.id]) && (() => {
+                  const grpSummary = groupBlockSummary[block.id]
+                  const blkSummary = blockTaxMap[block.id]
+                  if (grpSummary) {
+                    return (
+                      <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.taxBase)}</strong>
+                        </span>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          手續費 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.handling)}</strong>
+                        </span>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.taxAmount)}</strong>
+                        </span>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          總額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.total)}</strong>
+                        </span>
+                      </div>
+                    )
+                  }
                   return (
                     <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
                       <span style={{ color: 'var(--text-muted)' }}>
-                        費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxBase)}</strong>
+                        費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(blkSummary!.taxBase)}</strong>
                       </span>
                       <span style={{ color: 'var(--text-muted)' }}>
-                        稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxAmount)}</strong>
+                        稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(blkSummary!.taxAmount)}</strong>
                       </span>
                     </div>
                   )
                 })()}
               </div>
             )}
-            <div style={{ paddingTop: 20, paddingLeft: 20, paddingBottom: 4, paddingRight: block.rows.some(r => r.repeatable) ? 96 : 20 }}>
-              {block.rows.map(row =>
+            <div style={{ paddingTop: 20, paddingLeft: 20, paddingBottom: 4, paddingRight: block.rows.some(r => r.repeatable || r.rowGroupStart) ? 96 : 20 }}>
+              {/* 非群組列正常渲染 */}
+              {block.rows.filter(r => !r.rowGroupStart && !getGroupRows(block).includes(r)).map(row =>
                 row.repeatable ? (
                   <div key={row.id}>{renderRepeatableRow(row)}</div>
                 ) : (
@@ -711,6 +931,8 @@ export default function AddFundsForm({
                   </div>
                 )
               )}
+              {/* 群組列 */}
+              {renderGroupInstances(block)}
             </div>
           </div>
         ))}

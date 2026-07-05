@@ -217,6 +217,9 @@
 
 ## 已完成
 
+**付款明細群組重複新增**（2026-07-05，Riku）
+資金分配申請「付款明細」區塊支援整組重複新增：表單設定可將某一列標為「整組重複新增起始列」（`rowGroupStart`），從該列起以下整組欄位可點「+ 新增項目」整組複製；每組內稅額自動計算（先選稅額或先打費用皆可雙向觸發）；稅額欄位可手動覆蓋；右上角彙總同步顯示費用、手續費、稅額、總額跨所有群組實例的加總；資料存入 `extra_data.__group_{blockId}`（JSON 陣列，以欄位 label 為 key）。
+
 **修復 Google OAuth 登入跨網域失敗**（2026-07-03，Yumin）
 `allocation.boptaipei.com`（正式機自訂網域）、`allocation-staging.boptaipei.com`（staging）點 Google 登入會失敗，因 `/api/auth/google`、`/api/auth/google/callback` 的 redirectUri 原本寫死抓 `NEXT_PUBLIC_APP_URL` 環境變數，跨網域時 state cookie 對不上；改為用 `req.nextUrl.origin` 動態組成，不再依賴該環境變數；同步在 Google Cloud Console 補上 `allocation.boptaipei.com`、`allocation-staging.boptaipei.com` 兩組授權重新導向 URI；另修正本機 `.env.local` 誤指向本地 Supabase（127.0.0.1:54321）的問題，改回 `bci-finance-dev` 專案。新增固定 `staging` 分支＋測試網址 `allocation-staging.boptaipei.com`，之後 feature 分支需先過 staging 測試才可合併 main（詳見 CLAUDE.md 協作流程規則）。
 

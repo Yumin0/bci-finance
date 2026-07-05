@@ -16,7 +16,7 @@
 
 | 模組 | 路徑 | 說明 |
 |------|------|------|
-| 資金分配申請 | `/funds-allocation` | 申請、編輯、動態審核流程（範本驅動）、審核管理頁、全部申請紀錄；預選範本（共用範本 Admin 管理、個人範本另存）；附件上傳（PDF/JPG/PNG，表單設定驅動，支援 Modal 預覽） |
+| 資金分配申請 | `/funds-allocation` | 申請、編輯、動態審核流程（範本驅動）、審核管理頁、全部申請紀錄；預選範本（共用範本 Admin 管理、個人範本另存）；附件上傳（PDF/JPG/PNG，表單設定驅動，支援 Modal 預覽）；付款明細支援整組重複新增（`rowGroupStart` 標記起始列），稅額雙向自動計算，右上角彙總費用/手續費/稅額/總額 |
 | 付款憑單 | `/funds-payment` | 新增、動態審核流程（共用同一套範本架構）、審核管理頁、全部付款紀錄；繼承申請單附件（唯讀）＋可補傳本憑單附件 |
 | 暫付款沖銷憑單 | `/funds-voucher` | 從付款憑單（已付款+預支）建立、我的列表、詳細頁（送出審核）、審核管理頁、全部紀錄 |
 | 財務管理 | `/finance` | 資金管理與付款憑單總覽 |
@@ -48,7 +48,7 @@
 - `dropdown_options`：下拉選項（institution / payment_account 欄位）
 - `dev_tracker`：問題回報（type: bug/feature/improvement/performance）
 - `fund_attachments`：資金申請/付款憑單附件（`funds_allocation_id`、`funds_payment_id`、`slot_label`、`storage_path`、`file_type`）；對應 Storage Bucket `fund-attachments`
-- `form_schema_rows` / `form_slots`：動態表單配置
+- `form_schema_rows` / `form_slots`：動態表單配置；`form_schema_rows.rowGroupStart boolean`（前端 schema 欄位，儲存於 Supabase `form_schemas` jsonb）標記「從此列起以下整組可重複新增」，搭配 AddFundsForm / EditFundsForm 的 `groupInstances` state 與 `__group_{blockId}` extra_data key 實作整組重複功能
 - `payee_categories`：付款對象類別（名稱、sort_order）
 - `payee_category_fields`：各類別欄位定義（label、field_type: text|number|dropdown|date、options jsonb）
 - `payee_records`：實際付款對象資料（field_values jsonb 動態存欄位值，key 為 field id）

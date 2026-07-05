@@ -77,9 +77,20 @@ export default function EditFundsForm({
   const repeatableSlotFieldIds = new Set(
     allRows.filter(r => r.repeatable).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId))
   )
+
+  function getGroupRows(block: FormBlock): FormSchemaRow[] {
+    const startIdx = block.rows.findIndex(r => r.rowGroupStart)
+    if (startIdx === -1) return []
+    return block.rows.slice(startIdx)
+  }
+  const groupSlotFieldIds = new Set(
+    schema.flatMap(b => getGroupRows(b).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId)))
+  )
+
   const neededSources = new Set(allSlots.map(s => s.dataSource))
 
   const [repeatableValues, setRepeatableValues] = useState<Record<string, Record<string, string>[]>>({})
+  const [groupInstances, setGroupInstances] = useState<Record<string, Record<string, string>[]>>({})
   const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
 
   function setField(id: string, val: string) {
@@ -104,6 +115,37 @@ export default function EditFundsForm({
       const instances = (prev[rowId] ?? [{}]).filter((_, i) => i !== idx)
       return { ...prev, [rowId]: instances.length ? instances : [{}] }
     })
+  }
+
+  function setGroupField(blockId: string, instIdx: number, fieldId: string, val: string) {
+    setGroupInstances(prev => {
+      const instances = [...(prev[blockId] ?? [{}])]
+      instances[instIdx] = { ...instances[instIdx], [fieldId]: val }
+      return { ...prev, [blockId]: instances }
+    })
+  }
+  function addGroupInstance(blockId: string) {
+    setGroupInstances(prev => ({ ...prev, [blockId]: [...(prev[blockId] ?? [{}]), {}] }))
+  }
+  function removeGroupInstance(blockId: string, instIdx: number) {
+    setGroupInstances(prev => {
+      const instances = (prev[blockId] ?? [{}]).filter((_, i) => i !== instIdx)
+      return { ...prev, [blockId]: instances.length ? instances : [{}] }
+    })
+  }
+  function computeGroupInstanceTax(groupSlots: NonNullable<FormSlot>[], instValues: Record<string, string>) {
+    const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+    if (!taxSelectSlot?.taxConfig) return null
+    const { baseFieldId, totalFieldId, taxAmountFieldId } = taxSelectSlot.taxConfig
+    const fee = parseFloat(instValues[baseFieldId] ?? '0') || 0
+    const label = instValues[taxSelectSlot.fieldId] ?? ''
+    const opt = taxRateOptions.find(o => o.label === label)
+    const tax = opt ? Math.floor(applyTaxFormula(fee, opt.formula_steps)) : 0
+    const otherNums = groupSlots.filter(s =>
+      s.type === 'number' && s.fieldId !== totalFieldId && (!taxAmountFieldId || s.fieldId !== taxAmountFieldId)
+    )
+    const numsSum = otherNums.reduce((sum, s) => sum + (parseFloat(instValues[s.fieldId] ?? '0') || 0), 0)
+    return { taxAmountFieldId, totalFieldId, tax, total: numsSum + tax, fee }
   }
 
   // 草稿狀態下，出款帳號改變時自動帶入審核流程
@@ -265,6 +307,28 @@ export default function EditFundsForm({
       }
       if (Object.keys(loadedRepeatable).length) setRepeatableValues(loadedRepeatable)
 
+      // 載入群組重複資料
+      const loadedGroups: Record<string, Record<string, string>[]> = {}
+      for (const block of schema) {
+        const groupRows = getGroupRows(block)
+        if (groupRows.length === 0) continue
+        const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+        const raw = extraData[`__group_${block.id}`]
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as Record<string, string>[]
+            loadedGroups[block.id] = parsed.map(obj => {
+              const inst: Record<string, string> = {}
+              for (const slot of groupSlots) { inst[slot.fieldId] = obj[slot.label] ?? '' }
+              return inst
+            })
+          } catch { loadedGroups[block.id] = [{}] }
+        } else {
+          loadedGroups[block.id] = [{}]
+        }
+      }
+      if (Object.keys(loadedGroups).length) setGroupInstances(loadedGroups)
+
       const attachments = await getAttachmentsByAllocationId(record.id)
       setExistingAttachments(attachments.map(a => ({
         id: a.id, fileName: a.file_name, storagePath: a.storage_path,
@@ -296,7 +360,31 @@ export default function EditFundsForm({
     : [...new Set(Object.values(memberRoleMap).flat())]
 
   const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
+  const groupBlockSummary: Record<string, { taxBase: number; handling: number; taxAmount: number; total: number }> = {}
   for (const block of schema) {
+    const groupRows = getGroupRows(block)
+    if (groupRows.length > 0) {
+      const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+      const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+      const baseFieldId = taxSelectSlot?.taxConfig?.baseFieldId ?? ''
+      const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+      const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
+      const handlingSlots = groupSlots.filter(s =>
+        s.type === 'number' &&
+        s.fieldId !== baseFieldId &&
+        (!taxAmtFieldId || s.fieldId !== taxAmtFieldId) &&
+        (!totalFieldId || s.fieldId !== totalFieldId)
+      )
+      const instances = groupInstances[block.id] ?? [{}]
+      let totalBase = 0, totalHandling = 0, totalTax = 0
+      for (const inst of instances) {
+        totalBase += parseFloat(inst[baseFieldId] ?? '0') || 0
+        totalHandling += handlingSlots.reduce((acc, s) => acc + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0)
+        totalTax += taxAmtFieldId ? (parseFloat(inst[taxAmtFieldId] ?? '0') || 0) : 0
+      }
+      groupBlockSummary[block.id] = { taxBase: totalBase, handling: totalHandling, taxAmount: totalTax, total: totalBase + totalHandling + totalTax }
+      continue
+    }
     const aggregatedValues = { ...fieldValues }
     for (const row of block.rows) {
       if (row.repeatable) {
@@ -331,6 +419,12 @@ export default function EditFundsForm({
       .filter(s => s.dataSource === 'tax_rates' && s.taxConfig)
       .reduce((acc, s) => ({ ...acc, [s.fieldId]: fieldValues[s.fieldId] ?? '' }), {} as Record<string, string>)
   )
+  // 費用欄位的目前值（用於 effect dep，讓先選稅額後打費用也能觸發計算）
+  const taxFeeStr = JSON.stringify(
+    allSlots
+      .filter(s => s.dataSource === 'tax_rates' && s.taxConfig)
+      .reduce((acc, s) => ({ ...acc, [s.taxConfig!.baseFieldId]: fieldValues[s.taxConfig!.baseFieldId] ?? '' }), {} as Record<string, string>)
+  )
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const taxSelectors = JSON.parse(taxSelectorStr) as Record<string, string>
@@ -338,6 +432,8 @@ export default function EditFundsForm({
     const repeatableUpdates: Record<string, Record<string, string>[]> = {}
 
     for (const block of schema) {
+      if (block.rows.some(r => r.rowGroupStart)) continue
+
       const allBlockSlots = block.rows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
       const taxSelectSlot = allBlockSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
       if (!taxSelectSlot?.taxConfig) continue
@@ -384,7 +480,7 @@ export default function EditFundsForm({
         return changed ? { ...prev, ...fieldUpdates } : prev
       })
     }
-  }, [repeatableValues, taxSelectorStr, taxRateOptions])
+  }, [repeatableValues, taxSelectorStr, taxFeeStr, taxRateOptions])
 
   function renderFieldFor(
     slot: NonNullable<FormSlot>,
@@ -528,6 +624,96 @@ export default function EditFundsForm({
     return renderFieldFor(slot, fieldValues, setField)
   }
 
+  function renderGroupInstances(block: FormBlock) {
+    const groupRows = getGroupRows(block)
+    if (groupRows.length === 0) return null
+    const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+    const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+    const instances = groupInstances[block.id] ?? [{}]
+    const disabled = !canEdit
+
+    function setInstFieldWithAutoTax(instIdx: number, fieldId: string, val: string) {
+      setGroupInstances(prev => {
+        const allInst = [...(prev[block.id] ?? [{}])]
+        const newInst = { ...allInst[instIdx], [fieldId]: val }
+        if (taxSelectSlot?.taxConfig) {
+          const { baseFieldId, taxAmountFieldId } = taxSelectSlot.taxConfig
+          if (taxAmountFieldId && (fieldId === baseFieldId || fieldId === taxSelectSlot.fieldId)) {
+            const fee = parseFloat(fieldId === baseFieldId ? val : (newInst[baseFieldId] ?? '0')) || 0
+            const label = fieldId === taxSelectSlot.fieldId ? val : (newInst[taxSelectSlot.fieldId] ?? '')
+            const opt = taxRateOptions.find(o => o.label === label)
+            newInst[taxAmountFieldId] = String(opt ? Math.floor(applyTaxFormula(fee, opt.formula_steps)) : 0)
+          }
+        }
+        allInst[instIdx] = newInst
+        return { ...prev, [block.id]: allInst }
+      })
+    }
+
+    return (
+      <div>
+        {instances.map((instValues, instIdx) => {
+          const setInstField = (fid: string, val: string) => setInstFieldWithAutoTax(instIdx, fid, val)
+          const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
+          const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+          const storedTax = taxAmtFieldId ? (parseFloat(instValues[taxAmtFieldId] ?? '0') || 0) : 0
+          const otherNums = taxSelectSlot?.taxConfig
+            ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmtFieldId)
+            : []
+          const computedTotal = otherNums.reduce((sum, s) => sum + (parseFloat(instValues[s.fieldId] ?? '0') || 0), 0) + storedTax
+
+          return (
+            <div key={instIdx} style={{
+              position: 'relative',
+              paddingBottom: 16,
+              marginBottom: instances.length > 1 && instIdx < instances.length - 1 ? 16 : 0,
+              borderBottom: instances.length > 1 && instIdx < instances.length - 1 ? '1px dashed var(--border-color)' : undefined,
+            }}>
+              {groupRows.map(row => (
+                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
+                  {row.slots.map((slot, slotIdx) => {
+                    if (!slot) return <div key={slotIdx} />
+                    if (totalFieldId && slot.fieldId === totalFieldId) {
+                      return (
+                        <div key={slotIdx}>
+                          <label style={labelStyle}>{slot.label}</label>
+                          <Input value={String(computedTotal)} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={slotIdx}>
+                        <label style={labelStyle}>
+                          {slot.label}
+                          {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                        </label>
+                        {renderFieldFor(slot, instValues, setInstField, true)}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+              {!disabled && instances.length > 1 && (
+                <button type="button" onClick={() => removeGroupInstance(block.id, instIdx)}
+                  style={{ position: 'absolute', right: -76, top: 0, width: 56, padding: '4px 8px', fontSize: 12,
+                    border: '1px solid #fca5a5', borderRadius: 6, background: 'white', color: '#dc2626', cursor: 'pointer' }}>
+                  刪除
+                </button>
+              )}
+            </div>
+          )
+        })}
+        {!disabled && (
+          <button type="button" onClick={() => addGroupInstance(block.id)}
+            style={{ padding: '6px 14px', fontSize: 13, border: '1.5px dashed #d1d5db',
+              borderRadius: 6, background: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginTop: 4 }}>
+            ＋ 新增項目
+          </button>
+        )}
+      </div>
+    )
+  }
+
   function renderRepeatableRow(row: FormSchemaRow) {
     const instances = getRepeatableInstances(row.id)
     const disabled = !canEdit
@@ -579,7 +765,7 @@ export default function EditFundsForm({
     const secUnit = orgUnits.find(u => u.id === sectionId)
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
-      if (slot.fieldId.startsWith('custom_') && !repeatableSlotFieldIds.has(slot.fieldId)) {
+      if (slot.fieldId.startsWith('custom_') && !repeatableSlotFieldIds.has(slot.fieldId) && !groupSlotFieldIds.has(slot.fieldId)) {
         extraData[slot.label] = fieldValues[slot.fieldId] ?? computedTotals[slot.fieldId] ?? ''
       }
     }
@@ -593,6 +779,33 @@ export default function EditFundsForm({
         return obj
       })
       extraData[`__repeatable_${row.id}`] = JSON.stringify(labeled)
+    }
+    for (const block of schema) {
+      const groupRows = getGroupRows(block)
+      if (groupRows.length === 0) continue
+      const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+      const instances = groupInstances[block.id] ?? [{}]
+      const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+      const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
+      const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+      const otherNums = taxSelectSlot?.taxConfig
+        ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmtFieldId)
+        : []
+      const labeled = instances.map(inst => {
+        const storedTax = taxAmtFieldId ? (parseFloat(inst[taxAmtFieldId] ?? '0') || 0) : 0
+        const numsSum = otherNums.reduce((sum, s) => sum + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0)
+        const total = numsSum + storedTax
+        const obj: Record<string, string> = {}
+        for (const slot of groupSlots) {
+          if (totalFieldId && slot.fieldId === totalFieldId) {
+            obj[slot.label] = String(total)
+          } else {
+            obj[slot.label] = inst[slot.fieldId] ?? ''
+          }
+        }
+        return obj
+      })
+      extraData[`__group_${block.id}`] = JSON.stringify(labeled)
     }
     return {
       date: fieldValues.date || record.date,
@@ -696,22 +909,34 @@ export default function EditFundsForm({
       <form onSubmit={isDraft ? handleSubmitFromDraft : handleSaveChanges}>
         {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
           <div key={block.id} style={{ marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, background: 'var(--bg-card)' }}>
-            {(block.title || blockTaxMap[block.id]) && (
+            {(block.title || blockTaxMap[block.id] || groupBlockSummary[block.id]) && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0', background: 'var(--bg-sidebar)' }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
-                {blockTaxMap[block.id] && (() => {
-                  const info = blockTaxMap[block.id]!
+                {(blockTaxMap[block.id] || groupBlockSummary[block.id]) && (() => {
+                  const grpSummary = groupBlockSummary[block.id]
+                  const blkSummary = blockTaxMap[block.id]
+                  if (grpSummary) {
+                    return (
+                      <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                        <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.taxBase)}</strong></span>
+                        <span style={{ color: 'var(--text-muted)' }}>手續費 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.handling)}</strong></span>
+                        <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.taxAmount)}</strong></span>
+                        <span style={{ color: 'var(--text-muted)' }}>總額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.total)}</strong></span>
+                      </div>
+                    )
+                  }
                   return (
                     <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
-                      <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxBase)}</strong></span>
-                      <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(info.taxAmount)}</strong></span>
+                      <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(blkSummary!.taxBase)}</strong></span>
+                      <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(blkSummary!.taxAmount)}</strong></span>
                     </div>
                   )
                 })()}
               </div>
             )}
-            <div style={{ paddingTop: 20, paddingLeft: 20, paddingBottom: 4, paddingRight: block.rows.some(r => r.repeatable) ? 96 : 20 }}>
-              {block.rows.map(row =>
+            <div style={{ paddingTop: 20, paddingLeft: 20, paddingBottom: 4, paddingRight: block.rows.some(r => r.repeatable || r.rowGroupStart) ? 96 : 20 }}>
+              {/* 非群組列正常渲染 */}
+              {block.rows.filter(r => !r.rowGroupStart && !getGroupRows(block).includes(r)).map(row =>
                 row.repeatable ? (
                   <div key={row.id}>{renderRepeatableRow(row)}</div>
                 ) : (
@@ -733,6 +958,8 @@ export default function EditFundsForm({
                   })}
                 </div>
               ))}
+              {/* 群組列 */}
+              {renderGroupInstances(block)}
             </div>
           </div>
         ))}
