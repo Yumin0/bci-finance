@@ -47,7 +47,7 @@
 - `system_roles`：系統角色，`is_admin` 標記管理員，`allowed_item_ids` 功能菜單權限
 - `dropdown_options`：下拉選項（institution / payment_account 欄位）
 - `dev_tracker`：問題回報（type: bug/feature/improvement/performance）
-- `fund_attachments`：資金申請/付款憑單附件（`funds_allocation_id`、`funds_payment_id`、`slot_label`、`storage_path`、`file_type`）；對應 Storage Bucket `fund-attachments`
+- `fund_attachments`：資金申請/付款憑單附件（`funds_allocation_id`、`funds_payment_id`、`slot_label`、`storage_path`、`file_type`）；對應 Storage Bucket `fund-attachments`（Private）；上傳走 `/api/upload-attachment`，預覽走 `/api/attachment?path=...`（驗證登入後代理回傳，不暴露公開 URL）
 - `form_schema_rows` / `form_slots`：動態表單配置；`form_schema_rows.rowGroupStart boolean`（前端 schema 欄位，儲存於 Supabase `form_schemas` jsonb）標記「從此列起以下整組可重複新增」，搭配 AddFundsForm / EditFundsForm 的 `groupInstances` state 與 `__group_{blockId}` extra_data key 實作整組重複功能
 - `payee_categories`：付款對象類別（名稱、sort_order）
 - `payee_category_fields`：各類別欄位定義（label、field_type: text|number|dropdown|date、options jsonb）
@@ -69,7 +69,7 @@ src/
 ├── app/
 │   ├── _components/       # 全局共享組件（SidebarLayout、ThemeProvider、HomeTabView、StatusBadge 等）
 │   ├── actions/           # Server Actions（auth、payment、temp-voucher、account、sidebar-config、dev-tracker、form-schema、status-labels、payee、fee、fund-templates、application-cycle、notifications）
-│   ├── api/               # API Routes（upload-image）
+│   ├── api/               # API Routes（upload-image、upload-attachment、attachment 代理）
 │   ├── funds-allocation/
 │   │   ├── my-funds/      # 我的申請列表（含「選取範本」Modal、TemplateModal）
 │   │   │   └── add/       # 新增申請（支援 ?templateId= 帶入預設值）

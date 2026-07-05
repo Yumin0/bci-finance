@@ -4,10 +4,8 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { FundAttachment } from '@/lib/types'
 
 function withPublicUrl(row: Omit<FundAttachment, 'url'>): FundAttachment {
-  const { data: { publicUrl } } = supabase.storage
-    .from('fund-attachments')
-    .getPublicUrl(row.storage_path)
-  return { ...row, url: publicUrl }
+  const proxyUrl = `/api/attachment?path=${encodeURIComponent(row.storage_path)}`
+  return { ...row, url: proxyUrl }
 }
 
 export async function getAttachmentsByAllocationId(allocationId: number): Promise<FundAttachment[]> {

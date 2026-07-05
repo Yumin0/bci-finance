@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData()
@@ -23,11 +23,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const { data: { publicUrl } } = supabase.storage
-    .from('fund-attachments')
-    .getPublicUrl(filename)
+  const proxyUrl = `/api/attachment?path=${encodeURIComponent(filename)}`
 
-  return NextResponse.json({ url: publicUrl, storagePath: filename, fileName: file.name, fileType: ext })
+  return NextResponse.json({ url: proxyUrl, storagePath: filename, fileName: file.name, fileType: ext })
 }
 
 export async function DELETE(req: NextRequest) {
