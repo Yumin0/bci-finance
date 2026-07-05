@@ -153,6 +153,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         labelConfig={labelConfig}
         stepName={steps.find(s => s.step_number === (record.current_step ?? 0))?.step_name ?? null}
         attachments={attachments}
+        schema={schema}
       />
 
       {/* 審核步驟進度 */}

@@ -7,6 +7,11 @@
 
 ## 進行中
 
+**審核頁同步顯示完整表單內容**（Riku）
+分支：`feature/riku-review-sync`
+開始：2026-07-05
+說明：review/check/[id] 的 FundsAllocationDetail 改為依動態 schema 渲染（對齊 EditFundsForm），補齊申請單號、類型、付款明細群組重複等所有欄位。
+
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04
