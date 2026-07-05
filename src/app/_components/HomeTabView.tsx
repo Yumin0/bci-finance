@@ -46,7 +46,16 @@ export default function HomeTabView({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="我的申請紀錄" />
+      <PageHeader
+        title="我的申請紀錄"
+        action={
+          tab === 'funds' ? (
+            <Link href="/funds-allocation/my-funds/add" className={buttonVariants({ size: 'sm' })}>
+              + 新增申請單
+            </Link>
+          ) : undefined
+        }
+      />
 
       {/* Tabs */}
       <div className="flex border-b border-border">
