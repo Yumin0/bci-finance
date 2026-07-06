@@ -94,6 +94,7 @@ function GroupsTab() {
     setSelectedGroup(group)
     setEditingGroupId(null)
     setMemberSearch('')
+    setError(null)
     loadMembers(group.id)
   }
 
@@ -146,9 +147,13 @@ function GroupsTab() {
     setAddingMember(true)
     setError(null)
     try {
-      await addGroupMember(selectedGroup.id, account.id)
-      setMemberSearch('')
-      await loadMembers(selectedGroup.id)
+      const result = await addGroupMember(selectedGroup.id, account.id)
+      if (result.error) {
+        setError(`新增失敗：${result.error}`)
+      } else {
+        setMemberSearch('')
+        await loadMembers(selectedGroup.id)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : '新增成員失敗')
     } finally {

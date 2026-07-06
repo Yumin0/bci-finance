@@ -55,11 +55,11 @@ export async function getGroupMembers(groupId: number) {
   }>
 }
 
-export async function addGroupMember(groupId: number, userId: number) {
+export async function addGroupMember(groupId: number, userId: number): Promise<{ error: string | null }> {
   const { error } = await supabase
     .from('approval_group_members')
     .insert({ group_id: groupId, user_id: userId })
-  if (error) throw new Error(error.message)
+  return { error: error?.message ?? null }
 }
 
 export async function removeGroupMember(memberId: number) {
