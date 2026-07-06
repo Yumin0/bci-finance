@@ -63,6 +63,18 @@ export default async function EditFundsPage({
     }
   }
 
+  const reviewerNames: Record<string, string> = {}
+  const reviewerIds = approvalRecords
+    .map(r => r.reviewer_id)
+    .filter((rid): rid is string => !!rid && !isNaN(Number(rid)))
+  if (reviewerIds.length > 0) {
+    const { data: users } = await supabase
+      .from('app_users')
+      .select('id, name')
+      .in('id', reviewerIds.map(Number))
+    for (const u of users ?? []) reviewerNames[String(u.id)] = u.name
+  }
+
   return (
     <EditFundsForm
       record={record}
@@ -74,6 +86,7 @@ export default async function EditFundsPage({
       fromReview={fromReview}
       approvalSteps={approvalSteps}
       approvalRecords={approvalRecords}
+      reviewerNames={reviewerNames}
     />
   )
 }

@@ -46,6 +46,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   const [userId, setUserId] = useState<number | null>(null)
   const [userName, setUserName] = useState<string>('')
   const [canReviewStep, setCanReviewStep] = useState(false)
+  const [reviewerNames, setReviewerNames] = useState<Record<string, string>>({})
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -71,7 +72,16 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
       const allocation = recRes.data as FundsAllocation
-      setPastRecords((pastRes.data as ApprovalRecord[]) ?? [])
+      const past = (pastRes.data as ApprovalRecord[]) ?? []
+      setPastRecords(past)
+
+      const ids = past.map(r => r.reviewer_id).filter((rid): rid is string => !!rid && !isNaN(Number(rid)))
+      if (ids.length > 0) {
+        const { data: users } = await supabase.from('app_users').select('id, name').in('id', ids.map(Number))
+        const nameMap: Record<string, string> = {}
+        for (const u of users ?? []) nameMap[String(u.id)] = u.name
+        setReviewerNames(nameMap)
+      }
 
       let steps: StepDef[] = []
       if (allocation.flow_template_id) {
@@ -209,7 +219,14 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0, minWidth: 20 }}>
                   {step.step_number}.
                 </span>
-                <strong style={{ fontSize: 14, flexShrink: 0 }}>{step.step_name}</strong>
+                <strong style={{ fontSize: 14, flexShrink: 0 }}>
+                  {step.step_name}
+                  {isDone && past.reviewer_id && reviewerNames[past.reviewer_id] && (
+                    <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>
+                      · {reviewerNames[past.reviewer_id]}
+                    </span>
+                  )}
+                </strong>
                 <span style={{ flex: 1, fontSize: 14, color: 'var(--text-body)', textAlign: 'center' }}>
                   {isDone && past.comment ? past.comment : ''}
                 </span>

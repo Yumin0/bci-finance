@@ -43,6 +43,7 @@ export default function EditFundsForm({
   hideApprovalPanel = false,
   approvalSteps = [],
   approvalRecords = [],
+  reviewerNames = {},
   onSaveSuccess,
 }: {
   record: FundsAllocation
@@ -55,6 +56,7 @@ export default function EditFundsForm({
   hideApprovalPanel?: boolean
   approvalSteps?: ApprovalStepDef[]
   approvalRecords?: ApprovalRecord[]
+  reviewerNames?: Record<string, string>
   onSaveSuccess?: () => void
 }) {
   const router = useRouter()
@@ -1222,7 +1224,14 @@ export default function EditFundsForm({
                   <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0, minWidth: 20 }}>
                     {step.step_number}.
                   </span>
-                  <strong style={{ fontSize: 14, flexShrink: 0 }}>{step.step_name}</strong>
+                  <strong style={{ fontSize: 14, flexShrink: 0 }}>
+                    {step.step_name}
+                    {isDone && past.reviewer_id && reviewerNames[past.reviewer_id] && (
+                      <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>
+                        · {reviewerNames[past.reviewer_id]}
+                      </span>
+                    )}
+                  </strong>
                   <span style={{ flex: 1, fontSize: 14, color: 'var(--text-body)', textAlign: 'center' }}>
                     {isDone && past.comment ? past.comment : ''}
                   </span>
