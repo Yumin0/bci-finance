@@ -2,6 +2,7 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { FundsAllocation, FundsPayment } from '@/lib/types'
+import { resolveApplicantNames } from '@/lib/resolveApplicantNames'
 import HomeTabView from './_components/HomeTabView'
 
 const FUNDS_JOIN_SELECT = `*, approval_flow_templates(approval_flow_steps(step_name, step_number)), approval_records!funds_allocation_id(step_name, decision)`
@@ -61,8 +62,10 @@ export default async function Home() {
     return (data ?? []).map((r: StepJoin) => ({ ...r, stepName: computeStepName(r) }))
   }
 
-  const fundsRecords = addStep(fundsResult.data)
-  const paymentRecords = addStep(paymentResult.data)
+  const [fundsRecords, paymentRecords] = await Promise.all([
+    resolveApplicantNames(addStep(fundsResult.data) as (FundsAllocation & { stepName: string | null })[]),
+    resolveApplicantNames(addStep(paymentResult.data) as (FundsPayment & { stepName: string | null })[]),
+  ])
   const voucherRecords = addStep(voucherResult.data)
 
   return (

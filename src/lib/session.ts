@@ -8,6 +8,7 @@ const encodedKey = new TextEncoder().encode(secretKey)
 export type SessionPayload = {
   userId: number
   name: string
+  email: string
   expiresAt: Date
 }
 
@@ -30,9 +31,9 @@ export async function decrypt(session: string | undefined = '') {
   }
 }
 
-export async function createSession(userId: number, name: string) {
+export async function createSession(userId: number, name: string, email: string) {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  const session = await encrypt({ userId, name, expiresAt })
+  const session = await encrypt({ userId, name, email, expiresAt })
   const cookieStore = await cookies()
 
   cookieStore.set('session', session, {

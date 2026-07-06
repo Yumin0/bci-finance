@@ -2,6 +2,7 @@ import { getSession } from '@/lib/session'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getFundTemplateById } from '@/app/actions/fund-templates'
 import { getApplicationCycleConfig } from '@/app/actions/application-cycle'
+import { emailToEnglishName } from '@/lib/userNames'
 import AddFundsForm from './_components/AddFundsForm'
 
 export default async function AddFundsPage({
@@ -18,7 +19,7 @@ export default async function AddFundsPage({
   ])
   return (
     <AddFundsForm
-      applicantName={session?.name ?? ''}
+      applicantName={session?.email ? emailToEnglishName(session.email) : (session?.name ?? '')}
       userId={session?.userId ?? null}
       schema={schemas.funds_allocation}
       initialValues={template?.field_values ?? undefined}

@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
 
   // 建立 session JWT，手動寫入 cookie（配合 redirect response）
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  const sessionToken = await encrypt({ userId, name: userName, expiresAt })
+  const sessionToken = await encrypt({ userId, name: userName, email: googleUser.email, expiresAt })
 
   const response = NextResponse.redirect(new URL('/', req.nextUrl))
   response.cookies.set('session', sessionToken, {

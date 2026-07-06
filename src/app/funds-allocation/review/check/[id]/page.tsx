@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { FundsAllocation, ApprovalRecord, StepDecision, FormBlock, FundAttachment } from '@/lib/types'
 import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approval-flow'
 import { getMySession } from '@/app/actions/auth'
+import { emailToEnglishName } from '@/lib/userNames'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import FundsAllocationDetail from '@/app/funds-allocation/_components/FundsAllocationDetail'
 import EditFundsForm from '@/app/funds-allocation/my-funds/edit/[id]/_components/EditFundsForm'
@@ -45,6 +46,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   const [attachments, setAttachments] = useState<FundAttachment[]>([])
   const [userId, setUserId] = useState<number | null>(null)
   const [userName, setUserName] = useState<string>('')
+  const [userEmail, setUserEmail] = useState<string>('')
   const [canReviewStep, setCanReviewStep] = useState(false)
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
@@ -68,6 +70,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
       setLabelConfig(config)
       setUserId(session.userId)
       setUserName(session.name ?? '')
+      setUserEmail(session.email ?? '')
 
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
@@ -173,7 +176,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
           key={refreshKey}
           record={record}
           schema={schema}
-          applicantName={userName}
+          applicantName={userEmail ? emailToEnglishName(userEmail) : userName}
           userId={userId}
           labelConfig={labelConfig}
           isCurrentReviewer

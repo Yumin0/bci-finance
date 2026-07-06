@@ -1,6 +1,7 @@
 'use server'
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { emailToEnglishName } from '@/lib/userNames'
 
 export type EditLogEntry = {
   id: number
@@ -42,5 +43,26 @@ export async function getEditLogs(fundsAllocationId: number): Promise<EditLogEnt
     .select('*')
     .eq('funds_allocation_id', fundsAllocationId)
     .order('changed_at', { ascending: true })
-  return (data ?? []) as EditLogEntry[]
+  const logs = (data ?? []) as EditLogEntry[]
+
+  const userIds = [
+    ...new Set(logs.map(l => l.changed_by).filter((id): id is number => id !== null)),
+  ]
+  if (!userIds.length) return logs
+
+  const { data: users } = await supabaseAdmin
+    .from('app_users')
+    .select('id, email')
+    .in('id', userIds)
+  const emailMap = new Map<number, string>(
+    (users ?? []).map(u => [u.id as number, u.email as string])
+  )
+
+  return logs.map(log => ({
+    ...log,
+    changed_by_name:
+      log.changed_by !== null && emailMap.has(log.changed_by)
+        ? emailToEnglishName(emailMap.get(log.changed_by)!)
+        : log.changed_by_name,
+  }))
 }

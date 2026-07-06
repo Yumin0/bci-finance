@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { FundsAllocation, ApprovalRecord } from '@/lib/types'
-import { getPendingAllocationsForReviewer } from '@/app/actions/approval-flow'
+import { getPendingAllocationsForReviewer, getApprovalHistoryForReviewer } from '@/app/actions/approval-flow'
 import { getMySession } from '@/app/actions/auth'
 import Link from 'next/link'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
@@ -63,29 +62,13 @@ export default function ReviewPage() {
       const userId = session.userId
       if (!userId) { setLoading(false); return }
 
-      const [pendingData, historyRaw] = await Promise.all([
+      const [pendingData, historyData] = await Promise.all([
         getPendingAllocationsForReviewer(userId),
-        supabase
-          .from('approval_records')
-          .select(`*, funds_allocation:funds_allocation_id(id, name, amount, status, serial_number, apply_division, apply_section, applicant, apply_role, payment_account, expense_item)`)
-          .eq('reviewer_id', String(userId))
-          .not('decision', 'is', null)
-          .not('funds_allocation_id', 'is', null)
-          .order('reviewed_at', { ascending: false })
-          .limit(500),
+        getApprovalHistoryForReviewer(userId),
       ])
 
       const pendingMapped: PendingItem[] = (pendingData as unknown as PendingItem[])
-
-      const seen = new Map<number, HistoryItem>()
-      for (const r of (historyRaw.data ?? []) as HistoryItem[]) {
-        const allocId = r.funds_allocation_id ?? 0
-        const existing = seen.get(allocId)
-        if (!existing || r.step_number > existing.step_number) seen.set(allocId, r)
-      }
-      const deduped = Array.from(seen.values()).sort(
-        (a, b) => new Date(b.reviewed_at ?? '').getTime() - new Date(a.reviewed_at ?? '').getTime()
-      )
+      const deduped = historyData as unknown as HistoryItem[]
 
       setPendingItems(pendingMapped)
       setHistoryItems(deduped)

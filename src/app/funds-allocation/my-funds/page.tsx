@@ -2,6 +2,7 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { FundsAllocation } from '@/lib/types'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
+import { resolveApplicantNames } from '@/lib/resolveApplicantNames'
 import MyFundsTableView from './_components/MyFundsTableView'
 
 export default async function MyFundsPage() {
@@ -22,13 +23,14 @@ export default async function MyFundsPage() {
     getStatusLabelConfig(),
   ])
 
-  const records = (data as (FundsAllocation & {
+  const rawRecords = (data as (FundsAllocation & {
     approval_flow_templates: {
       name: string
       approval_flow_steps: Array<{ step_name: string; step_number: number }>
     } | null
     approval_records: Array<{ step_name: string; decision: string }>
   })[]) ?? []
+  const records = await resolveApplicantNames(rawRecords)
 
   return (
     <>

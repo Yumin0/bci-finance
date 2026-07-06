@@ -6,7 +6,7 @@ import { createSession, deleteSession, getSession } from '@/lib/session'
 
 export async function getMySession() {
   const session = await getSession()
-  return { userId: session?.userId ?? null, name: session?.name ?? null }
+  return { userId: session?.userId ?? null, name: session?.name ?? null, email: session?.email ?? null }
 }
 
 export type LoginState =
@@ -23,7 +23,7 @@ export async function login(state: LoginState, formData: FormData): Promise<Logi
 
   const { data: user, error } = await supabase
     .from('app_users')
-    .select('id, name, password_hash')
+    .select('id, name, email, password_hash')
     .eq('email', email)
     .single()
 
@@ -36,7 +36,7 @@ export async function login(state: LoginState, formData: FormData): Promise<Logi
     return { error: '帳號或密碼錯誤' }
   }
 
-  await createSession(user.id, user.name)
+  await createSession(user.id, user.name, user.email)
   redirect('/')
 }
 
@@ -86,6 +86,6 @@ export async function register(state: RegisterState, formData: FormData): Promis
     return { message: '建立帳號失敗，請稍後再試' }
   }
 
-  await createSession(user.id, user.name)
+  await createSession(user.id, user.name, email)
   redirect('/')
 }

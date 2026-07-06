@@ -459,7 +459,7 @@ export async function getPendingAllocationsForReviewer(userId: number) {
     .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT}))`)
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
-  return ((data ?? []) as unknown as Array<{ current_step: number | null; apply_division_id: number | null; apply_section_id: number | null; approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
+  const filtered = ((data ?? []) as unknown as Array<{ current_step: number | null; apply_division_id: number | null; apply_section_id: number | null; created_by: string; applicant: string | null; approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
     .filter(r => {
       const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
       return stepDef ? stepMatchesReviewer(stepDef, reviewerInfo, {
@@ -467,10 +467,82 @@ export async function getPendingAllocationsForReviewer(userId: number) {
         applySectionId: r.apply_section_id,
       }) : false
     })
-    .map(r => {
-      const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
-      return { ...r, step_name: stepDef?.step_name ?? `第 ${r.current_step ?? 1} 步` }
-    })
+
+  // Resolve English names from created_by
+  const creatorIds = [...new Set(
+    filtered.map(r => parseInt(r.created_by, 10)).filter(id => !isNaN(id))
+  )]
+  const emailMap = new Map<number, string>()
+  if (creatorIds.length > 0) {
+    const { data: users } = await supabase.from('app_users').select('id, email').in('id', creatorIds)
+    for (const u of (users ?? [])) emailMap.set(u.id as number, u.email as string)
+  }
+
+  return filtered.map(r => {
+    const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+    const id = parseInt(r.created_by, 10)
+    const email = !isNaN(id) ? emailMap.get(id) : undefined
+    return {
+      ...r,
+      applicant: email ? emailToEnglishName(email) : (r.applicant ?? r.created_by),
+      step_name: stepDef?.step_name ?? `第 ${r.current_step ?? 1} 步`,
+    }
+  })
+}
+
+export async function getApprovalHistoryForReviewer(userId: number) {
+  const { data } = await supabase
+    .from('approval_records')
+    .select(`*, funds_allocation:funds_allocation_id(id, name, amount, status, serial_number, apply_division, apply_section, applicant, apply_role, payment_account, expense_item, created_by)`)
+    .eq('reviewer_id', String(userId))
+    .not('decision', 'is', null)
+    .not('funds_allocation_id', 'is', null)
+    .order('reviewed_at', { ascending: false })
+    .limit(500)
+
+  type RawItem = Record<string, unknown> & {
+    funds_allocation_id: number | null
+    step_number: number
+    reviewed_at: string | null
+    funds_allocation: (Record<string, unknown> & { created_by: string; applicant: string | null }) | null
+  }
+  const records = (data ?? []) as RawItem[]
+
+  // Deduplicate: keep highest step per allocation
+  const seen = new Map<number, RawItem>()
+  for (const r of records) {
+    const allocId = r.funds_allocation_id ?? 0
+    const existing = seen.get(allocId)
+    if (!existing || r.step_number > existing.step_number) seen.set(allocId, r)
+  }
+  const deduped = Array.from(seen.values()).sort(
+    (a, b) => new Date(b.reviewed_at ?? '').getTime() - new Date(a.reviewed_at ?? '').getTime()
+  )
+
+  // Resolve English names from created_by
+  const creatorIds = [...new Set(
+    deduped
+      .map(r => parseInt(r.funds_allocation?.created_by ?? '', 10))
+      .filter(id => !isNaN(id))
+  )]
+  const emailMap = new Map<number, string>()
+  if (creatorIds.length > 0) {
+    const { data: users } = await supabase.from('app_users').select('id, email').in('id', creatorIds)
+    for (const u of (users ?? [])) emailMap.set(u.id as number, u.email as string)
+  }
+
+  return deduped.map(r => {
+    if (!r.funds_allocation) return r
+    const id = parseInt(r.funds_allocation.created_by ?? '', 10)
+    const email = !isNaN(id) ? emailMap.get(id) : undefined
+    return {
+      ...r,
+      funds_allocation: {
+        ...r.funds_allocation,
+        applicant: email ? emailToEnglishName(email) : (r.funds_allocation.applicant ?? r.funds_allocation.created_by),
+      },
+    }
+  })
 }
 
 export async function getPendingPaymentsForReviewer(userId: number) {

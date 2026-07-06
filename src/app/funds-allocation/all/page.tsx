@@ -3,6 +3,7 @@ import { FundsAllocation } from '@/lib/types'
 import { getSession } from '@/lib/session'
 import { getUserAllowedItemIds } from '@/app/actions/sidebar-config'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
+import { resolveApplicantNames } from '@/lib/resolveApplicantNames'
 import AllFundsTableView from './_components/AllFundsTableView'
 
 export default async function AllFundsPage() {
@@ -26,13 +27,14 @@ export default async function AllFundsPage() {
     `)
     .order('created_at', { ascending: false })
 
-  const records = (data ?? []) as (FundsAllocation & {
+  const rawRecords = (data ?? []) as (FundsAllocation & {
     approval_flow_templates: {
       name: string
       approval_flow_steps: Array<{ step_name: string; step_number: number }>
     } | null
     approval_records: Array<{ step_name: string; decision: string }>
   })[]
+  const records = await resolveApplicantNames(rawRecords)
 
   return (
     <>
