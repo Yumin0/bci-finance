@@ -7,10 +7,10 @@
 
 ## 進行中
 
-**審核頁同步顯示完整表單內容**（Riku）
-分支：`feature/riku-review-sync`
-開始：2026-07-05
-說明：review/check/[id] 的 FundsAllocationDetail 改為依動態 schema 渲染（對齊 EditFundsForm），補齊申請單號、類型、付款明細群組重複等所有欄位。
+**審核人可編輯申請單 + 變更歷程**（Riku）
+分支：`feature/riku-reviewer-edit`
+開始：2026-07-06
+說明：審核人在當前步驟未核准前可進入 edit 頁修改申請單（除單號外全部欄位）；每次儲存自動記錄變更人/時間/欄位/新舊值至 allocation_edit_logs；標題列加「變更歷程」按鈕開 Modal 顯示時間軸，edit 頁與 review 頁位置一致。
 
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`

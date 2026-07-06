@@ -18,6 +18,8 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import { getAttachmentsByAllocationId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
 import { deleteFundsAllocation, updateFundsAllocation } from '@/app/actions/funds-allocation'
+import { logFieldChanges } from '@/app/actions/edit-logs'
+import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
 
 
 function unitLabel(u: OrgUnit) {
@@ -34,17 +36,26 @@ export default function EditFundsForm({
   applicantName,
   userId,
   labelConfig,
+  isCurrentReviewer = false,
+  fromReview = false,
+  hideApprovalPanel = false,
+  onSaveSuccess,
 }: {
   record: FundsAllocation
   schema: FormBlock[]
   applicantName: string
   userId: number | null
   labelConfig: StatusLabelConfig
+  isCurrentReviewer?: boolean
+  fromReview?: boolean
+  hideApprovalPanel?: boolean
+  onSaveSuccess?: () => void
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [changeLogOpen, setChangeLogOpen] = useState(false)
 
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
   const [memberUnitIds, setMemberUnitIds] = useState<number[]>([])
@@ -68,7 +79,7 @@ export default function EditFundsForm({
   const [flowTemplateName, setFlowTemplateName] = useState<string | null>(null)
 
   const isDraft = record.status === FUNDS_STATUS.DRAFT
-  const canEdit = isDraft || (record.status === FUNDS_STATUS.PENDING && record.current_step === 1)
+  const canEdit = isDraft || isCurrentReviewer || (record.status === FUNDS_STATUS.PENDING && record.current_step === 1)
 
   const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
     b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
@@ -848,6 +859,72 @@ export default function EditFundsForm({
     }
   }
 
+  function computeChangeLogs(updates: ReturnType<typeof buildUpdates>) {
+    const changes: { fieldLabel: string; oldValue: string; newValue: string }[] = []
+    const seen = new Set<string>()
+
+    for (const slot of allSlots) {
+      if (repeatableSlotFieldIds.has(slot.fieldId) || groupSlotFieldIds.has(slot.fieldId)) continue
+      if (slot.fieldId === 'serial_number' || slot.dataSource === 'current_user_name') continue
+      if (seen.has(slot.fieldId)) continue
+      seen.add(slot.fieldId)
+
+      const newVal = (() => {
+        switch (slot.fieldId) {
+          case 'date': return updates.date ?? ''
+          case 'apply_division': return updates.apply_division ?? ''
+          case 'apply_section': return updates.apply_section ?? ''
+          case 'apply_role': return updates.apply_role ?? ''
+          case 'institution': return updates.institution ?? ''
+          case 'payment_account': return updates.payment_account ?? ''
+          case 'expense_item': return updates.expense_item ?? ''
+          case 'name': return updates.name ?? ''
+          case 'amount': return String(updates.amount ?? '')
+          case 'category': return updates.category ?? ''
+          case 'note': return updates.note ?? ''
+          default: return updates.extra_data?.[slot.label] ?? ''
+        }
+      })()
+      const oldVal = (() => {
+        switch (slot.fieldId) {
+          case 'date': return record.date ?? ''
+          case 'apply_division': return record.apply_division ?? ''
+          case 'apply_section': return record.apply_section ?? ''
+          case 'apply_role': return record.apply_role ?? ''
+          case 'institution': return record.institution ?? ''
+          case 'payment_account': return record.payment_account ?? ''
+          case 'expense_item': return record.expense_item ?? ''
+          case 'name': return record.name ?? ''
+          case 'amount': return String(record.amount ?? 0)
+          case 'category': return record.category ?? ''
+          case 'note': return record.note ?? ''
+          default: return record.extra_data?.[slot.label] ?? ''
+        }
+      })()
+
+      if (oldVal !== newVal) changes.push({ fieldLabel: slot.label, oldValue: oldVal, newValue: newVal })
+    }
+
+    for (const block of schema) {
+      const key = `__group_${block.id}`
+      const oldJson = record.extra_data?.[key] ?? '[]'
+      const newJson = updates.extra_data?.[key] ?? '[]'
+      if (oldJson !== newJson) {
+        const oldTotal = (() => { try { const arr = JSON.parse(oldJson) as Record<string, string>[]; return arr.reduce((s, row) => s + (parseFloat(row['總額'] ?? row['金額'] ?? '0') || 0), 0) } catch { return 0 } })()
+        const newTotal = (() => { try { const arr = JSON.parse(newJson) as Record<string, string>[]; return arr.reduce((s, row) => s + (parseFloat(row['總額'] ?? row['金額'] ?? '0') || 0), 0) } catch { return 0 } })()
+        changes.push({ fieldLabel: block.title ?? '付款明細', oldValue: `合計 ${oldTotal}`, newValue: `合計 ${newTotal}` })
+      }
+    }
+
+    for (const [key, newJson] of Object.entries(updates.extra_data ?? {})) {
+      if (!key.startsWith('__repeatable_')) continue
+      const oldJson = record.extra_data?.[key] ?? '[]'
+      if (oldJson !== newJson) changes.push({ fieldLabel: '明細項目', oldValue: '（已修改）', newValue: '（已修改）' })
+    }
+
+    return changes
+  }
+
   async function persistAttachmentChanges() {
     await Promise.all(deletedAttachmentIds.map(id => deleteAttachmentRecord(id)))
     if (newAttachments.length) {
@@ -893,10 +970,27 @@ export default function EditFundsForm({
   async function handleSaveChanges(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSubmitting(true); setError(null)
-    const { error: updateError } = await updateFundsAllocation(record.id, buildUpdates())
+    const updates = buildUpdates()
+    const changes = computeChangeLogs(updates)
+    const { error: updateError } = await updateFundsAllocation(record.id, updates)
     if (updateError) { setError(updateError); setSubmitting(false); return }
     await persistAttachmentChanges()
-    router.push('/funds-allocation/my-funds')
+    if (changes.length > 0 && userId) {
+      await logFieldChanges({
+        fundsAllocationId: record.id,
+        changedBy: userId,
+        changedByName: applicantName,
+        stepNumber: record.current_step ?? null,
+        changes,
+      })
+    }
+    if (onSaveSuccess) {
+      onSaveSuccess()
+    } else if (fromReview) {
+      router.push(`/funds-allocation/review/check/${record.id}`)
+    } else {
+      router.push('/funds-allocation/my-funds')
+    }
   }
 
   const stepName = (() => {
@@ -906,6 +1000,8 @@ export default function EditFundsForm({
 
   return (
     <div>
+      <ChangeLogModal fundsAllocationId={record.id} open={changeLogOpen} onClose={() => setChangeLogOpen(false)} />
+
       {/* 標題列 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -913,8 +1009,17 @@ export default function EditFundsForm({
             {isDraft ? '編輯資金分配申請單' : '資金分配申請單'}
           </h1>
           <StatusBadge module="funds_allocation" status={record.status} stepName={stepName} labelConfig={labelConfig} />
+          {!isDraft && !isCurrentReviewer && (
+            <button
+              type="button"
+              onClick={() => setChangeLogOpen(true)}
+              style={{ fontSize: 13, padding: '4px 10px', border: '1px solid var(--btn-border)', borderRadius: 6, background: 'none', cursor: 'pointer', color: 'var(--text-body)' }}
+            >
+              變更歷程
+            </button>
+          )}
         </div>
-        {canEdit && (
+        {canEdit && !isCurrentReviewer && (
           <Button
             type="button"
             onClick={handleDelete}
@@ -1030,7 +1135,7 @@ export default function EditFundsForm({
         </div>
       </form>
 
-      {!isDraft && (
+      {!isDraft && !hideApprovalPanel && (
         <div style={{ marginTop: 40 }}>
           <ApprovalPanel
             record={record}

@@ -8,11 +8,13 @@ import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approv
 import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import FundsAllocationDetail from '@/app/funds-allocation/_components/FundsAllocationDetail'
+import EditFundsForm from '@/app/funds-allocation/my-funds/edit/[id]/_components/EditFundsForm'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import { getAttachmentsByAllocationId } from '@/app/actions/attachments'
 import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/dateUtils'
+import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
 
 type StepDef = {
   id: number
@@ -42,11 +44,14 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   const [schema, setSchema] = useState<FormBlock[]>([])
   const [attachments, setAttachments] = useState<FundAttachment[]>([])
   const [userId, setUserId] = useState<number | null>(null)
+  const [userName, setUserName] = useState<string>('')
   const [canReviewStep, setCanReviewStep] = useState(false)
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [changeLogOpen, setChangeLogOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     async function load() {
@@ -61,6 +66,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
       ])
       setLabelConfig(config)
       setUserId(session.userId)
+      setUserName(session.name ?? '')
 
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
@@ -102,7 +108,8 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
     }
     load()
     getFormSchemas().then(s => setSchema(s.funds_allocation))
-  }, [params])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, refreshKey])
 
   const steps = record?.approval_flow_templates?.approval_flow_steps
     ?.slice()
@@ -139,24 +146,50 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <button onClick={() => router.back()} style={{ background: 'none', border: '1px solid var(--btn-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>
-          ← 返回
+      <ChangeLogModal fundsAllocationId={record.id} open={changeLogOpen} onClose={() => setChangeLogOpen(false)} />
+
+      {/* 頂部標題列 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => router.back()} style={{ background: 'none', border: '1px solid var(--btn-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>
+            ← 返回
+          </button>
+          <h1 style={{ fontSize: 18, fontWeight: 700 }}>審核申請單</h1>
+        </div>
+        <button
+          onClick={() => setChangeLogOpen(true)}
+          style={{ fontSize: 13, padding: '6px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, background: 'none', cursor: 'pointer', color: 'var(--text-body)' }}
+        >
+          變更歷程
         </button>
-        <h1 style={{ fontSize: 18, fontWeight: 700 }}>審核申請單</h1>
       </div>
 
       {error && <p style={{ color: '#dc2626', marginBottom: 12 }}>{error}</p>}
 
-      <FundsAllocationDetail
-        record={record}
-        labelConfig={labelConfig}
-        stepName={steps.find(s => s.step_number === (record.current_step ?? 0))?.step_name ?? null}
-        attachments={attachments}
-        schema={schema}
-      />
+      {/* 表單區：審核人看可編輯版，其他人看唯讀版 */}
+      {canReview ? (
+        <EditFundsForm
+          key={refreshKey}
+          record={record}
+          schema={schema}
+          applicantName={userName}
+          userId={userId}
+          labelConfig={labelConfig}
+          isCurrentReviewer
+          hideApprovalPanel
+          onSaveSuccess={() => setRefreshKey(k => k + 1)}
+        />
+      ) : (
+        <FundsAllocationDetail
+          record={record}
+          labelConfig={labelConfig}
+          stepName={steps.find(s => s.step_number === (record.current_step ?? 0))?.step_name ?? null}
+          attachments={attachments}
+          schema={schema}
+        />
+      )}
 
-      {/* 審核步驟進度 */}
+      {/* 審核進度與操作區 */}
       <div style={{ marginBottom: 32, maxWidth: 720 }}>
         <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>審核進度</h2>
 
@@ -170,7 +203,6 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
               padding: '16px 0', borderBottom: '1px solid var(--border-color)',
               opacity: !isDone && !isActive ? 0.4 : 1,
             }}>
-              {/* 步驟標題列 */}
               <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, alignItems: 'start', marginBottom: isActive ? 10 : 0 }}>
                 <strong style={{ fontSize: 14 }}>
                   {step.step_number}. {step.step_name}
@@ -187,7 +219,6 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
                 )}
               </div>
 
-              {/* 審核操作區（只有 active 且 canReview 時顯示） */}
               {isActive && canReview && (
                 <div style={{ marginLeft: 0 }}>
                   <div style={{ display: 'flex', gap: 20, marginBottom: 10 }}>
