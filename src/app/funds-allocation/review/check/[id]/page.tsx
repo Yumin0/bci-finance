@@ -190,37 +190,49 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
       )}
 
       {/* 審核進度與操作區 */}
-      <div style={{ marginBottom: 32, maxWidth: 720 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>審核進度</h2>
+      <div style={{ marginBottom: 32, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12, padding: '20px 24px' }}>
+        <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>審核進度</h2>
 
-        {steps.map(step => {
+        {steps.map((step, idx) => {
           const past = pastRecords.find(r => r.step_number === step.step_number)
           const isActive = step.step_number === currentStep && record.status === 'pending'
           const isDone = !!past
+          const isLast = idx === steps.length - 1
 
           return (
             <div key={step.step_number} style={{
-              padding: '16px 0', borderBottom: '1px solid var(--border-color)',
+              padding: '14px 0',
+              borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
               opacity: !isDone && !isActive ? 0.4 : 1,
             }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, alignItems: 'start', marginBottom: isActive ? 10 : 0 }}>
-                <strong style={{ fontSize: 14 }}>
-                  {step.step_number}. {step.step_name}
-                </strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: isActive && canReview ? 14 : 0 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0, minWidth: 20 }}>
+                  {step.step_number}.
+                </span>
+                <strong style={{ fontSize: 14, flexShrink: 0 }}>{step.step_name}</strong>
+                <span style={{ flex: 1, fontSize: 14, color: 'var(--text-body)', textAlign: 'center' }}>
+                  {isDone && past.comment ? past.comment : ''}
+                </span>
                 {isDone && (
-                  <span style={{ fontSize: 13, color: past.decision === 'approved' ? '#16a34a' : '#dc2626', fontWeight: 500 }}>
+                  <span style={{
+                    fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, flexShrink: 0,
+                    background: past.decision === 'approved' ? '#dcfce7' : '#fee2e2',
+                    color: past.decision === 'approved' ? '#16a34a' : '#dc2626',
+                  }}>
                     {past.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
-                    {past.reviewed_at && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>{formatDateTime(past.reviewed_at)}</span>}
-                    {past.comment && <span style={{ display: 'block', color: 'var(--text-muted)', fontWeight: 400, fontSize: 12, marginTop: 2 }}>{past.comment}</span>}
                   </span>
                 )}
                 {isActive && !isDone && (
-                  <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 500 }}>待審核</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#dbeafe', color: '#2563eb', flexShrink: 0 }}>
+                    待審核
+                  </span>
+                )}
+                {isDone && past.reviewed_at && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>{formatDateTime(past.reviewed_at)}</span>
                 )}
               </div>
-
               {isActive && canReview && (
-                <div style={{ marginLeft: 0 }}>
+                <div style={{ marginLeft: 30 }}>
                   <div style={{ display: 'flex', gap: 20, marginBottom: 10 }}>
                     {(['approved', 'rejected'] as const).map(val => (
                       <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
@@ -263,10 +275,10 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         })}
 
         {record.status === 'approved' && (
-          <p style={{ marginTop: 16, color: '#16a34a', fontWeight: 600 }}>✓ 此申請已全數核准</p>
+          <p style={{ marginTop: 12, color: '#16a34a', fontWeight: 600, fontSize: 14 }}>✓ 此申請已全數核准</p>
         )}
         {record.status === 'rejected' && (
-          <p style={{ marginTop: 16, color: '#dc2626', fontWeight: 600 }}>✗ 此申請已被拒絕</p>
+          <p style={{ marginTop: 12, color: '#dc2626', fontWeight: 600, fontSize: 14 }}>✗ 此申請已被拒絕</p>
         )}
       </div>
     </div>
