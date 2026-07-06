@@ -4,13 +4,15 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
-import { FundsAllocation, DropdownOption, OrgUnit, FormBlock, FormSchemaRow, FormSlot, StepDecision, TaxRateOption } from '@/lib/types'
+import { FundsAllocation, DropdownOption, OrgUnit, FormBlock, FormSchemaRow, FormSlot, TaxRateOption, ApprovalRecord } from '@/lib/types'
 import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtils'
 import { deriveUserOrgCombos, divisionOptionsFromCombos, sectionOptionsFromCombos, allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
-import ApprovalPanel from '@/app/funds-allocation/_components/ApprovalPanel'
+import { formatDateTime } from '@/lib/dateUtils'
 import StatusBadge from '@/app/_components/StatusBadge'
+
+export type ApprovalStepDef = { id: number; step_number: number; step_name: string }
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -39,6 +41,8 @@ export default function EditFundsForm({
   isCurrentReviewer = false,
   fromReview = false,
   hideApprovalPanel = false,
+  approvalSteps = [],
+  approvalRecords = [],
   onSaveSuccess,
 }: {
   record: FundsAllocation
@@ -49,6 +53,8 @@ export default function EditFundsForm({
   isCurrentReviewer?: boolean
   fromReview?: boolean
   hideApprovalPanel?: boolean
+  approvalSteps?: ApprovalStepDef[]
+  approvalRecords?: ApprovalRecord[]
   onSaveSuccess?: () => void
 }) {
   const router = useRouter()
@@ -66,8 +72,6 @@ export default function EditFundsForm({
   const [divisionId, setDivisionId] = useState<number | null>(null)
   const [sectionId, setSectionId] = useState<number | null>(null)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
-  const [approvalDecision, setApprovalDecision] = useState<StepDecision>(null)
-  const [approvalComment, setApprovalComment] = useState('')
 
   // 附件
   const [existingAttachments, setExistingAttachments] = useState<AttachmentItem[]>([])
@@ -684,7 +688,7 @@ export default function EditFundsForm({
                 <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
                   {row.slots.map((slot, slotIdx) => {
                     if (!slot) return <div key={slotIdx} />
-                    if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
+                    if (totalFieldId && slot.fieldId === totalFieldId) {
                       return (
                         <div key={slotIdx}>
                           <label style={labelStyle}>{slot.label}</label>
@@ -808,7 +812,7 @@ export default function EditFundsForm({
         const total = numsSum + storedTax
         const obj: Record<string, string> = {}
         for (const slot of groupSlots) {
-          if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
+          if (totalFieldId && slot.fieldId === totalFieldId) {
             obj[slot.label] = String(total)
           } else {
             obj[slot.label] = inst[slot.fieldId] ?? ''
@@ -909,38 +913,75 @@ export default function EditFundsForm({
       const key = `__group_${block.id}`
       const oldJson = record.extra_data?.[key] ?? '[]'
       const newJson = updates.extra_data?.[key] ?? '[]'
-      if (oldJson !== newJson) {
-        const groupSlots = getGroupRows(block)
-          .flatMap(r => r.slots)
-          .filter((s): s is NonNullable<FormSlot> => s !== null && s.dataSource !== 'tax_rates')
-        const numLabels = groupSlots.filter(s => s.type === 'number').map(s => s.label)
-        let oldArr: Record<string, string>[] = []
-        let newArr: Record<string, string>[] = []
-        try { oldArr = JSON.parse(oldJson) } catch { /* empty */ }
-        try { newArr = JSON.parse(newJson) } catch { /* empty */ }
-        const sumTotal = (arr: Record<string, string>[]) =>
-          arr.reduce((t, row) => t + numLabels.reduce((s, l) => s + (parseFloat(row[l] ?? '0') || 0), 0), 0)
-        if (oldArr.length === newArr.length) {
-          // 逐欄比對
-          for (const slot of groupSlots) {
-            const oldVal = oldArr.map(r => r[slot.label] ?? '').join('、')
-            const newVal = newArr.map(r => r[slot.label] ?? '').join('、')
-            if (oldVal !== newVal) changes.push({ fieldLabel: slot.label, oldValue: oldVal, newValue: newVal })
+      if (oldJson === newJson) continue
+      const groupSlots = getGroupRows(block)
+        .flatMap(r => r.slots)
+        .filter((s): s is NonNullable<FormSlot> => s !== null)
+      let oldArr: Record<string, string>[] = []
+      let newArr: Record<string, string>[] = []
+      try { oldArr = JSON.parse(oldJson) } catch { /* empty */ }
+      try { newArr = JSON.parse(newJson) } catch { /* empty */ }
+      const multiRow = Math.max(oldArr.length, newArr.length) > 1
+      const minLen = Math.min(oldArr.length, newArr.length)
+      for (let rowIdx = 0; rowIdx < minLen; rowIdx++) {
+        for (const slot of groupSlots) {
+          const oldVal = oldArr[rowIdx]?.[slot.label] ?? ''
+          const newVal = newArr[rowIdx]?.[slot.label] ?? ''
+          if (oldVal !== newVal) {
+            const label = multiRow ? `第${rowIdx + 1}筆 ${slot.label}` : slot.label
+            changes.push({ fieldLabel: label, oldValue: oldVal, newValue: newVal })
           }
-          const oldTotal = sumTotal(oldArr)
-          const newTotal = sumTotal(newArr)
-          if (oldTotal !== newTotal) changes.push({ fieldLabel: '總額', oldValue: String(oldTotal), newValue: String(newTotal) })
-        } else {
-          // 筆數不同，只顯示總額
-          changes.push({ fieldLabel: '總額', oldValue: String(sumTotal(oldArr)), newValue: String(sumTotal(newArr)) })
         }
+      }
+      for (let i = minLen; i < newArr.length; i++) {
+        const row = newArr[i]
+        const summary = groupSlots.map(s => `${s.label}：${row[s.label] ?? ''}`).filter(s => !s.endsWith('：')).join('、')
+        changes.push({ fieldLabel: `新增第${i + 1}筆`, oldValue: '（無）', newValue: summary || '（新增）' })
+      }
+      for (let i = minLen; i < oldArr.length; i++) {
+        const row = oldArr[i]
+        const summary = groupSlots.map(s => `${s.label}：${row[s.label] ?? ''}`).filter(s => !s.endsWith('：')).join('、')
+        changes.push({ fieldLabel: `刪除第${i + 1}筆`, oldValue: summary || '（已刪除）', newValue: '（已刪除）' })
       }
     }
 
     for (const [key, newJson] of Object.entries(updates.extra_data ?? {})) {
       if (!key.startsWith('__repeatable_')) continue
       const oldJson = record.extra_data?.[key] ?? '[]'
-      if (oldJson !== newJson) changes.push({ fieldLabel: '明細項目', oldValue: '（已修改）', newValue: '（已修改）' })
+      if (oldJson === newJson) continue
+      const rowId = key.replace('__repeatable_', '')
+      const repRow = allRows.find(r => r.id === rowId)
+      const slotList = repRow?.slots.filter((s): s is NonNullable<FormSlot> => s !== null) ?? []
+      let oldArr: Record<string, string>[] = []
+      let newArr: Record<string, string>[] = []
+      try { oldArr = JSON.parse(oldJson) } catch { /* empty */ }
+      try { newArr = JSON.parse(newJson) } catch { /* empty */ }
+      if (!slotList.length) {
+        changes.push({ fieldLabel: '明細項目', oldValue: '（已修改）', newValue: '（已修改）' })
+        continue
+      }
+      const multiRow = Math.max(oldArr.length, newArr.length) > 1
+      const minLen = Math.min(oldArr.length, newArr.length)
+      for (let rowIdx = 0; rowIdx < minLen; rowIdx++) {
+        for (const slot of slotList) {
+          const oldVal = oldArr[rowIdx]?.[slot.label] ?? ''
+          const newVal = newArr[rowIdx]?.[slot.label] ?? ''
+          if (oldVal !== newVal) {
+            const label = multiRow ? `第${rowIdx + 1}筆 ${slot.label}` : slot.label
+            changes.push({ fieldLabel: label, oldValue: oldVal, newValue: newVal })
+          }
+        }
+      }
+      for (let i = minLen; i < newArr.length; i++) {
+        const row = newArr[i]
+        const summary = slotList.map(s => `${s.label}：${row[s.label] ?? ''}`).filter(s => !s.endsWith('：')).join('、')
+        changes.push({ fieldLabel: `新增第${i + 1}筆`, oldValue: '（無）', newValue: summary || '（新增）' })
+      }
+      for (let i = minLen; i < oldArr.length; i++) {
+        const row = oldArr[i]
+        const summary = slotList.map(s => `${s.label}：${row[s.label] ?? ''}`).filter(s => !s.endsWith('：')).join('、')
+        changes.push({ fieldLabel: `刪除第${i + 1}筆`, oldValue: summary || '（已刪除）', newValue: '（已刪除）' })
+      }
     }
 
     return changes
@@ -993,6 +1034,13 @@ export default function EditFundsForm({
     setSubmitting(true); setError(null)
     const updates = buildUpdates()
     const changes = computeChangeLogs(updates)
+    const deletedItems = existingAttachments.filter(a => deletedAttachmentIds.includes(a.id ?? -1))
+    for (const a of deletedItems) {
+      changes.push({ fieldLabel: `刪除附件（${a.slotLabel}）`, oldValue: a.fileName, newValue: '（已刪除）' })
+    }
+    for (const a of newAttachments) {
+      changes.push({ fieldLabel: `新增附件（${a.slotLabel}）`, oldValue: '（無）', newValue: a.fileName })
+    }
     const { error: updateError } = await updateFundsAllocation(record.id, updates)
     if (updateError) { setError(updateError); setSubmitting(false); return }
     await persistAttachmentChanges()
@@ -1156,19 +1204,57 @@ export default function EditFundsForm({
         </div>
       </form>
 
-      {!isDraft && !hideApprovalPanel && (
-        <div style={{ marginTop: 40 }}>
-          <ApprovalPanel
-            record={record}
-            currentStep={((record.current_step ?? 1) as 1 | 2 | 3 | 4 | 5)}
-            canReview={false}
-            decision={approvalDecision}
-            comment={approvalComment}
-            submitting={false}
-            onDecisionChange={setApprovalDecision}
-            onCommentChange={setApprovalComment}
-            onSubmit={() => {}}
-          />
+      {!isDraft && !hideApprovalPanel && approvalSteps.length > 0 && (
+        <div style={{ marginTop: 32, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12, padding: '20px 24px' }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>審核進度</h2>
+          {approvalSteps.map((step, idx) => {
+            const past = approvalRecords.find(r => r.step_number === step.step_number)
+            const isActive = step.step_number === record.current_step && record.status === 'pending'
+            const isDone = !!past
+            const isLast = idx === approvalSteps.length - 1
+            return (
+              <div key={step.step_number} style={{
+                padding: '14px 0',
+                borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
+                opacity: !isDone && !isActive ? 0.4 : 1,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0, minWidth: 20 }}>
+                    {step.step_number}.
+                  </span>
+                  <strong style={{ fontSize: 14, flexShrink: 0 }}>{step.step_name}</strong>
+                  <span style={{ flex: 1, fontSize: 14, color: 'var(--text-body)', textAlign: 'center' }}>
+                    {isDone && past.comment ? past.comment : ''}
+                  </span>
+                  {isDone && (
+                    <span style={{
+                      fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, flexShrink: 0,
+                      background: past.decision === 'approved' ? '#dcfce7' : '#fee2e2',
+                      color: past.decision === 'approved' ? '#16a34a' : '#dc2626',
+                    }}>
+                      {past.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
+                    </span>
+                  )}
+                  {isActive && !isDone && (
+                    <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#dbeafe', color: '#2563eb', flexShrink: 0 }}>
+                      待審核
+                    </span>
+                  )}
+                  {isDone && past.reviewed_at && (
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
+                      {formatDateTime(past.reviewed_at)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+          {record.status === 'approved' && (
+            <p style={{ marginTop: 12, color: '#16a34a', fontWeight: 600, fontSize: 14 }}>✓ 此申請已全數核准</p>
+          )}
+          {record.status === 'rejected' && (
+            <p style={{ marginTop: 12, color: '#dc2626', fontWeight: 600, fontSize: 14 }}>✗ 此申請已被拒絕</p>
+          )}
         </div>
       )}
     </div>
