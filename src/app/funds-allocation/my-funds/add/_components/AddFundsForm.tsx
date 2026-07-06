@@ -652,7 +652,7 @@ export default function AddFundsForm({
                   {row.slots.map((slot, slotIdx) => {
                     if (!slot) return <div key={slotIdx} />
                     // 合計唯讀（稅額 + 其他數字加總）
-                    if (totalFieldId && slot.fieldId === totalFieldId) {
+                    if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
                       return (
                         <div key={slotIdx}>
                           <label style={labelStyle}>{slot.label}</label>
@@ -773,7 +773,7 @@ export default function AddFundsForm({
         const total = numsSum + storedTax
         const obj: Record<string, string> = {}
         for (const slot of groupSlots) {
-          if (totalFieldId && slot.fieldId === totalFieldId) {
+          if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
             obj[slot.label] = String(total)
           } else {
             obj[slot.label] = inst[slot.fieldId] ?? ''

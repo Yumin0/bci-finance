@@ -684,7 +684,7 @@ export default function EditFundsForm({
                 <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
                   {row.slots.map((slot, slotIdx) => {
                     if (!slot) return <div key={slotIdx} />
-                    if (totalFieldId && slot.fieldId === totalFieldId) {
+                    if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
                       return (
                         <div key={slotIdx}>
                           <label style={labelStyle}>{slot.label}</label>
@@ -808,7 +808,7 @@ export default function EditFundsForm({
         const total = numsSum + storedTax
         const obj: Record<string, string> = {}
         for (const slot of groupSlots) {
-          if (totalFieldId && slot.fieldId === totalFieldId) {
+          if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
             obj[slot.label] = String(total)
           } else {
             obj[slot.label] = inst[slot.fieldId] ?? ''
@@ -910,9 +910,30 @@ export default function EditFundsForm({
       const oldJson = record.extra_data?.[key] ?? '[]'
       const newJson = updates.extra_data?.[key] ?? '[]'
       if (oldJson !== newJson) {
-        const oldTotal = (() => { try { const arr = JSON.parse(oldJson) as Record<string, string>[]; return arr.reduce((s, row) => s + (parseFloat(row['總額'] ?? row['金額'] ?? '0') || 0), 0) } catch { return 0 } })()
-        const newTotal = (() => { try { const arr = JSON.parse(newJson) as Record<string, string>[]; return arr.reduce((s, row) => s + (parseFloat(row['總額'] ?? row['金額'] ?? '0') || 0), 0) } catch { return 0 } })()
-        changes.push({ fieldLabel: block.title ?? '付款明細', oldValue: `合計 ${oldTotal}`, newValue: `合計 ${newTotal}` })
+        const groupSlots = getGroupRows(block)
+          .flatMap(r => r.slots)
+          .filter((s): s is NonNullable<FormSlot> => s !== null && s.dataSource !== 'tax_rates')
+        const numLabels = groupSlots.filter(s => s.type === 'number').map(s => s.label)
+        let oldArr: Record<string, string>[] = []
+        let newArr: Record<string, string>[] = []
+        try { oldArr = JSON.parse(oldJson) } catch { /* empty */ }
+        try { newArr = JSON.parse(newJson) } catch { /* empty */ }
+        const sumTotal = (arr: Record<string, string>[]) =>
+          arr.reduce((t, row) => t + numLabels.reduce((s, l) => s + (parseFloat(row[l] ?? '0') || 0), 0), 0)
+        if (oldArr.length === newArr.length) {
+          // 逐欄比對
+          for (const slot of groupSlots) {
+            const oldVal = oldArr.map(r => r[slot.label] ?? '').join('、')
+            const newVal = newArr.map(r => r[slot.label] ?? '').join('、')
+            if (oldVal !== newVal) changes.push({ fieldLabel: slot.label, oldValue: oldVal, newValue: newVal })
+          }
+          const oldTotal = sumTotal(oldArr)
+          const newTotal = sumTotal(newArr)
+          if (oldTotal !== newTotal) changes.push({ fieldLabel: '總額', oldValue: String(oldTotal), newValue: String(newTotal) })
+        } else {
+          // 筆數不同，只顯示總額
+          changes.push({ fieldLabel: '總額', oldValue: String(sumTotal(oldArr)), newValue: String(sumTotal(newArr)) })
+        }
       }
     }
 

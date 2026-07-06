@@ -55,6 +55,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     async function load() {
+      setLoading(true)
       const { id } = await params
       const numId = Number(id)
 

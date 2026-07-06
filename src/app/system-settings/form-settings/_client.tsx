@@ -270,7 +270,33 @@ export default function FormSettingsClient({
 
   async function handleSave() {
     setSaving(true); setSavedMsg(null)
-    const { error } = await saveFormSchema(formType, schemas[formType])
+    // Sanitize taxConfig: clear totalFieldId/taxAmountFieldId if they no longer point to a number slot in the same block
+    const sanitized = schemas[formType].map(block => {
+      const numIds = new Set(
+        block.rows.flatMap(r => r.slots)
+          .filter((s): s is NonNullable<typeof s> => s !== null && s.type === 'number')
+          .map(s => s.fieldId)
+      )
+      return {
+        ...block,
+        rows: block.rows.map(row => ({
+          ...row,
+          slots: row.slots.map(slot => {
+            if (!slot?.taxConfig) return slot
+            return {
+              ...slot,
+              taxConfig: {
+                ...slot.taxConfig,
+                totalFieldId: numIds.has(slot.taxConfig.totalFieldId ?? '') ? (slot.taxConfig.totalFieldId ?? '') : '',
+                taxAmountFieldId: numIds.has(slot.taxConfig.taxAmountFieldId ?? '') ? slot.taxConfig.taxAmountFieldId : undefined,
+              },
+            }
+          }),
+        })),
+      }
+    })
+    const { error } = await saveFormSchema(formType, sanitized)
+    if (!error) setSchemas(prev => ({ ...prev, [formType]: sanitized }))
     setSaving(false)
     if (error) { setSavedMsg(error) } else { setSavedMsg('已儲存'); setTimeout(() => setSavedMsg(null), 3000) }
   }
