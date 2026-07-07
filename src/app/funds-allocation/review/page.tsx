@@ -9,8 +9,10 @@ import {
 } from '@/app/actions/approval-flow'
 import { getMySession, getUserReviewPermissions } from '@/app/actions/auth'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
+import { getWeeklyBudgetSummary, getGroupReachedTotals } from '@/app/actions/fund-budget'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import { supabase } from '@/lib/supabase'
+import { getCurrentWeekStart, toDateStr } from '@/lib/weekUtils'
 import Link from 'next/link'
 import StatusBadge from '@/app/_components/StatusBadge'
 import { Input } from '@/components/ui/input'
@@ -66,6 +68,8 @@ const HISTORY_SEARCH: Array<(r: HistoryItem) => string | null | undefined> = [
 ]
 
 export default function ReviewPage() {
+  const currentWeekStart = toDateStr(getCurrentWeekStart())
+
   const [activeTab, setActiveTab] = useState<ReviewTab>('div')
   const [visibleTabs, setVisibleTabs] = useState<ReviewTab[]>(['history'])
   const [tabItems, setTabItems] = useState<Partial<Record<ReviewTab, AllocationItem[]>>>({})
@@ -74,6 +78,8 @@ export default function ReviewPage() {
   const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [budgets, setBudgets] = useState<Record<string, number>>({})
+  const [tabApprovedTotals, setTabApprovedTotals] = useState<Partial<Record<ReviewTab, Record<string, number>>>>({})
 
   useEffect(() => { setQuery('') }, [activeTab])
 
@@ -84,19 +90,20 @@ export default function ReviewPage() {
       const userId = session.userId
       if (!userId) { setLoading(false); return }
 
-      const [permRes, groupsRes, payAccRes, configRes, histRes] = await Promise.all([
+      const [permRes, groupsRes, payAccRes, configRes, histRes, budgetSummary] = await Promise.all([
         getUserReviewPermissions(userId),
         supabase.from('approval_groups').select('id, name').order('sort_order'),
         supabase.from('dropdown_options').select('label').eq('field', 'payment_account').order('sort_order'),
         getStatusLabelConfig(),
         getApprovalHistoryForReviewer(userId),
+        getWeeklyBudgetSummary(currentWeekStart),
       ])
+      const groups = (groupsRes.data ?? []) as { id: number; name: string }[]
 
       setLabelConfig(configRes)
       setHistoryItems(histRes as unknown as HistoryItem[])
       setPaymentAccounts((payAccRes.data ?? []).map((r: { label: string }) => r.label))
-
-      const groups = (groupsRes.data ?? []) as { id: number; name: string }[]
+      setBudgets(budgetSummary.budgets)
       const { isAdmin, allowedItemIds } = permRes
       const permSet = new Set(allowedItemIds)
       const canSee = (id: string) => isAdmin || permSet.has(id)
@@ -123,12 +130,23 @@ export default function ReviewPage() {
       setVisibleTabs(tabs)
       setActiveTab(tabs[0] ?? 'history')
 
-      const entries = await Promise.all(
-        (Object.entries(fetchMap) as [ReviewTab, Promise<AllocationItem[]>][]).map(
-          async ([t, p]) => [t, await p] as [ReviewTab, AllocationItem[]]
-        )
+      const GROUP_TABS = (['advisory', 'executive', 'cfo'] as const)
+      const [tabItemEntries, ...groupTotalResults] = await Promise.all([
+        Promise.all(
+          (Object.entries(fetchMap) as [ReviewTab, Promise<AllocationItem[]>][]).map(
+            async ([t, p]) => [t, await p] as [ReviewTab, AllocationItem[]]
+          )
+        ),
+        ...GROUP_TABS.map(tab => {
+          const group = groups.find(g => g.name === GROUP_NAMES[tab])
+          return group ? getGroupReachedTotals(currentWeekStart, group.id) : Promise.resolve({})
+        }),
+      ])
+
+      setTabItems(Object.fromEntries(tabItemEntries))
+      setTabApprovedTotals(
+        Object.fromEntries(GROUP_TABS.map((tab, i) => [tab, groupTotalResults[i]]))
       )
-      setTabItems(Object.fromEntries(entries))
       setLoading(false)
     }
     load()
@@ -189,6 +207,9 @@ export default function ReviewPage() {
           items={filterItems(tabItems[activeTab] ?? [])}
           paymentAccounts={paymentAccounts}
           labelConfig={labelConfig}
+          showBudget={activeTab !== 'div'}
+          budgets={budgets}
+          approvedTotals={tabApprovedTotals[activeTab] ?? {}}
         />
       )}
     </div>
@@ -199,14 +220,19 @@ function AccountGroupedList({
   items,
   paymentAccounts,
   labelConfig,
+  showBudget,
+  budgets,
+  approvedTotals,
 }: {
   items: AllocationItem[]
   paymentAccounts: string[]
   labelConfig: StatusLabelConfig
+  showBudget: boolean
+  budgets: Record<string, number>
+  approvedTotals: Record<string, number>
 }) {
   if (items.length === 0) return <p className="text-sm text-muted-foreground">目前沒有待審核的申請</p>
 
-  // Group by payment_account, ordered by dropdown_options sort
   const groupMap = items.reduce<Record<string, AllocationItem[]>>((acc, r) => {
     const key = r.payment_account ?? '（未指定帳戶）'
     if (!acc[key]) acc[key] = []
@@ -214,7 +240,6 @@ function AccountGroupedList({
     return acc
   }, {})
 
-  // Build ordered list: use paymentAccounts order, then append any unlisted keys
   const orderedKeys = [
     ...paymentAccounts.filter(k => groupMap[k]),
     ...Object.keys(groupMap).filter(k => !paymentAccounts.includes(k)),
@@ -222,11 +247,30 @@ function AccountGroupedList({
 
   return (
     <div className="flex flex-col gap-6">
-      {orderedKeys.map(account => (
+      {orderedKeys.map(account => {
+        const budget = budgets[account] ?? null
+        const approved = approvedTotals[account] ?? 0
+        const remaining = budget != null ? budget - approved : null
+        return (
         <div key={account}>
           <Card className="overflow-hidden p-0">
             <CardHeader className="border-b border-border px-4 py-3">
               <CardTitle className="text-base">{account}</CardTitle>
+              {showBudget && (
+                <div className="ml-auto flex items-center gap-3 text-sm">
+                  <span className="text-muted-foreground">
+                    已核准總額：<span className="font-medium text-foreground">{approved.toLocaleString()} 元</span>
+                  </span>
+                  {remaining != null && (
+                    <span className="text-muted-foreground">
+                      剩餘可分配金額：
+                      <span className={`font-medium ${remaining < 0 ? 'text-destructive' : 'text-primary'}`}>
+                        {remaining.toLocaleString()} 元
+                      </span>
+                    </span>
+                  )}
+                </div>
+              )}
             </CardHeader>
             <Table>
               <TableHeader>
@@ -255,7 +299,8 @@ function AccountGroupedList({
             </Table>
           </Card>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
