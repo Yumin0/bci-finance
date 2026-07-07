@@ -9,6 +9,25 @@ export async function getMySession() {
   return { userId: session?.userId ?? null, name: session?.name ?? null, email: session?.email ?? null }
 }
 
+export async function getUserReviewPermissions(userId: number): Promise<{ isAdmin: boolean; allowedItemIds: string[] }> {
+  const { data: user } = await supabase
+    .from('app_users')
+    .select('system_role_id')
+    .eq('id', userId)
+    .single()
+  if (!user?.system_role_id) return { isAdmin: false, allowedItemIds: [] }
+  const { data: role } = await supabase
+    .from('system_roles')
+    .select('is_admin, allowed_item_ids')
+    .eq('id', user.system_role_id)
+    .single()
+  if (!role) return { isAdmin: false, allowedItemIds: [] }
+  return {
+    isAdmin: role.is_admin as boolean,
+    allowedItemIds: (role.allowed_item_ids as string[]) ?? [],
+  }
+}
+
 export type LoginState =
   | { error?: string }
   | undefined

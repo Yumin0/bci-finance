@@ -16,7 +16,7 @@
 
 | 模組 | 路徑 | 說明 |
 |------|------|------|
-| 資金分配申請 | `/funds-allocation` | 申請、編輯、動態審核流程（範本驅動）、審核管理頁、全部申請紀錄；預選範本（共用範本 Admin 管理、個人範本另存）；附件上傳（PDF/JPG/PNG，表單設定驅動，支援 Modal 預覽）；付款明細支援整組重複新增（`rowGroupStart` 標記起始列），稅額雙向自動計算，右上角彙總費用/手續費/稅額/總額；**審核人可在審核頁直接編輯申請單**，每次儲存記錄欄位級變更歷程（含附件新增/刪除、group block 逐行比對），可開 Modal 查看；**申請人視角顯示動態審核進度**（依範本步驟顯示已核准/不核准/待審核，含審核人評論） |
+| 資金分配申請 | `/funds-allocation` | 申請、編輯、動態審核流程（範本驅動）、審核管理頁、全部申請紀錄；預選範本（共用範本 Admin 管理、個人範本另存）；附件上傳（PDF/JPG/PNG，表單設定驅動，支援 Modal 預覽）；付款明細支援整組重複新增（`rowGroupStart` 標記起始列），稅額雙向自動計算，右上角彙總費用/手續費/稅額/總額；**審核人可在審核頁直接編輯申請單**，每次儲存記錄欄位級變更歷程（含附件新增/刪除、group block 逐行比對），可開 Modal 查看；**申請人視角顯示動態審核進度**（依範本步驟顯示已核准/不核准/待審核，含審核人評論）；**審核管理 Tab 分類**：課、處長審核（依組織架構過濾）、諮詢議會、主管議會、財務長（依審核群組過濾，顯示該階段所有申請單）、我的審核紀錄；各 Tab 依出款帳戶分區塊顯示；帳號管理的系統角色可獨立開關每個 Tab 的可見權限（`fa-review-div` / `fa-review-advisory` / `fa-review-executive` / `fa-review-cfo`） |
 | 付款憑單 | `/funds-payment` | 新增、動態審核流程（共用同一套範本架構）、審核管理頁、全部付款紀錄；繼承申請單附件（唯讀）＋可補傳本憑單附件 |
 | 暫付款沖銷憑單 | `/funds-voucher` | 從付款憑單（已付款+預支）建立、我的列表、詳細頁（送出審核）、審核管理頁、全部紀錄 |
 | 財務管理 | `/finance` | 資金管理與付款憑單總覽 |
@@ -44,7 +44,7 @@
 - `org_unit_members`：組織單位成員（負責人），`org_unit_id` 關聯 `org_units`、`display_name` 姓名（依使用者 email 自動產生英文名，或 Excel 匯入的暫定人員）、`user_id` 可選關聯 `app_users(id)`；組織架構頁「+新增負責人」改為搜尋系統使用者直接綁定，既有未綁定的文字標籤可透過「重新比對帳號」依 email 英文名批次回填 `user_id`
 - `role_types`：職位類型
 - `org_unit_roles`：組織單位職位（`org_unit_id` + `role_type_id` 組合）
-- `system_roles`：系統角色，`is_admin` 標記管理員，`allowed_item_ids` 功能菜單權限
+- `system_roles`：系統角色，`is_admin` 標記管理員，`allowed_item_ids` 功能菜單權限；資金分配申請審核管理有四個子權限 ID：`fa-review-div`（課、處長審核 Tab）、`fa-review-advisory`（諮詢議會 Tab）、`fa-review-executive`（主管議會 Tab）、`fa-review-cfo`（財務長 Tab），需獨立勾選才看得到對應 Tab
 - `dropdown_options`：下拉選項（institution / payment_account 欄位）
 - `dev_tracker`：問題回報（type: bug/feature/improvement/performance）
 - `fund_attachments`：資金申請/付款憑單附件（`funds_allocation_id`、`funds_payment_id`、`slot_label`、`storage_path`、`file_type`）；對應 Storage Bucket `fund-attachments`（Private）；上傳走 `/api/upload-attachment`，預覽走 `/api/attachment?path=...`（驗證登入後代理回傳，不暴露公開 URL）

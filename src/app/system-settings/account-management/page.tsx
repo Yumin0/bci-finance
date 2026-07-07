@@ -28,8 +28,8 @@ type AppUser = {
 const ALL_ITEM_IDS = DEFAULT_SIDEBAR_CONFIG.flatMap(cat =>
   cat.entries.flatMap(entry =>
     entry.kind === 'item'
-      ? [{ categoryLabel: cat.label, id: entry.id, label: entry.label }]
-      : entry.items.map(item => ({ categoryLabel: cat.label, id: item.id, label: `${entry.label} › ${item.label}` }))
+      ? [{ categoryLabel: cat.label, id: entry.id, label: entry.label, permissionParent: entry.permissionParent ?? null }]
+      : entry.items.map(item => ({ categoryLabel: cat.label, id: item.id, label: `${entry.label} › ${item.label}`, permissionParent: item.permissionParent ?? null }))
   )
 )
 
@@ -51,12 +51,14 @@ function RoleForm({ role, onSave, onCancel }: {
   }
 
   function toggleCategory(categoryLabel: string) {
-    const ids = ALL_ITEM_IDS.filter(i => i.categoryLabel === categoryLabel).map(i => i.id)
-    const allChecked = ids.every(id => allowedItemIds.has(id))
+    const ids = ALL_ITEM_IDS.filter(i => i.categoryLabel === categoryLabel && !i.permissionParent).map(i => i.id)
+    const subIds = ALL_ITEM_IDS.filter(i => i.categoryLabel === categoryLabel && i.permissionParent).map(i => i.id)
+    const allChecked = [...ids, ...subIds].every(id => allowedItemIds.has(id))
     setAllowedItemIds(prev => {
       const n = new Set(prev)
-      if (allChecked) ids.forEach(id => n.delete(id))
-      else ids.forEach(id => n.add(id))
+      const allIds = [...ids, ...subIds]
+      if (allChecked) allIds.forEach(id => n.delete(id))
+      else allIds.forEach(id => n.add(id))
       return n
     })
   }
@@ -107,11 +109,19 @@ function RoleForm({ role, onSave, onCancel }: {
                     <span className="text-xs text-muted-foreground">{checkedCount}/{items.length}</span>
                   </div>
                   <div className="flex flex-col gap-1 px-8 py-2.5">
-                    {items.map(item => (
-                      <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-                        <input type="checkbox" checked={allowedItemIds.has(item.id)} onChange={() => toggleItem(item.id)} />
-                        {item.label}
-                      </label>
+                    {items.filter(item => !item.permissionParent).map(item => (
+                      <div key={item.id}>
+                        <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                          <input type="checkbox" checked={allowedItemIds.has(item.id)} onChange={() => toggleItem(item.id)} />
+                          {item.label}
+                        </label>
+                        {items.filter(sub => sub.permissionParent === item.id).map(sub => (
+                          <label key={sub.id} className="mt-1 flex cursor-pointer items-center gap-2 pl-5 text-sm text-foreground">
+                            <input type="checkbox" checked={allowedItemIds.has(sub.id)} onChange={() => toggleItem(sub.id)} />
+                            {sub.label}
+                          </label>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 </div>

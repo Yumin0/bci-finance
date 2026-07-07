@@ -490,6 +490,65 @@ export async function getPendingAllocationsForReviewer(userId: number) {
   })
 }
 
+type PendingRaw = { current_step: number | null; apply_division_id: number | null; apply_section_id: number | null; created_by: string; applicant: string | null; approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null } & Record<string, unknown>
+
+async function resolvePendingNames(items: PendingRaw[]) {
+  const creatorIds = [...new Set(items.map(r => parseInt(r.created_by, 10)).filter(id => !isNaN(id)))]
+  const emailMap = new Map<number, string>()
+  if (creatorIds.length > 0) {
+    const { data: users } = await supabase.from('app_users').select('id, email').in('id', creatorIds)
+    for (const u of (users ?? [])) emailMap.set(u.id as number, u.email as string)
+  }
+  return emailMap
+}
+
+export async function getPendingAllocationsForOrgRole(userId: number) {
+  const reviewerInfo = await getReviewerInfo(userId)
+  const { data } = await supabase
+    .from('funds_allocation')
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT}))`)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+
+  const filtered = ((data ?? []) as unknown as PendingRaw[]).filter(r => {
+    const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+    if (!stepDef || stepDef.reviewer_type !== 'org_role') return false
+    return stepMatchesReviewer(stepDef, reviewerInfo, {
+      applyDivisionId: r.apply_division_id,
+      applySectionId: r.apply_section_id,
+    })
+  })
+
+  const emailMap = await resolvePendingNames(filtered)
+  return filtered.map(r => {
+    const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+    const id = parseInt(r.created_by, 10)
+    const email = !isNaN(id) ? emailMap.get(id) : undefined
+    return { ...r, applicant: email ? emailToEnglishName(email) : (r.applicant ?? r.created_by), step_name: stepDef?.step_name ?? `第 ${r.current_step ?? 1} 步` }
+  })
+}
+
+export async function getPendingAllocationsByApprovalGroup(groupId: number) {
+  const { data } = await supabase
+    .from('funds_allocation')
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT}))`)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+
+  const filtered = ((data ?? []) as unknown as PendingRaw[]).filter(r => {
+    const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+    return stepDef?.reviewer_type === 'approval_group' && stepDef.approval_group_id === groupId
+  })
+
+  const emailMap = await resolvePendingNames(filtered)
+  return filtered.map(r => {
+    const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+    const id = parseInt(r.created_by, 10)
+    const email = !isNaN(id) ? emailMap.get(id) : undefined
+    return { ...r, applicant: email ? emailToEnglishName(email) : (r.applicant ?? r.created_by), step_name: stepDef?.step_name ?? `第 ${r.current_step ?? 1} 步` }
+  })
+}
+
 export async function getApprovalHistoryForReviewer(userId: number) {
   const { data } = await supabase
     .from('approval_records')

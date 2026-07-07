@@ -2,19 +2,53 @@
 
 import { useEffect, useState } from 'react'
 import { FundsAllocation, ApprovalRecord } from '@/lib/types'
-import { getPendingAllocationsForReviewer, getApprovalHistoryForReviewer } from '@/app/actions/approval-flow'
-import { getMySession } from '@/app/actions/auth'
-import Link from 'next/link'
+import {
+  getPendingAllocationsForOrgRole,
+  getPendingAllocationsByApprovalGroup,
+  getApprovalHistoryForReviewer,
+} from '@/app/actions/approval-flow'
+import { getMySession, getUserReviewPermissions } from '@/app/actions/auth'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
+import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 import StatusBadge from '@/app/_components/StatusBadge'
 import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { buttonVariants } from '@/components/ui/button'
 import PageHeader from '@/app/_components/PageHeader'
 
-const PENDING_SEARCH: Array<(r: PendingItem) => string | null | undefined> = [
+type ReviewTab = 'div' | 'advisory' | 'executive' | 'cfo' | 'history'
+
+const TAB_LABELS: Record<ReviewTab, string> = {
+  div: '課、處長審核',
+  advisory: '諮詢議會',
+  executive: '主管議會',
+  cfo: '財務長',
+  history: '我的審核紀錄',
+}
+
+const TAB_PERMISSION_IDS: Partial<Record<ReviewTab, string>> = {
+  div: 'fa-review-div',
+  advisory: 'fa-review-advisory',
+  executive: 'fa-review-executive',
+  cfo: 'fa-review-cfo',
+}
+
+const GROUP_NAMES: Partial<Record<ReviewTab, string>> = {
+  advisory: '諮詢議會',
+  executive: '主管議會',
+  cfo: '財務長',
+}
+
+type AllocationItem = FundsAllocation & { step_name: string }
+
+type HistoryItem = ApprovalRecord & {
+  funds_allocation: Pick<FundsAllocation, 'id' | 'name' | 'amount' | 'status' | 'serial_number' | 'apply_division' | 'apply_section' | 'applicant' | 'apply_role' | 'payment_account' | 'expense_item'> | null
+}
+
+const ALLOC_SEARCH: Array<(r: AllocationItem) => string | null | undefined> = [
   (r) => r.serial_number,
   (r) => r.apply_division,
   (r) => r.apply_section,
@@ -31,58 +65,86 @@ const HISTORY_SEARCH: Array<(r: HistoryItem) => string | null | undefined> = [
   (r) => r.funds_allocation?.name,
 ]
 
-type Tab = 'pending' | 'history'
-
-type PendingItem = FundsAllocation & { step_name: string }
-
-type HistoryItem = ApprovalRecord & {
-  funds_allocation: Pick<FundsAllocation, 'id' | 'name' | 'amount' | 'status' | 'serial_number' | 'apply_division' | 'apply_section' | 'applicant' | 'apply_role' | 'payment_account' | 'expense_item'> | null
-}
-
 export default function ReviewPage() {
-  const [tab, setTab] = useState<Tab>('pending')
-  const [pendingItems, setPendingItems] = useState<PendingItem[]>([])
+  const [activeTab, setActiveTab] = useState<ReviewTab>('div')
+  const [visibleTabs, setVisibleTabs] = useState<ReviewTab[]>(['history'])
+  const [tabItems, setTabItems] = useState<Partial<Record<ReviewTab, AllocationItem[]>>>({})
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([])
+  const [paymentAccounts, setPaymentAccounts] = useState<string[]>([])
   const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
 
-  useEffect(() => { setQuery('') }, [tab])
+  useEffect(() => { setQuery('') }, [activeTab])
 
   useEffect(() => {
     async function load() {
       setLoading(true)
-
-      const [config, session] = await Promise.all([
-        getStatusLabelConfig(),
-        getMySession(),
-      ])
-      setLabelConfig(config)
-
+      const session = await getMySession()
       const userId = session.userId
       if (!userId) { setLoading(false); return }
 
-      const [pendingData, historyData] = await Promise.all([
-        getPendingAllocationsForReviewer(userId),
+      const [permRes, groupsRes, payAccRes, configRes, histRes] = await Promise.all([
+        getUserReviewPermissions(userId),
+        supabase.from('approval_groups').select('id, name').order('sort_order'),
+        supabase.from('dropdown_options').select('label').eq('field', 'payment_account').order('sort_order'),
+        getStatusLabelConfig(),
         getApprovalHistoryForReviewer(userId),
       ])
 
-      const pendingMapped: PendingItem[] = (pendingData as unknown as PendingItem[])
-      const deduped = historyData as unknown as HistoryItem[]
+      setLabelConfig(configRes)
+      setHistoryItems(histRes as unknown as HistoryItem[])
+      setPaymentAccounts((payAccRes.data ?? []).map((r: { label: string }) => r.label))
 
-      setPendingItems(pendingMapped)
-      setHistoryItems(deduped)
+      const groups = (groupsRes.data ?? []) as { id: number; name: string }[]
+      const { isAdmin, allowedItemIds } = permRes
+      const permSet = new Set(allowedItemIds)
+      const canSee = (id: string) => isAdmin || permSet.has(id)
+
+      const tabs: ReviewTab[] = []
+      const fetchMap: Partial<Record<ReviewTab, Promise<AllocationItem[]>>> = {}
+
+      if (canSee('fa-review-div')) {
+        tabs.push('div')
+        fetchMap.div = getPendingAllocationsForOrgRole(userId) as unknown as Promise<AllocationItem[]>
+      }
+
+      for (const tab of (['advisory', 'executive', 'cfo'] as const)) {
+        if (canSee(TAB_PERMISSION_IDS[tab]!)) {
+          const group = groups.find(g => g.name === GROUP_NAMES[tab])
+          if (group) {
+            tabs.push(tab)
+            fetchMap[tab] = getPendingAllocationsByApprovalGroup(group.id) as unknown as Promise<AllocationItem[]>
+          }
+        }
+      }
+
+      tabs.push('history')
+      setVisibleTabs(tabs)
+      setActiveTab(tabs[0] ?? 'history')
+
+      const entries = await Promise.all(
+        (Object.entries(fetchMap) as [ReviewTab, Promise<AllocationItem[]>][]).map(
+          async ([t, p]) => [t, await p] as [ReviewTab, AllocationItem[]]
+        )
+      )
+      setTabItems(Object.fromEntries(entries))
       setLoading(false)
     }
     load()
   }, [])
 
-  const filteredPending = query.trim()
-    ? pendingItems.filter(r => PENDING_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
-    : pendingItems
-  const filteredHistory = query.trim()
-    ? historyItems.filter(r => HISTORY_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
-    : historyItems
+  function filterItems(items: AllocationItem[]) {
+    if (!query.trim()) return items
+    return items.filter(r => ALLOC_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
+  }
+
+  function filterHistory(items: HistoryItem[]) {
+    if (!query.trim()) return items
+    return items.filter(r => HISTORY_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
+  }
+
+  const pendingCount = (tab: ReviewTab) => (tabItems[tab] ?? []).length
 
   return (
     <div className="flex flex-col gap-6">
@@ -102,67 +164,99 @@ export default function ReviewPage() {
       </div>
 
       <div className="flex border-b border-border">
-        <button
-          onClick={() => setTab('pending')}
-          className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${tab === 'pending' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-        >
-          待我審核
-          {pendingItems.length > 0 && (
-            <span className="ml-1.5 inline-block rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
-              {pendingItems.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setTab('history')}
-          className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${tab === 'history' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-        >
-          我的審核紀錄
-        </button>
+        {visibleTabs.map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${activeTab === tab ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          >
+            {TAB_LABELS[tab]}
+            {tab !== 'history' && pendingCount(tab) > 0 && (
+              <span className="ml-1.5 inline-block rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
+                {pendingCount(tab)}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {loading ? (
         <p className="text-sm text-muted-foreground">載入中...</p>
-      ) : tab === 'pending' ? (
-        <PendingList items={filteredPending} labelConfig={labelConfig} />
+      ) : activeTab === 'history' ? (
+        <HistoryList items={filterHistory(historyItems)} labelConfig={labelConfig} />
       ) : (
-        <HistoryList items={filteredHistory} labelConfig={labelConfig} />
+        <AccountGroupedList
+          items={filterItems(tabItems[activeTab] ?? [])}
+          paymentAccounts={paymentAccounts}
+          labelConfig={labelConfig}
+        />
       )}
     </div>
   )
 }
 
-function PendingList({ items, labelConfig }: { items: PendingItem[]; labelConfig: StatusLabelConfig }) {
+function AccountGroupedList({
+  items,
+  paymentAccounts,
+  labelConfig,
+}: {
+  items: AllocationItem[]
+  paymentAccounts: string[]
+  labelConfig: StatusLabelConfig
+}) {
   if (items.length === 0) return <p className="text-sm text-muted-foreground">目前沒有待審核的申請</p>
+
+  // Group by payment_account, ordered by dropdown_options sort
+  const groupMap = items.reduce<Record<string, AllocationItem[]>>((acc, r) => {
+    const key = r.payment_account ?? '（未指定帳戶）'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(r)
+    return acc
+  }, {})
+
+  // Build ordered list: use paymentAccounts order, then append any unlisted keys
+  const orderedKeys = [
+    ...paymentAccounts.filter(k => groupMap[k]),
+    ...Object.keys(groupMap).filter(k => !paymentAccounts.includes(k)),
+  ]
+
   return (
-    <Card className="overflow-hidden p-0">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
-              <TableHead key={i}>{col}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map(r => (
-            <TableRow key={r.id}>
-              <TableCell><StatusBadge module="funds_allocation" status="pending" stepName={r.step_name} labelConfig={labelConfig} /></TableCell>
-              <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">{r.serial_number ?? '-'}</Link></TableCell>
-              <TableCell>{r.apply_division ?? '-'}</TableCell>
-              <TableCell>{r.apply_section ?? '-'}</TableCell>
-              <TableCell>{r.applicant ?? r.created_by}</TableCell>
-              <TableCell>{r.apply_role ?? '-'}</TableCell>
-              <TableCell>{r.amount.toLocaleString()}</TableCell>
-              <TableCell>{r.payment_account ?? '-'}</TableCell>
-              <TableCell>{r.expense_item ?? '-'}</TableCell>
-              <TableCell>{r.name}</TableCell>
-              <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link></TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Card>
+    <div className="flex flex-col gap-6">
+      {orderedKeys.map(account => (
+        <div key={account}>
+          <Card className="overflow-hidden p-0">
+            <CardHeader className="border-b border-border px-4 py-3">
+              <CardTitle className="text-base">{account}</CardTitle>
+            </CardHeader>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '費用項目', '項目', ''].map((col, i) => (
+                    <TableHead key={i}>{col}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groupMap[account].map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell><StatusBadge module="funds_allocation" status="pending" stepName={r.step_name} labelConfig={labelConfig} /></TableCell>
+                    <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">{r.serial_number ?? '-'}</Link></TableCell>
+                    <TableCell>{r.apply_division ?? '-'}</TableCell>
+                    <TableCell>{r.apply_section ?? '-'}</TableCell>
+                    <TableCell>{r.applicant ?? r.created_by}</TableCell>
+                    <TableCell>{r.apply_role ?? '-'}</TableCell>
+                    <TableCell>{r.amount.toLocaleString()}</TableCell>
+                    <TableCell>{r.expense_item ?? '-'}</TableCell>
+                    <TableCell>{r.name}</TableCell>
+                    <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </div>
+      ))}
+    </div>
   )
 }
 
