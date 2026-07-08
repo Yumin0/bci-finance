@@ -191,8 +191,9 @@ export async function submitApprovalDecision(params: {
   comment: string
   reviewerId: string
   totalSteps: number
+  approvedAmount?: number | null
 }) {
-  const { fundsAllocationId, fundsPaymentId, tempVoucherId, stepNumber, stepName, decision, comment, reviewerId, totalSteps } = params
+  const { fundsAllocationId, fundsPaymentId, tempVoucherId, stepNumber, stepName, decision, comment, reviewerId, totalSteps, approvedAmount } = params
 
   const isLastStep = stepNumber >= totalSteps
   const newStatus = decision === 'rejected' ? 'rejected' : isLastStep ? 'approved' : 'pending'
@@ -208,15 +209,16 @@ export async function submitApprovalDecision(params: {
       step_name: stepName,
       decision,
       comment: comment || null,
+      approved_amount: decision === 'approved' ? (approvedAmount ?? null) : null,
       reviewer_id: reviewerId,
       reviewed_at: new Date().toISOString(),
     })
   if (recordError) throw new Error(recordError.message)
 
   if (fundsAllocationId) {
-    const { error } = await supabase.from('funds_allocation')
-      .update({ status: newStatus, current_step: newCurrentStep, updated_at: new Date().toISOString() })
-      .eq('id', fundsAllocationId)
+    const updatePayload: Record<string, unknown> = { status: newStatus, current_step: newCurrentStep, updated_at: new Date().toISOString() }
+    if (decision === 'approved' && approvedAmount != null) updatePayload.approved_amount = approvedAmount
+    const { error } = await supabase.from('funds_allocation').update(updatePayload).eq('id', fundsAllocationId)
     if (error) throw new Error(error.message)
   }
 

@@ -261,6 +261,7 @@ export type FundsAllocation = {
   apply_role: string | null
   serial_number: string | null
   extra_data: Record<string, string> | null
+  approved_amount: number | null
   // 舊欄位保留中（過渡期備份，確認無誤後可刪除）
   step1_decision: StepDecision
   step1_comment: string | null
@@ -344,6 +345,7 @@ export type ApprovalRecord = {
   step_name: string
   decision: StepDecision
   comment: string | null
+  approved_amount: number | null
   reviewer_id: string | null
   reviewed_at: string | null
   created_at: string

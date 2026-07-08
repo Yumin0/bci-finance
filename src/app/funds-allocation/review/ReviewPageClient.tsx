@@ -452,7 +452,7 @@ function AccountGroupedList({
                           <TableCell>{r.applicant ?? r.created_by}</TableCell>
                           <TableCell>{r.apply_role ?? '-'}</TableCell>
                           <TableCell>{r.amount.toLocaleString()}</TableCell>
-                          <TableCell>-</TableCell>
+                          <TableCell>{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>
                           <TableCell>-</TableCell>
                           <TableCell>{r.expense_item ?? '-'}</TableCell>
                           <TableCell>{r.name}</TableCell>

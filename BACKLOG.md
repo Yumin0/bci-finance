@@ -7,6 +7,11 @@
 
 ## 進行中
 
+**審核核准金額輸入**（Riku）
+分支：`feature/riku-approved-amount`
+開始：2026-07-08
+完成：2026-07-08
+
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04

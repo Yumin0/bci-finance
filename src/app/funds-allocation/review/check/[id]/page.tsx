@@ -47,8 +47,9 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   const [userName, setUserName] = useState<string>('')
   const [canReviewStep, setCanReviewStep] = useState(false)
   const [reviewerNames, setReviewerNames] = useState<Record<string, string>>({})
-  const [decision, setDecision] = useState<StepDecision>(null)
+  const [decision, setDecision] = useState<StepDecision>('approved')
   const [comment, setComment] = useState('')
+  const [approvedAmount, setApprovedAmount] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [changeLogOpen, setChangeLogOpen] = useState(false)
@@ -113,6 +114,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         }
       }
 
+      setApprovedAmount(String(allocation.amount ?? ''))
       getAttachmentsByAllocationId(numId).then(setAttachments)
       setLoading(false)
     }
@@ -143,6 +145,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         comment,
         reviewerId: String(userId ?? ''),
         totalSteps: steps.length,
+        approvedAmount: decision === 'approved' && approvedAmount !== '' ? Number(approvedAmount) : null,
       })
       router.push('/funds-allocation/review')
     } catch (e: unknown) {
@@ -249,8 +252,8 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
                 )}
               </div>
               {isActive && canReview && (
-                <div style={{ marginLeft: 30 }}>
-                  <div style={{ display: 'flex', gap: 20, marginBottom: 10 }}>
+                <div style={{ marginLeft: 30, display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', paddingTop: 8, flexShrink: 0 }}>
                     {(['approved', 'rejected'] as const).map(val => (
                       <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
                         <input
@@ -270,21 +273,32 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
                     value={comment}
                     onChange={e => setComment(e.target.value)}
                     style={{
-                      width: '100%', padding: '8px 10px', borderRadius: 6,
+                      flex: 1, minWidth: 160, padding: '8px 10px', borderRadius: 6,
                       border: '1px solid var(--btn-border)', fontSize: 14,
                       resize: 'vertical', boxSizing: 'border-box',
-                      background: 'var(--bg-page)',
+                      background: '#fff',
                     }}
                   />
-                  <div style={{ marginTop: 12 }}>
-                    <Button
-                      onClick={handleSubmit}
-                      disabled={!decision || submitting}
-                      className={decision && !submitting ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : ''}
-                    >
-                      {submitting ? '送出中...' : '確定送出'}
-                    </Button>
-                  </div>
+                  <input
+                    type="number"
+                    value={approvedAmount}
+                    onChange={e => setApprovedAmount(e.target.value)}
+                    min={0}
+                    placeholder="核准金額"
+                    style={{
+                      width: 130, padding: '8px 10px', borderRadius: 6,
+                      border: '1px solid var(--btn-border)', fontSize: 14,
+                      background: '#fff', flexShrink: 0,
+                    }}
+                  />
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={!decision || submitting}
+                    style={{ flexShrink: 0 }}
+                    className={decision && !submitting ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : ''}
+                  >
+                    {submitting ? '送出中...' : '確定送出'}
+                  </Button>
                 </div>
               )}
             </div>
