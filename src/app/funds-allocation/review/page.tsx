@@ -2,14 +2,21 @@ import { redirect } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
 import { getMySession, getUserReviewPermissions } from '@/app/actions/auth'
 import {
-  getPendingAllocationsForOrgRole,
-  getPendingAllocationsByApprovalGroup,
+  getAllocationsForOrgRoleByWeek,
+  getAllocationsForApprovalGroupByWeek,
   getApprovalHistoryForReviewer,
 } from '@/app/actions/approval-flow'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { getWeeklyBudgetSummary, getGroupReachedTotals } from '@/app/actions/fund-budget'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
-import { getCurrentWeekStart, toDateStr } from '@/lib/weekUtils'
+import {
+  getCurrentWeekStart,
+  toDateStr,
+  getWeekEnd,
+  fromDateStr,
+  getWeeksForYear,
+  getAvailableYears,
+} from '@/lib/weekUtils'
 import ReviewPageClient, { type ReviewTab, type AllocationItem, type HistoryItem } from './ReviewPageClient'
 
 const TAB_PERMISSION_IDS: Partial<Record<ReviewTab, string>> = {
@@ -51,12 +58,34 @@ const getCachedStatusLabelConfig = unstable_cache(
   { revalidate: 300 }
 )
 
-export default async function ReviewPage() {
+export default async function ReviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string; weekStart?: string }>
+}) {
   const session = await getMySession()
   const uid = session?.userId
   if (!uid) redirect('/login')
 
-  const currentWeekStart = toDateStr(getCurrentWeekStart())
+  const { year: yearParam, weekStart: weekStartParam } = await searchParams
+
+  const nowWeekStart = getCurrentWeekStart()
+  const defaultYear = nowWeekStart.getFullYear()
+  const defaultWeekStart = toDateStr(nowWeekStart)
+
+  const selectedYear = yearParam ? Number(yearParam) : defaultYear
+  const availableYears = getAvailableYears()
+  const validYear = availableYears.includes(selectedYear) ? selectedYear : defaultYear
+
+  const weeksForYear = getWeeksForYear(validYear)
+  const validWeekStarts = new Set(weeksForYear.map(toDateStr))
+
+  let selectedWeekStart = weekStartParam ?? defaultWeekStart
+  if (!validWeekStarts.has(selectedWeekStart)) {
+    selectedWeekStart = toDateStr(weeksForYear[weeksForYear.length - 1] ?? weeksForYear[0])
+  }
+
+  const selectedWeekEnd = toDateStr(getWeekEnd(fromDateStr(selectedWeekStart)))
 
   const [permRes, groups, paymentAccounts, labelConfig, historyItems, budgetSummary] = await Promise.all([
     getUserReviewPermissions(uid),
@@ -64,7 +93,7 @@ export default async function ReviewPage() {
     getCachedPaymentAccounts(),
     getCachedStatusLabelConfig(),
     getApprovalHistoryForReviewer(uid),
-    getWeeklyBudgetSummary(currentWeekStart),
+    getWeeklyBudgetSummary(selectedWeekStart),
   ])
 
   const { isAdmin, allowedItemIds } = permRes
@@ -93,13 +122,13 @@ export default async function ReviewPage() {
     Promise.all(
       activeTabs.map(tab =>
         tab === 'div'
-          ? getPendingAllocationsForOrgRole(uid)
-          : getPendingAllocationsByApprovalGroup(tabGroupIds[tab]!)
+          ? getAllocationsForOrgRoleByWeek(uid, selectedWeekStart, selectedWeekEnd)
+          : getAllocationsForApprovalGroupByWeek(tabGroupIds[tab]!, selectedWeekStart, selectedWeekEnd)
       )
     ),
     ...GROUP_TABS.map(tab => {
       const gid = tabGroupIds[tab]
-      return gid ? getGroupReachedTotals(currentWeekStart, gid) : Promise.resolve({} as Record<string, number>)
+      return gid ? getGroupReachedTotals(selectedWeekStart, gid) : Promise.resolve({} as Record<string, number>)
     }),
   ])
 
@@ -121,6 +150,8 @@ export default async function ReviewPage() {
       labelConfig={labelConfig}
       budgets={budgetSummary.budgets}
       tabApprovedTotals={tabApprovedTotals}
+      selectedYear={validYear}
+      selectedWeekStart={selectedWeekStart}
     />
   )
 }

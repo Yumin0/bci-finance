@@ -8,11 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import PageHeader from '@/app/_components/PageHeader'
+import { YearDropdown, WeekDropdown } from '@/app/_components/WeekPicker'
 import {
   getWeeksForYear,
-  getAvailableYears,
   getCurrentWeekStart,
-  formatWeekRange,
   toDateStr,
 } from '@/lib/weekUtils'
 
@@ -22,11 +21,9 @@ type AccountRow = {
 }
 
 export default function FundsPage() {
-  const availableYears = getAvailableYears()
   const nowWeekStart = getCurrentWeekStart()
 
   const [selectedYear, setSelectedYear] = useState(nowWeekStart.getFullYear())
-  const [weeks, setWeeks] = useState<Date[]>([])
   const [selectedWeekStart, setSelectedWeekStart] = useState(toDateStr(nowWeekStart))
 
   const [rows, setRows] = useState<AccountRow[]>([])
@@ -37,19 +34,13 @@ export default function FundsPage() {
   const [inputValue, setInputValue] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Update weeks list when year changes
-  useEffect(() => {
-    const w = getWeeksForYear(selectedYear)
-    setWeeks(w)
+  function handleYearChange(year: number) {
+    setSelectedYear(year)
+    const weeks = getWeeksForYear(year)
     const currentStr = toDateStr(nowWeekStart)
-    const matchCurrent = w.find(wk => toDateStr(wk) === currentStr)
-    if (matchCurrent) {
-      setSelectedWeekStart(currentStr)
-    } else {
-      setSelectedWeekStart(toDateStr(w[w.length - 1] ?? w[0]))
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedYear])
+    const matchCurrent = weeks.find(wk => toDateStr(wk) === currentStr)
+    setSelectedWeekStart(matchCurrent ? currentStr : toDateStr(weeks[weeks.length - 1] ?? weeks[0]))
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -92,25 +83,13 @@ export default function FundsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title="資金管理" />
 
-      {/* Week selector */}
-      <div className="flex items-center gap-3">
-        <select
-          value={selectedYear}
-          onChange={e => setSelectedYear(Number(e.target.value))}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring"
-        >
-          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
-        <select
-          value={selectedWeekStart}
-          onChange={e => setSelectedWeekStart(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring"
-        >
-          {weeks.map(wk => {
-            const s = toDateStr(wk)
-            return <option key={s} value={s}>{formatWeekRange(wk)}</option>
-          })}
-        </select>
+      <div className="flex items-center gap-2">
+        <YearDropdown selectedYear={selectedYear} onChange={handleYearChange} />
+        <WeekDropdown
+          selectedYear={selectedYear}
+          selectedWeekStart={selectedWeekStart}
+          onChange={setSelectedWeekStart}
+        />
       </div>
 
       {error && <p className="text-sm text-destructive">錯誤：{error}</p>}
@@ -156,7 +135,6 @@ export default function FundsPage() {
         </Card>
       )}
 
-      {/* Input modal */}
       {modalAccount && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
@@ -165,7 +143,7 @@ export default function FundsPage() {
           <div className="w-[480px] max-w-[90vw] overflow-hidden rounded-xl bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-6 py-5">
               <span className="text-base font-semibold text-foreground">
-                設定 {weeks.find(w => toDateStr(w) === selectedWeekStart) ? formatWeekRange(weeks.find(w => toDateStr(w) === selectedWeekStart)!) : ''} 預算
+                設定預算
               </span>
               <button onClick={closeModal} className="text-xl leading-none text-muted-foreground hover:text-foreground">×</button>
             </div>

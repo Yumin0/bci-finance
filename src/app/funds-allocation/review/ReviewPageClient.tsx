@@ -13,6 +13,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { buttonVariants } from '@/components/ui/button'
 import PageHeader from '@/app/_components/PageHeader'
+import { YearDropdown, WeekDropdown } from '@/app/_components/WeekPicker'
 
 export type ReviewTab = 'div' | 'advisory' | 'executive' | 'cfo' | 'history'
 
@@ -27,7 +28,11 @@ const TAB_LABELS: Record<ReviewTab, string> = {
 const QUICK_ACTION_TABS = new Set<ReviewTab>(['advisory', 'executive'])
 const BATCH_ACTION_TABS = new Set<ReviewTab>(['cfo'])
 
-export type AllocationItem = FundsAllocation & { step_name: string; total_steps?: number }
+export type AllocationItem = FundsAllocation & {
+  step_name: string | undefined
+  total_steps?: number
+  is_pending_here?: boolean
+}
 
 export type HistoryItem = ApprovalRecord & {
   funds_allocation: Pick<FundsAllocation, 'id' | 'name' | 'amount' | 'status' | 'serial_number' | 'apply_division' | 'apply_section' | 'applicant' | 'apply_role' | 'payment_account' | 'expense_item'> | null
@@ -59,6 +64,8 @@ type Props = {
   labelConfig: StatusLabelConfig
   budgets: Record<string, number>
   tabApprovedTotals: Partial<Record<ReviewTab, Record<string, number>>>
+  selectedYear: number
+  selectedWeekStart: string
 }
 
 export default function ReviewPageClient({
@@ -70,6 +77,8 @@ export default function ReviewPageClient({
   labelConfig,
   budgets,
   tabApprovedTotals,
+  selectedYear,
+  selectedWeekStart,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -95,7 +104,8 @@ export default function ReviewPageClient({
     return items.filter(r => HISTORY_SEARCH.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
   }
 
-  const pendingCount = (tab: ReviewTab) => (tabItems[tab] ?? []).length
+  const pendingCount = (tab: ReviewTab) =>
+    (tabItems[tab] ?? []).filter(r => r.is_pending_here === true).length
 
   return (
     <div className="flex flex-col gap-6">
@@ -117,21 +127,38 @@ export default function ReviewPageClient({
         </p>
       </div>
 
-      <div className="flex border-b border-border">
-        {visibleTabs.map(tab => (
-          <button
-            key={tab}
-            onClick={() => handleTabChange(tab)}
-            className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${activeTab === tab ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-          >
-            {TAB_LABELS[tab]}
-            {tab !== 'history' && pendingCount(tab) > 0 && (
-              <span className="ml-1.5 inline-block rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
-                {pendingCount(tab)}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="flex items-center justify-between">
+        <div className="flex border-b border-border flex-1">
+          {visibleTabs.map(tab => (
+            <button
+              key={tab}
+              onClick={() => handleTabChange(tab)}
+              className={`-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${activeTab === tab ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            >
+              {TAB_LABELS[tab]}
+              {tab !== 'history' && pendingCount(tab) > 0 && (
+                <span className="ml-1.5 inline-block rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
+                  {pendingCount(tab)}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {activeTab !== 'history' && (
+          <div className="flex items-center gap-2 pl-4 pb-px">
+            <YearDropdown
+              selectedYear={selectedYear}
+              onChange={year => router.push(`/funds-allocation/review?year=${year}`)}
+            />
+            <WeekDropdown
+              selectedYear={selectedYear}
+              selectedWeekStart={selectedWeekStart}
+              align="right"
+              onChange={weekStart => router.push(`/funds-allocation/review?year=${selectedYear}&weekStart=${weekStart}`)}
+            />
+          </div>
+        )}
       </div>
 
       {activeTab === 'history' ? (
@@ -195,16 +222,18 @@ function AccountGroupedList({
   }
 
   function isAllGroupSelected(groupItems: AllocationItem[]) {
-    return groupItems.length > 0 && groupItems.every(r => selectedIds.has(r.id))
+    const selectableItems = groupItems.filter(r => r.is_pending_here !== false)
+    return selectableItems.length > 0 && selectableItems.every(r => selectedIds.has(r.id))
   }
 
   function toggleSelectAll(groupItems: AllocationItem[]) {
+    const selectableItems = groupItems.filter(r => r.is_pending_here !== false)
     setSelectedIds(prev => {
       const next = new Set(prev)
       if (isAllGroupSelected(groupItems)) {
-        groupItems.forEach(r => next.delete(r.id))
+        selectableItems.forEach(r => next.delete(r.id))
       } else {
-        groupItems.forEach(r => next.add(r.id))
+        selectableItems.forEach(r => next.add(r.id))
       }
       return next
     })
@@ -221,7 +250,7 @@ function AccountGroupedList({
       await submitApprovalDecision({
         fundsAllocationId: item.id,
         stepNumber: item.current_step ?? 1,
-        stepName: item.step_name,
+        stepName: item.step_name ?? '',
         decision: 'approved',
         comment: '',
         reviewerId: String(userId),
@@ -242,7 +271,7 @@ function AccountGroupedList({
       await submitApprovalDecision({
         fundsAllocationId: rejectTarget.id,
         stepNumber: rejectTarget.current_step ?? 1,
-        stepName: rejectTarget.step_name,
+        stepName: rejectTarget.step_name ?? '',
         decision: 'rejected',
         comment: rejectComment,
         reviewerId: String(userId),
@@ -267,7 +296,7 @@ function AccountGroupedList({
       await Promise.all(targets.map(item => submitApprovalDecision({
         fundsAllocationId: item.id,
         stepNumber: item.current_step ?? 1,
-        stepName: item.step_name,
+        stepName: item.step_name ?? '',
         decision: 'approved',
         comment: '',
         reviewerId: String(userId),
@@ -293,7 +322,7 @@ function AccountGroupedList({
       await Promise.all(batchRejectItems.map(item => submitApprovalDecision({
         fundsAllocationId: item.id,
         stepNumber: item.current_step ?? 1,
-        stepName: item.step_name,
+        stepName: item.step_name ?? '',
         decision: 'rejected',
         comment: batchComment,
         reviewerId: String(userId),
@@ -314,7 +343,7 @@ function AccountGroupedList({
     }
   }
 
-  if (items.length === 0) return <p className="text-sm text-muted-foreground">目前沒有待審核的申請</p>
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">本週沒有相關申請</p>
 
   const groupMap = items.reduce<Record<string, AllocationItem[]>>((acc, r) => {
     const key = r.payment_account ?? '（未指定帳戶）'
@@ -386,8 +415,10 @@ function AccountGroupedList({
                       <TableHead>申請處別</TableHead>
                       <TableHead>申請課別</TableHead>
                       <TableHead>申請人</TableHead>
-                      <TableHead>職稱</TableHead>
-                      <TableHead>金額</TableHead>
+                      <TableHead>職務</TableHead>
+                      <TableHead>申請金額</TableHead>
+                      <TableHead>核准金額</TableHead>
+                      <TableHead>剩餘金額</TableHead>
                       <TableHead>費用項目</TableHead>
                       <TableHead>項目</TableHead>
                       {showQuickActions && <TableHead>快速審核</TableHead>}
@@ -408,54 +439,70 @@ function AccountGroupedList({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {groupItems.map(r => (
-                      <TableRow key={r.id} className={showBatchActions && selectedIds.has(r.id) ? 'bg-primary/5' : ''}>
-                        <TableCell><StatusBadge module="funds_allocation" status="pending" stepName={r.step_name} labelConfig={labelConfig} /></TableCell>
-                        <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">{r.serial_number ?? '-'}</Link></TableCell>
-                        <TableCell>{r.apply_division ?? '-'}</TableCell>
-                        <TableCell>{r.apply_section ?? '-'}</TableCell>
-                        <TableCell>{r.applicant ?? r.created_by}</TableCell>
-                        <TableCell>{r.apply_role ?? '-'}</TableCell>
-                        <TableCell>{r.amount.toLocaleString()}</TableCell>
-                        <TableCell>{r.expense_item ?? '-'}</TableCell>
-                        <TableCell>{r.name}</TableCell>
-                        {showQuickActions && (
+                    {groupItems.map(r => {
+                      const isPendingHere = r.is_pending_here === true
+                      return (
+                        <TableRow key={r.id} className={showBatchActions && selectedIds.has(r.id) ? 'bg-primary/5' : ''}>
                           <TableCell>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => handleApprove(r)}
-                                disabled={actioningId === r.id}
-                                className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                              >
-                                {actioningId === r.id ? '處理中…' : '核准'}
-                              </button>
-                              <button
-                                onClick={() => { setRejectTarget(r); setRejectComment('') }}
-                                disabled={actioningId === r.id}
-                                className="rounded-md border border-destructive px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                              >
-                                不核准
-                              </button>
-                            </div>
+                            <StatusBadge module="funds_allocation" status={r.status} stepName={r.step_name} labelConfig={labelConfig} />
                           </TableCell>
-                        )}
-                        {showBatchActions && (
-                          <TableCell className="text-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedIds.has(r.id)}
-                              onChange={() => toggleSelect(r.id)}
-                              className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
-                            />
-                          </TableCell>
-                        )}
-                        {!showQuickActions && !showBatchActions && (
-                          <TableCell>
-                            <Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
+                          <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">{r.serial_number ?? '-'}</Link></TableCell>
+                          <TableCell>{r.apply_division ?? '-'}</TableCell>
+                          <TableCell>{r.apply_section ?? '-'}</TableCell>
+                          <TableCell>{r.applicant ?? r.created_by}</TableCell>
+                          <TableCell>{r.apply_role ?? '-'}</TableCell>
+                          <TableCell>{r.amount.toLocaleString()}</TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell>{r.expense_item ?? '-'}</TableCell>
+                          <TableCell>{r.name}</TableCell>
+                          {showQuickActions && (
+                            <TableCell>
+                              {isPendingHere ? (
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleApprove(r)}
+                                    disabled={actioningId === r.id}
+                                    className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                                  >
+                                    {actioningId === r.id ? '處理中…' : '核准'}
+                                  </button>
+                                  <button
+                                    onClick={() => { setRejectTarget(r); setRejectComment('') }}
+                                    disabled={actioningId === r.id}
+                                    className="rounded-md border border-destructive px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                                  >
+                                    不核准
+                                  </button>
+                                </div>
+                              ) : (
+                                <Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>查閱</Link>
+                              )}
+                            </TableCell>
+                          )}
+                          {showBatchActions && (
+                            <TableCell className="text-center">
+                              {isPendingHere ? (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIds.has(r.id)}
+                                  onChange={() => toggleSelect(r.id)}
+                                  className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
+                                />
+                              ) : null}
+                            </TableCell>
+                          )}
+                          {!showQuickActions && !showBatchActions && (
+                            <TableCell>
+                              {isPendingHere
+                                ? <Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link>
+                                : <Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>查閱</Link>
+                              }
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </Card>
@@ -541,7 +588,7 @@ function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig
       <Table>
         <TableHeader>
           <TableRow>
-            {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
+            {['狀態', '單號', '申請處別', '申請課別', '申請人', '職務', '申請金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
               <TableHead key={i}>{col}</TableHead>
             ))}
           </TableRow>
