@@ -6,6 +6,7 @@ import {
   getPendingAllocationsForOrgRole,
   getPendingAllocationsByApprovalGroup,
   getApprovalHistoryForReviewer,
+  submitApprovalDecision,
 } from '@/app/actions/approval-flow'
 import { getMySession, getUserReviewPermissions } from '@/app/actions/auth'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
@@ -16,6 +17,7 @@ import { getCurrentWeekStart, toDateStr } from '@/lib/weekUtils'
 import Link from 'next/link'
 import StatusBadge from '@/app/_components/StatusBadge'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { buttonVariants } from '@/components/ui/button'
@@ -44,7 +46,10 @@ const GROUP_NAMES: Partial<Record<ReviewTab, string>> = {
   cfo: '財務長',
 }
 
-type AllocationItem = FundsAllocation & { step_name: string }
+const QUICK_ACTION_TABS = new Set<ReviewTab>(['advisory', 'executive'])
+const BATCH_ACTION_TABS = new Set<ReviewTab>(['cfo'])
+
+type AllocationItem = FundsAllocation & { step_name: string; total_steps?: number }
 
 type HistoryItem = ApprovalRecord & {
   funds_allocation: Pick<FundsAllocation, 'id' | 'name' | 'amount' | 'status' | 'serial_number' | 'apply_division' | 'apply_section' | 'applicant' | 'apply_role' | 'payment_account' | 'expense_item'> | null
@@ -80,6 +85,8 @@ export default function ReviewPage() {
   const [query, setQuery] = useState('')
   const [budgets, setBudgets] = useState<Record<string, number>>({})
   const [tabApprovedTotals, setTabApprovedTotals] = useState<Partial<Record<ReviewTab, Record<string, number>>>>({})
+  const [userId, setUserId] = useState<number | null>(null)
+  const [tabGroupIds, setTabGroupIds] = useState<Partial<Record<ReviewTab, number>>>({})
 
   useEffect(() => { setQuery('') }, [activeTab])
 
@@ -87,15 +94,16 @@ export default function ReviewPage() {
     async function load() {
       setLoading(true)
       const session = await getMySession()
-      const userId = session.userId
-      if (!userId) { setLoading(false); return }
+      const uid = session.userId
+      if (!uid) { setLoading(false); return }
+      setUserId(uid)
 
       const [permRes, groupsRes, payAccRes, configRes, histRes, budgetSummary] = await Promise.all([
-        getUserReviewPermissions(userId),
+        getUserReviewPermissions(uid),
         supabase.from('approval_groups').select('id, name').order('sort_order'),
         supabase.from('dropdown_options').select('label').eq('field', 'payment_account').order('sort_order'),
         getStatusLabelConfig(),
-        getApprovalHistoryForReviewer(userId),
+        getApprovalHistoryForReviewer(uid),
         getWeeklyBudgetSummary(currentWeekStart),
       ])
       const groups = (groupsRes.data ?? []) as { id: number; name: string }[]
@@ -110,10 +118,11 @@ export default function ReviewPage() {
 
       const tabs: ReviewTab[] = []
       const fetchMap: Partial<Record<ReviewTab, Promise<AllocationItem[]>>> = {}
+      const groupIdMap: Partial<Record<ReviewTab, number>> = {}
 
       if (canSee('fa-review-div')) {
         tabs.push('div')
-        fetchMap.div = getPendingAllocationsForOrgRole(userId) as unknown as Promise<AllocationItem[]>
+        fetchMap.div = getPendingAllocationsForOrgRole(uid) as unknown as Promise<AllocationItem[]>
       }
 
       for (const tab of (['advisory', 'executive', 'cfo'] as const)) {
@@ -121,6 +130,7 @@ export default function ReviewPage() {
           const group = groups.find(g => g.name === GROUP_NAMES[tab])
           if (group) {
             tabs.push(tab)
+            groupIdMap[tab] = group.id
             fetchMap[tab] = getPendingAllocationsByApprovalGroup(group.id) as unknown as Promise<AllocationItem[]>
           }
         }
@@ -129,6 +139,7 @@ export default function ReviewPage() {
       tabs.push('history')
       setVisibleTabs(tabs)
       setActiveTab(tabs[0] ?? 'history')
+      setTabGroupIds(groupIdMap)
 
       const GROUP_TABS = (['advisory', 'executive', 'cfo'] as const)
       const [tabItemEntries, ...groupTotalResults] = await Promise.all([
@@ -151,6 +162,26 @@ export default function ReviewPage() {
     }
     load()
   }, [])
+
+  async function refreshGroupTabs() {
+    const GROUP_TABS = (['advisory', 'executive', 'cfo'] as const)
+    const [itemEntries, ...totalResults] = await Promise.all([
+      Promise.all(
+        GROUP_TABS
+          .filter(tab => tabGroupIds[tab] != null)
+          .map(async tab => {
+            const items = await getPendingAllocationsByApprovalGroup(tabGroupIds[tab]!) as unknown as AllocationItem[]
+            return [tab, items] as [ReviewTab, AllocationItem[]]
+          })
+      ),
+      ...GROUP_TABS.map(tab => {
+        const gid = tabGroupIds[tab]
+        return gid ? getGroupReachedTotals(currentWeekStart, gid) : Promise.resolve({})
+      }),
+    ])
+    setTabItems(prev => ({ ...prev, ...Object.fromEntries(itemEntries) }))
+    setTabApprovedTotals(Object.fromEntries(GROUP_TABS.map((tab, i) => [tab, totalResults[i]])))
+  }
 
   function filterItems(items: AllocationItem[]) {
     if (!query.trim()) return items
@@ -210,6 +241,10 @@ export default function ReviewPage() {
           showBudget={activeTab !== 'div'}
           budgets={budgets}
           approvedTotals={tabApprovedTotals[activeTab] ?? {}}
+          showQuickActions={QUICK_ACTION_TABS.has(activeTab)}
+          showBatchActions={BATCH_ACTION_TABS.has(activeTab)}
+          userId={userId}
+          onActionCompleted={refreshGroupTabs}
         />
       )}
     </div>
@@ -223,6 +258,10 @@ function AccountGroupedList({
   showBudget,
   budgets,
   approvedTotals,
+  showQuickActions,
+  showBatchActions,
+  userId,
+  onActionCompleted,
 }: {
   items: AllocationItem[]
   paymentAccounts: string[]
@@ -230,7 +269,151 @@ function AccountGroupedList({
   showBudget: boolean
   budgets: Record<string, number>
   approvedTotals: Record<string, number>
+  showQuickActions: boolean
+  showBatchActions: boolean
+  userId: number | null
+  onActionCompleted: () => Promise<void>
 }) {
+  // individual quick-action state
+  const [actioningId, setActioningId] = useState<number | null>(null)
+  const [rejectTarget, setRejectTarget] = useState<AllocationItem | null>(null)
+  const [rejectComment, setRejectComment] = useState('')
+  const [rejectLoading, setRejectLoading] = useState(false)
+
+  // batch action state
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [batchRejectItems, setBatchRejectItems] = useState<AllocationItem[]>([])
+  const [batchComment, setBatchComment] = useState('')
+  const [batchLoading, setBatchLoading] = useState(false)
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function isAllGroupSelected(groupItems: AllocationItem[]) {
+    return groupItems.length > 0 && groupItems.every(r => selectedIds.has(r.id))
+  }
+
+  function toggleSelectAll(groupItems: AllocationItem[]) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (isAllGroupSelected(groupItems)) {
+        groupItems.forEach(r => next.delete(r.id))
+      } else {
+        groupItems.forEach(r => next.add(r.id))
+      }
+      return next
+    })
+  }
+
+  function getGroupSelected(groupItems: AllocationItem[]) {
+    return groupItems.filter(r => selectedIds.has(r.id))
+  }
+
+  async function handleApprove(item: AllocationItem) {
+    if (!userId || actioningId) return
+    setActioningId(item.id)
+    try {
+      await submitApprovalDecision({
+        fundsAllocationId: item.id,
+        stepNumber: item.current_step ?? 1,
+        stepName: item.step_name,
+        decision: 'approved',
+        comment: '',
+        reviewerId: String(userId),
+        totalSteps: item.total_steps ?? 1,
+      })
+      await onActionCompleted()
+    } catch {
+      alert('核准失敗，請重試')
+    } finally {
+      setActioningId(null)
+    }
+  }
+
+  async function handleConfirmReject() {
+    if (!userId || !rejectTarget || rejectLoading) return
+    setRejectLoading(true)
+    try {
+      await submitApprovalDecision({
+        fundsAllocationId: rejectTarget.id,
+        stepNumber: rejectTarget.current_step ?? 1,
+        stepName: rejectTarget.step_name,
+        decision: 'rejected',
+        comment: rejectComment,
+        reviewerId: String(userId),
+        totalSteps: rejectTarget.total_steps ?? 1,
+      })
+      setRejectTarget(null)
+      setRejectComment('')
+      await onActionCompleted()
+    } catch {
+      alert('退回失敗，請重試')
+    } finally {
+      setRejectLoading(false)
+    }
+  }
+
+  async function handleBatchApprove(groupItems: AllocationItem[]) {
+    if (!userId || batchLoading) return
+    const targets = getGroupSelected(groupItems)
+    if (targets.length === 0) return
+    setBatchLoading(true)
+    try {
+      await Promise.all(targets.map(item => submitApprovalDecision({
+        fundsAllocationId: item.id,
+        stepNumber: item.current_step ?? 1,
+        stepName: item.step_name,
+        decision: 'approved',
+        comment: '',
+        reviewerId: String(userId),
+        totalSteps: item.total_steps ?? 1,
+      })))
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        targets.forEach(r => next.delete(r.id))
+        return next
+      })
+      await onActionCompleted()
+    } catch {
+      alert('批次核准失敗，請重試')
+    } finally {
+      setBatchLoading(false)
+    }
+  }
+
+  async function handleConfirmBatchReject() {
+    if (!userId || batchLoading || batchRejectItems.length === 0) return
+    setBatchLoading(true)
+    try {
+      await Promise.all(batchRejectItems.map(item => submitApprovalDecision({
+        fundsAllocationId: item.id,
+        stepNumber: item.current_step ?? 1,
+        stepName: item.step_name,
+        decision: 'rejected',
+        comment: batchComment,
+        reviewerId: String(userId),
+        totalSteps: item.total_steps ?? 1,
+      })))
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        batchRejectItems.forEach(r => next.delete(r.id))
+        return next
+      })
+      setBatchRejectItems([])
+      setBatchComment('')
+      await onActionCompleted()
+    } catch {
+      alert('批次不核准失敗，請重試')
+    } finally {
+      setBatchLoading(false)
+    }
+  }
+
   if (items.length === 0) return <p className="text-sm text-muted-foreground">目前沒有待審核的申請</p>
 
   const groupMap = items.reduce<Record<string, AllocationItem[]>>((acc, r) => {
@@ -246,62 +429,210 @@ function AccountGroupedList({
   ]
 
   return (
-    <div className="flex flex-col gap-6">
-      {orderedKeys.map(account => {
-        const budget = budgets[account] ?? null
-        const approved = approvedTotals[account] ?? 0
-        const remaining = budget != null ? budget - approved : null
-        return (
-        <div key={account}>
-          <Card className="overflow-hidden p-0">
-            <CardHeader className="border-b border-border px-4 py-3">
-              <CardTitle className="text-base">{account}</CardTitle>
-              {showBudget && (
-                <div className="ml-auto flex items-center gap-3 text-sm">
-                  <span className="text-muted-foreground">
-                    已核准總額：<span className="font-medium text-foreground">{approved.toLocaleString()} 元</span>
-                  </span>
-                  {remaining != null && (
-                    <span className="text-muted-foreground">
-                      剩餘可分配金額：
-                      <span className={`font-medium ${remaining < 0 ? 'text-destructive' : 'text-primary'}`}>
-                        {remaining.toLocaleString()} 元
+    <>
+      <div className="flex flex-col gap-6">
+        {orderedKeys.map(account => {
+          const budget = budgets[account] ?? null
+          const approved = approvedTotals[account] ?? 0
+          const remaining = budget != null ? budget - approved : null
+          const groupItems = groupMap[account]
+          const groupSelected = getGroupSelected(groupItems)
+          const hasSelection = groupSelected.length > 0
+
+          return (
+            <div key={account}>
+              <Card className="overflow-hidden p-0">
+                <CardHeader className="border-b border-border px-4 py-3">
+                  <CardTitle className="text-base">{account}</CardTitle>
+                  {showBudget && (
+                    <div className="ml-auto flex items-center gap-3 text-sm">
+                      <span className="text-muted-foreground">
+                        已核准總額：<span className="font-medium text-foreground">{approved.toLocaleString()} 元</span>
                       </span>
-                    </span>
+                      {remaining != null && (
+                        <span className="text-muted-foreground">
+                          剩餘可分配金額：
+                          <span className={`font-medium ${remaining < 0 ? 'text-destructive' : 'text-primary'}`}>
+                            {remaining.toLocaleString()} 元
+                          </span>
+                        </span>
+                      )}
+                      {showBatchActions && (
+                        <div className="flex items-center gap-2 border-l border-border pl-3">
+                          <button
+                            onClick={() => { setBatchRejectItems(groupSelected); setBatchComment('') }}
+                            disabled={!hasSelection || batchLoading}
+                            className="rounded-md border border-destructive px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            批次不核准{hasSelection ? `（${groupSelected.length}）` : ''}
+                          </button>
+                          <button
+                            onClick={() => handleBatchApprove(groupItems)}
+                            disabled={!hasSelection || batchLoading}
+                            className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {batchLoading ? '處理中…' : `批次核准${hasSelection ? `（${groupSelected.length}）` : ''}`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
-                </div>
-              )}
-            </CardHeader>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {['狀態', '單號', '申請處別', '申請課別', '申請人', '職稱', '金額', '費用項目', '項目', ''].map((col, i) => (
-                    <TableHead key={i}>{col}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {groupMap[account].map(r => (
-                  <TableRow key={r.id}>
-                    <TableCell><StatusBadge module="funds_allocation" status="pending" stepName={r.step_name} labelConfig={labelConfig} /></TableCell>
-                    <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">{r.serial_number ?? '-'}</Link></TableCell>
-                    <TableCell>{r.apply_division ?? '-'}</TableCell>
-                    <TableCell>{r.apply_section ?? '-'}</TableCell>
-                    <TableCell>{r.applicant ?? r.created_by}</TableCell>
-                    <TableCell>{r.apply_role ?? '-'}</TableCell>
-                    <TableCell>{r.amount.toLocaleString()}</TableCell>
-                    <TableCell>{r.expense_item ?? '-'}</TableCell>
-                    <TableCell>{r.name}</TableCell>
-                    <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+                </CardHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>狀態</TableHead>
+                      <TableHead>單號</TableHead>
+                      <TableHead>申請處別</TableHead>
+                      <TableHead>申請課別</TableHead>
+                      <TableHead>申請人</TableHead>
+                      <TableHead>職稱</TableHead>
+                      <TableHead>金額</TableHead>
+                      <TableHead>費用項目</TableHead>
+                      <TableHead>項目</TableHead>
+                      {showQuickActions && <TableHead>快速審核</TableHead>}
+                      {showBatchActions && (
+                        <TableHead className="w-12 text-center">
+                          <label className="flex cursor-pointer items-center justify-center gap-1 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={isAllGroupSelected(groupItems)}
+                              onChange={() => toggleSelectAll(groupItems)}
+                              className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
+                            />
+                            全選
+                          </label>
+                        </TableHead>
+                      )}
+                      {!showQuickActions && !showBatchActions && <TableHead />}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {groupItems.map(r => (
+                      <TableRow key={r.id} className={showBatchActions && selectedIds.has(r.id) ? 'bg-primary/5' : ''}>
+                        <TableCell><StatusBadge module="funds_allocation" status="pending" stepName={r.step_name} labelConfig={labelConfig} /></TableCell>
+                        <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">{r.serial_number ?? '-'}</Link></TableCell>
+                        <TableCell>{r.apply_division ?? '-'}</TableCell>
+                        <TableCell>{r.apply_section ?? '-'}</TableCell>
+                        <TableCell>{r.applicant ?? r.created_by}</TableCell>
+                        <TableCell>{r.apply_role ?? '-'}</TableCell>
+                        <TableCell>{r.amount.toLocaleString()}</TableCell>
+                        <TableCell>{r.expense_item ?? '-'}</TableCell>
+                        <TableCell>{r.name}</TableCell>
+                        {showQuickActions && (
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleApprove(r)}
+                                disabled={actioningId === r.id}
+                                className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                              >
+                                {actioningId === r.id ? '處理中…' : '核准'}
+                              </button>
+                              <button
+                                onClick={() => { setRejectTarget(r); setRejectComment('') }}
+                                disabled={actioningId === r.id}
+                                className="rounded-md border border-destructive px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                              >
+                                不核准
+                              </button>
+                            </div>
+                          </TableCell>
+                        )}
+                        {showBatchActions && (
+                          <TableCell className="text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(r.id)}
+                              onChange={() => toggleSelect(r.id)}
+                              className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
+                            />
+                          </TableCell>
+                        )}
+                        {!showQuickActions && !showBatchActions && (
+                          <TableCell>
+                            <Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 個別退回 Modal */}
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-96 rounded-lg bg-background p-6 shadow-xl">
+            <h2 className="mb-1 text-base font-semibold">退回申請</h2>
+            <p className="mb-4 text-sm text-muted-foreground">單號：{rejectTarget.serial_number}</p>
+            <Textarea
+              placeholder="退回原因（選填）"
+              value={rejectComment}
+              onChange={e => setRejectComment(e.target.value)}
+              rows={3}
+              className="mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setRejectTarget(null); setRejectComment('') }}
+                disabled={rejectLoading}
+                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmReject}
+                disabled={rejectLoading}
+                className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-white hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {rejectLoading ? '處理中…' : '確認退回'}
+              </button>
+            </div>
+          </div>
         </div>
-        )
-      })}
-    </div>
+      )}
+
+      {/* 批次不核准 Modal */}
+      {batchRejectItems.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-[28rem] rounded-lg bg-background p-6 shadow-xl">
+            <h2 className="mb-1 text-base font-semibold">批次不核准</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              共 {batchRejectItems.length} 筆申請將被退回：
+              {batchRejectItems.map(r => r.serial_number).join('、')}
+            </p>
+            <Textarea
+              placeholder="退回原因（選填，套用至所有選取項目）"
+              value={batchComment}
+              onChange={e => setBatchComment(e.target.value)}
+              rows={3}
+              className="mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setBatchRejectItems([]); setBatchComment('') }}
+                disabled={batchLoading}
+                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmBatchReject}
+                disabled={batchLoading}
+                className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-white hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {batchLoading ? '處理中…' : `確認退回（${batchRejectItems.length} 筆）`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

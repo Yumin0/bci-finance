@@ -542,10 +542,16 @@ export async function getPendingAllocationsByApprovalGroup(groupId: number) {
 
   const emailMap = await resolvePendingNames(filtered)
   return filtered.map(r => {
-    const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
+    const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+    const stepDef = steps.find(s => s.step_number === r.current_step)
     const id = parseInt(r.created_by, 10)
     const email = !isNaN(id) ? emailMap.get(id) : undefined
-    return { ...r, applicant: email ? emailToEnglishName(email) : (r.applicant ?? r.created_by), step_name: stepDef?.step_name ?? `第 ${r.current_step ?? 1} 步` }
+    return {
+      ...r,
+      applicant: email ? emailToEnglishName(email) : (r.applicant ?? r.created_by),
+      step_name: stepDef?.step_name ?? `第 ${r.current_step ?? 1} 步`,
+      total_steps: steps.length,
+    }
   })
 }
 
