@@ -255,6 +255,7 @@ export async function submitApprovalDecision(params: {
             applyDivisionId: alloc.apply_division_id,
             applySectionId: alloc.apply_section_id,
             title: '資金分配申請待審核',
+            itemName: alloc.name,
             body: allocBody,
             link: `/funds-allocation/review/check/${fundsAllocationId}`,
             fundsAllocationId,
@@ -264,6 +265,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'approved',
             title: '資金分配申請已核准',
+            itemName: alloc.name,
             body: allocBody,
             link: `/funds-allocation/my-funds/edit/${fundsAllocationId}`,
             fundsAllocationId,
@@ -272,6 +274,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'payment_ready',
             title: '可建立付款憑單',
+            itemName: alloc.name,
             body: allocBody,
             link: `/funds-payment/my-payment/add/${fundsAllocationId}`,
             fundsAllocationId,
@@ -281,6 +284,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'rejected',
             title: '資金分配申請已退回',
+            itemName: alloc.name,
             body: allocBody,
             link: `/funds-allocation/my-funds/edit/${fundsAllocationId}`,
             fundsAllocationId,
@@ -306,6 +310,7 @@ export async function submitApprovalDecision(params: {
             applyDivisionId: null,
             applySectionId: null,
             title: '付款憑單待審核',
+            itemName: payment.name,
             body: paymentBody,
             link: `/funds-payment/review/check/${fundsPaymentId}`,
             fundsPaymentId,
@@ -315,6 +320,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'approved',
             title: '付款憑單已核准',
+            itemName: payment.name,
             body: paymentBody,
             link: `/funds-payment/my-payment/${fundsPaymentId}`,
             fundsPaymentId,
@@ -324,6 +330,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'rejected',
             title: '付款憑單已退回',
+            itemName: payment.name,
             body: paymentBody,
             link: `/funds-payment/my-payment/${fundsPaymentId}`,
             fundsPaymentId,
@@ -335,11 +342,20 @@ export async function submitApprovalDecision(params: {
     if (tempVoucherId) {
       const { data: voucher } = await supabase
         .from('temp_vouchers')
-        .select('created_by, flow_template_id')
+        .select('created_by, flow_template_id, funds_payment_id')
         .eq('id', tempVoucherId)
         .single()
       if (voucher) {
         const applicantId = Number(voucher.created_by)
+        let voucherItemName: string | null = null
+        if (voucher.funds_payment_id) {
+          const { data: relatedPayment } = await supabase
+            .from('funds_payment')
+            .select('name')
+            .eq('id', voucher.funds_payment_id)
+            .single()
+          voucherItemName = relatedPayment?.name ?? null
+        }
         if (decision === 'approved' && !isLastStep) {
           await notifyReviewersForStep({
             templateId: voucher.flow_template_id,
@@ -347,6 +363,7 @@ export async function submitApprovalDecision(params: {
             applyDivisionId: null,
             applySectionId: null,
             title: '暫付款沖銷憑單待審核',
+            itemName: voucherItemName,
             body: null,
             link: `/funds-voucher/review/check/${tempVoucherId}`,
             tempVoucherId,
@@ -356,6 +373,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'approved',
             title: '暫付款沖銷憑單已核准',
+            itemName: voucherItemName,
             body: null,
             link: `/funds-voucher/my-voucher/${tempVoucherId}`,
             tempVoucherId,
@@ -365,6 +383,7 @@ export async function submitApprovalDecision(params: {
             userId: applicantId,
             type: 'rejected',
             title: '暫付款沖銷憑單已退回',
+            itemName: voucherItemName,
             body: null,
             link: `/funds-voucher/my-voucher/${tempVoucherId}`,
             tempVoucherId,

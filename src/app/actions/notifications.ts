@@ -56,12 +56,17 @@ async function resolveReviewerUserIds(
 
 // ── 內部輔助：寫入通知給審核人 ────────────────────────
 
+function withItemName(title: string, itemName?: string | null): string {
+  return itemName ? `${title} - ${itemName}` : title
+}
+
 export async function notifyReviewersForStep(params: {
   templateId: number | null
   stepNumber: number
   applyDivisionId: number | null
   applySectionId: number | null
   title: string
+  itemName?: string | null
   body: string | null
   link: string
   fundsAllocationId?: number
@@ -84,11 +89,13 @@ export async function notifyReviewersForStep(params: {
   )
   if (!userIds.length) return
 
+  const title = withItemName(params.title, params.itemName)
+
   await supabase.from('notifications').insert(
     userIds.map(uid => ({
       user_id: uid,
       type: 'approval_needed',
-      title: params.title,
+      title,
       body: params.body,
       link: params.link,
       funds_allocation_id: params.fundsAllocationId ?? null,
@@ -104,6 +111,7 @@ export async function notifyApplicant(params: {
   userId: number
   type: 'approved' | 'rejected' | 'payment_ready'
   title: string
+  itemName?: string | null
   body: string | null
   link: string
   fundsAllocationId?: number
@@ -114,7 +122,7 @@ export async function notifyApplicant(params: {
   await supabase.from('notifications').insert({
     user_id: params.userId,
     type: params.type,
-    title: params.title,
+    title: withItemName(params.title, params.itemName),
     body: params.body,
     link: params.link,
     funds_allocation_id: params.fundsAllocationId ?? null,

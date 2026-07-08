@@ -47,6 +47,7 @@ export async function createFundsAllocation(payload: FundsAllocationPayload) {
           applyDivisionId: payload.apply_division_id,
           applySectionId: payload.apply_section_id,
           title: '資金分配申請待審核',
+          itemName: payload.name,
           body,
           link: `/funds-allocation/review/check/${data!.id}`,
           fundsAllocationId: data!.id,
@@ -67,7 +68,7 @@ export async function updateFundsAllocation(
 
   if (updates.status === 'pending' && updates.flow_template_id) {
     const createdById = updates.created_by ? parseInt(String(updates.created_by), 10) : null
-    const doNotify = async (body: string | null) => {
+    const doNotify = async (body: string | null, itemName: string | null) => {
       try {
         await notifyReviewersForStep({
           templateId: updates.flow_template_id!,
@@ -75,6 +76,7 @@ export async function updateFundsAllocation(
           applyDivisionId: updates.apply_division_id ?? null,
           applySectionId: updates.apply_section_id ?? null,
           title: '資金分配申請待審核',
+          itemName,
           body,
           link: `/funds-allocation/review/check/${id}`,
           fundsAllocationId: id,
@@ -84,12 +86,17 @@ export async function updateFundsAllocation(
 
     ;(async () => {
       try {
-        let body: string | null = updates.name ?? null
+        let itemName: string | null = updates.name ?? null
+        if (!itemName) {
+          const { data: alloc } = await supabase.from('funds_allocation').select('name').eq('id', id).single()
+          itemName = alloc?.name ?? null
+        }
+        let body: string | null = itemName
         if (createdById) {
           const { data: user } = await supabase.from('app_users').select('email').eq('id', createdById).single()
           if (user?.email) body = `申請人：${emailToEnglishName(user.email)}`
         }
-        await doNotify(body)
+        await doNotify(body, itemName)
       } catch (e) { console.error('Notification error:', e) }
     })()
   }

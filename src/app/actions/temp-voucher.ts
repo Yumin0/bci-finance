@@ -71,16 +71,33 @@ export async function submitTempVoucher(id: number): Promise<{ error: string | n
   if (error) return { error: error.message }
 
   if (flowTemplateId) {
-    notifyReviewersForStep({
-      templateId: flowTemplateId,
-      stepNumber: 1,
-      applyDivisionId: null,
-      applySectionId: null,
-      title: '暫付款沖銷憑單待審核',
-      body: null,
-      link: `/funds-voucher/review/check/${id}`,
-      tempVoucherId: id,
-    }).catch(e => console.error('Notification error:', e))
+    ;(async () => {
+      const { data: voucher } = await supabase
+        .from('temp_vouchers')
+        .select('funds_payment_id')
+        .eq('id', id)
+        .single()
+      let itemName: string | null = null
+      if (voucher?.funds_payment_id) {
+        const { data: relatedPayment } = await supabase
+          .from('funds_payment')
+          .select('name')
+          .eq('id', voucher.funds_payment_id)
+          .single()
+        itemName = relatedPayment?.name ?? null
+      }
+      await notifyReviewersForStep({
+        templateId: flowTemplateId,
+        stepNumber: 1,
+        applyDivisionId: null,
+        applySectionId: null,
+        title: '暫付款沖銷憑單待審核',
+        itemName,
+        body: null,
+        link: `/funds-voucher/review/check/${id}`,
+        tempVoucherId: id,
+      })
+    })().catch(e => console.error('Notification error:', e))
   }
 
   return { error: null }

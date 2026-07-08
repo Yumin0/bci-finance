@@ -60,7 +60,7 @@
 - `tax_rate_options`：稅額選項設定，`label` 名稱、`formula_steps jsonb`（步驟陣列，每步含 `op: +/-/*/\/` 與 `value: number`）、`sort_order`；搭配表單欄位 `dataSource: 'tax_rates'` 使用，支援多步驟連乘除計算
 - **Storage Bucket** `issue-images`：問題回報圖片（路徑：`{issueId}/{timestamp}.{ext}`）
 - **Storage Bucket** `avatars`：使用者頭像（Public，路徑：`{userId}/{timestamp}`）；對應 `app_users.avatar_url`，上傳 API：`/api/upload-avatar`
-- `notifications`：使用者通知（`user_id` 關聯 `app_users`、`type`: approval_needed|approved|rejected|payment_ready、`title`、`body`、`link`、`is_read boolean`）；關聯欄位：`funds_allocation_id`、`funds_payment_id`、`temp_voucher_id`（可選）；在審核動作（核准/退回）與表單送出時由 Server Actions 自動寫入
+- `notifications`：使用者通知（`user_id` 關聯 `app_users`、`type`: approval_needed|approved|rejected|payment_ready、`title`、`body`、`link`、`is_read boolean`）；關聯欄位：`funds_allocation_id`、`funds_payment_id`、`temp_voucher_id`（可選）；在審核動作（核准/退回）與表單送出時由 Server Actions 自動寫入；`title` 統一由共用函式（`notifyReviewersForStep` / `notifyApplicant`）加上項目名稱（格式：「原標題 - 項目名稱」），暫付款沖銷憑單無自身項目名稱，透過關聯付款憑單帶入
 
 ## 目錄結構
 
