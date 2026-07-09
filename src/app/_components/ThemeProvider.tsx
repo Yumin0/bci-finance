@@ -6,29 +6,32 @@ export type Theme = 'light' | 'dark' | 'system'
 
 const ThemeContext = createContext<{
   theme: Theme
+  resolvedDark: boolean
   setTheme: (t: Theme) => void
-}>({ theme: 'system', setTheme: () => {} })
+}>({ theme: 'system', resolvedDark: false, setTheme: () => {} })
 
 export function useTheme() {
   return useContext(ThemeContext)
 }
 
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('light')
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'light'
+    return (window.localStorage.getItem('bci-theme') as Theme | null) ?? 'system'
+  })
+  const [resolvedDark, setResolvedDark] = useState(false)
 
   useEffect(() => {
     const root = document.documentElement
 
     function apply() {
-      if (theme === 'dark') {
-        root.classList.add('dark')
-      } else if (theme === 'light') {
-        root.classList.remove('dark')
-      } else {
-        window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? root.classList.add('dark')
-          : root.classList.remove('dark')
-      }
+      const dark = theme === 'dark'
+        ? true
+        : theme === 'light'
+          ? false
+          : window.matchMedia('(prefers-color-scheme: dark)').matches
+      root.classList.toggle('dark', dark)
+      setResolvedDark(dark)
     }
 
     apply()
@@ -46,7 +49,7 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedDark, setTheme }}>
       {children}
     </ThemeContext.Provider>
   )
