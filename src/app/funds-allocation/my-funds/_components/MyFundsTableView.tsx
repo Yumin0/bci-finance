@@ -81,10 +81,10 @@ export default function MyFundsTableView({
               className="w-64 bg-background"
             />
             <ColumnPicker columns={FUNDS_ALLOCATION_COLUMNS} visibleCols={visibleCols} onToggle={toggleCol} />
-            <button onClick={() => setShowTemplateModal(true)} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            <button onClick={() => setShowTemplateModal(true)} className={buttonVariants({ variant: 'outline' })}>
               選取範本
             </button>
-            <Link href="/funds-allocation/my-funds/add" className={buttonVariants({ variant: 'default', size: 'sm' })}>
+            <Link href="/funds-allocation/my-funds/add" className={buttonVariants({ variant: 'default' })}>
               ＋ 新增申請單
             </Link>
           </div>

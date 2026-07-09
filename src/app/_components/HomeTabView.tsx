@@ -58,7 +58,7 @@ export default function HomeTabView({
           tab === 'funds' ? (
             <div className="flex items-center gap-2">
               <ColumnPicker columns={FUNDS_ALLOCATION_COLUMNS} visibleCols={visibleCols} onToggle={toggleCol} />
-              <Link href="/funds-allocation/my-funds/add" className={buttonVariants({ size: 'sm' })}>
+              <Link href="/funds-allocation/my-funds/add" className={buttonVariants({})}>
                 + 新增申請單
               </Link>
             </div>

@@ -59,10 +59,10 @@ export default async function RootLayout({
         <ThemeProvider>
           {session ? (
             <>
-              <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 52, background: 'var(--bg-header)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 48px 0 24px' }}>
+              <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 75, background: 'var(--bg-header)', boxShadow: '0 1px 6px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 48px 0 24px' }}>
                 <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 'bold', fontSize: 16, textDecoration: 'none', color: 'var(--text-title)' }}>
                   <HeaderLogo />
-                  BC 資金分配系統
+                  資金分配系統
                 </Link>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <ThemeToggleButton />

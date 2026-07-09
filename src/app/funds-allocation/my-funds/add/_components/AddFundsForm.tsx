@@ -533,10 +533,10 @@ export default function AddFundsForm({
 
     if (type === 'radio') {
       return (
-        <div style={{ display: 'flex', gap: 20, padding: '8px 0' }}>
+        <div style={{ display: 'flex', gap: 32, padding: '8px 0' }}>
           {(staticOptions ?? []).map(opt => (
-            <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
-              <input type="radio" name={fieldId} value={opt}
+            <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
+              <input type="radio" name={fieldId} value={opt} style={{ width: 18, height: 18 }}
                 checked={values[fieldId] === opt}
                 onChange={e => onChange(fieldId, e.target.value)}
                 required={required && !values[fieldId]}
@@ -913,7 +913,7 @@ export default function AddFundsForm({
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>新增資金分配申請單</h1>
+      <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 32 }}>新增資金分配申請單</h1>
       {error && (
         <p style={errorStyle}>
           送出失敗：{getChineseHint(error) ?? error}
@@ -923,9 +923,9 @@ export default function AddFundsForm({
       <form onSubmit={handleSubmit}>
         {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
           <div key={block.id} style={{
-            marginBottom: 16,
+            marginBottom: 28,
             border: '1px solid var(--border-color)',
-            borderRadius: 10,
+            borderRadius: 16,
             background: 'var(--bg-card)',
           }}>
             {(block.title || blockTaxMap[block.id] || groupBlockSummary[block.id]) && (
@@ -971,27 +971,38 @@ export default function AddFundsForm({
                 })()}
               </div>
             )}
-            <div style={{ paddingTop: 20, paddingLeft: 20, paddingBottom: 4, paddingRight: block.rows.some(r => r.repeatable || r.rowGroupStart) ? 96 : 20 }}>
+            <div style={{ paddingTop: 44, paddingLeft: 48, paddingBottom: 16, paddingRight: block.rows.some(r => r.repeatable || r.rowGroupStart) ? 96 : 48 }}>
               {/* 非群組列正常渲染 */}
               {block.rows.filter(r => !r.rowGroupStart && !getGroupRows(block).includes(r)).map(row =>
                 row.repeatable ? (
                   <div key={row.id}>{renderRepeatableRow(row)}</div>
                 ) : (
-                  <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
+                  <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, columnGap: 48, rowGap: 20, marginBottom: 32 }}>
                     {row.slots.map((slot, idx) => {
                       if (slot && slot.showWhen && !slot.showWhen.values.includes(fieldValues[slot.showWhen.fieldId] ?? '')) {
                         return <div key={idx} />
                       }
-                      return slot ? (
+                      if (!slot) return <div key={idx} />
+                      // 含群組列/可重複列的區塊（如付款明細）維持直式，與明細列排版一致
+                      const verticalLayout = block.rows.some(r => r.repeatable || r.rowGroupStart)
+                      const labelNode = (
+                        <label style={verticalLayout ? labelStyle : { ...labelStyle, marginBottom: 0, width: 140, flexShrink: 0 }}>
+                          {slot.label}
+                          {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+                          {computedTotalHints[slot.fieldId] && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4, fontWeight: 400 }}>{computedTotalHints[slot.fieldId]}</span>}
+                        </label>
+                      )
+                      return verticalLayout ? (
                         <div key={idx}>
-                          <label style={labelStyle}>
-                            {slot.label}
-                            {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
-                            {computedTotalHints[slot.fieldId] && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4, fontWeight: 400 }}>{computedTotalHints[slot.fieldId]}</span>}
-                          </label>
+                          {labelNode}
                           {renderField(slot)}
                         </div>
-                      ) : <div key={idx} />
+                      ) : (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                          {labelNode}
+                          <div style={{ flex: 1, minWidth: 0 }}>{renderField(slot)}</div>
+                        </div>
+                      )
                     })}
                   </div>
                 )
@@ -1061,5 +1072,5 @@ function getChineseHint(error: string): string | null {
   return null
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--text-body)', marginBottom: 10 }
 const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 12 }

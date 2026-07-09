@@ -7,7 +7,7 @@
 :root {
 
   --bg-page: #f2f2f3;
-  --bg-header: #f2f2f3;
+  --bg-header: #ffffff;
   --bg-sidebar: #f2f2f3;
   --bg-card: #ffffff;
   --border-color: #d4d8e3;
@@ -22,6 +22,8 @@
   --sidebar-accent: #111214;
   --sidebar-active-bg: rgba(17, 18, 20, 0.06);
   --sidebar-hover-bg: rgba(17, 18, 20, 0.04);
+  --sidebar-item-active-bg: #111214;
+  --sidebar-item-active-text: #ffea41;
   --background: oklch(1 0 0);
   --foreground: #111214;
   --card: oklch(1 0 0);
@@ -75,6 +77,8 @@
   --sidebar-accent: #ffea41;
   --sidebar-active-bg: rgba(255, 234, 65, 0.14);
   --sidebar-hover-bg: rgba(255, 234, 65, 0.08);
+  --sidebar-item-active-bg: rgba(255, 234, 65, 0.14);
+  --sidebar-item-active-text: #ffea41;
   --card: #1a1b1e;
   --card-foreground: #f4f4f5;
   --popover: #1a1b1e;

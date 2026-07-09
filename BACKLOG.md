@@ -212,6 +212,19 @@
 
 ## 已完成
 
+**品牌 UI 全面調整：元件尺寸統一、側邊欄/header 改版、表單橫式排版**（2026-07-10，Yumin）
+分支：`feature/yumin-ui-polish`（基於 staging 品牌新樣式，參考 docs/brand-guidelines 與 Claude Design 稿）
+影響範圍確認：
+- [x] 共用 Button：尺寸階梯統一（sm 36px / default 42px / lg 44px），outline hover 改邊框加深＋陰影；6 處列表頁頂部動作按鈕由 sm 改 default
+- [x] 共用 Table：列上下間距 20px、欄間距 24px、首末欄邊距 24px、表頭 h-12
+- [x] 共用 Card：淺色模式移除外框改淡陰影，深色保留框線（28 個檔案生效）
+- [x] 共用 Input / Select / SearchableSelect / Textarea：高度統一 42px（Textarea 固定最小 112px）
+- [x] 側邊欄：黑底膠囊＋品牌黃選中樣式（新增 --sidebar-item-active-bg/text 變數）、寬度 280px、間距加大
+- [x] Header：高 75px、白底、底部陰影、PNG 新 logo（public/logo-mark-*.png）、文字改「資金分配系統」
+- [x] 內容區 padding 44px 68px 96px（全站，SidebarLayout）
+- [x] 資金分配申請表單（新增/編輯）：橫式 label 排版（含群組列區塊整塊直式規則）、卡片 16px 圓角與 Design 稿間距、radio 加大
+注意：付款憑單/暫付款沖銷憑單的建立頁表單間距尚未同步（沿用舊排版），待後續處理。
+
 **全站速度優化第一步：Vercel 伺服器區域改至孟買與資料庫同區**（2026-07-09，Riku）
 實測發現全站每頁伺服器回應 2~3 秒的主因：Vercel 函數跑在預設美東（iad1），而兩個 Supabase 資料庫都在孟買（ap-south-1），每頁約 8 波查詢各付一次美東↔孟買往返。新增 `vercel.json` 將函數區域固定為 `bom1`，部署後查詢往返從約 0.2 秒降到 0.02 秒以內。後續優化候選（尚未做）：layout 三個依序查詢改平行、半靜態資料快取、loading 骨架屏。
 

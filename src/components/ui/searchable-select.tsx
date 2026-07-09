@@ -71,7 +71,7 @@ export function SearchableSelect({
 
   const baseStyle: React.CSSProperties = {
     width: '100%',
-    padding: '8px 36px 8px 12px',
+    padding: '9px 36px 9px 14px',
     border: '1px solid var(--btn-border)',
     borderRadius: 6,
     fontSize: 14,
