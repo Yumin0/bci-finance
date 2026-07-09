@@ -8,7 +8,12 @@ import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import StatusBadge from '@/app/_components/StatusBadge'
 import PageHeader from '@/app/_components/PageHeader'
+import ColumnPicker from '@/app/_components/ColumnPicker'
+import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
+import { FUNDS_ALLOCATION_COLUMNS } from '@/lib/fundsAllocationColumns'
 import type { StatusLabelConfig } from '@/lib/status-label-config'
+
+const LS_KEY = 'bci-funds-home-columns-v2'
 
 type Tab = 'funds' | 'payment' | 'voucher'
 
@@ -36,6 +41,7 @@ export default function HomeTabView({
   labelConfig: StatusLabelConfig
 }) {
   const [tab, setTab] = useState<Tab>('funds')
+  const { visibleCols, toggleCol } = useColumnVisibility(LS_KEY, FUNDS_ALLOCATION_COLUMNS.map(c => c.key))
 
   const tabCls = (t: Tab) =>
     `-mb-px whitespace-nowrap border-b-2 px-5 py-2 text-sm font-medium transition-colors ${
@@ -50,9 +56,12 @@ export default function HomeTabView({
         title="我的申請紀錄"
         action={
           tab === 'funds' ? (
-            <Link href="/funds-allocation/my-funds/add" className={buttonVariants({ size: 'sm' })}>
-              + 新增申請單
-            </Link>
+            <div className="flex items-center gap-2">
+              <ColumnPicker columns={FUNDS_ALLOCATION_COLUMNS} visibleCols={visibleCols} onToggle={toggleCol} />
+              <Link href="/funds-allocation/my-funds/add" className={buttonVariants({ size: 'sm' })}>
+                + 新增申請單
+              </Link>
+            </div>
           ) : undefined
         }
       />
@@ -70,28 +79,38 @@ export default function HomeTabView({
           <Table>
             <TableHeader>
               <TableRow>
-                {['狀態', '申請處別', '申請課別', '申請人', '職稱', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
-                  <TableHead key={i}>{col}</TableHead>
+                <TableHead>狀態</TableHead>
+                <TableHead>單號</TableHead>
+                {FUNDS_ALLOCATION_COLUMNS.filter(c => visibleCols.has(c.key)).map(c => (
+                  <TableHead key={c.key}>{c.label}</TableHead>
                 ))}
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {fundsRecords.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-6 text-center text-muted-foreground">尚無申請紀錄</TableCell>
+                  <TableCell colSpan={2 + visibleCols.size + 1} className="py-6 text-center text-muted-foreground">尚無申請紀錄</TableCell>
                 </TableRow>
               )}
               {fundsRecords.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell><StatusBadge module="funds_allocation" status={r.status} stepName={r.stepName} labelConfig={labelConfig} /></TableCell>
-                  <TableCell>{r.apply_division ?? '-'}</TableCell>
-                  <TableCell>{r.apply_section ?? '-'}</TableCell>
-                  <TableCell>{r.applicant ?? '-'}</TableCell>
-                  <TableCell>{r.apply_role ?? '-'}</TableCell>
-                  <TableCell>{r.amount}</TableCell>
-                  <TableCell>{r.payment_account ?? '-'}</TableCell>
-                  <TableCell>{r.expense_item ?? '-'}</TableCell>
-                  <TableCell>{r.name}</TableCell>
+                  <TableCell>
+                    <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className="text-sm text-primary underline underline-offset-4">
+                      {r.status === 'draft' ? '繼續編輯' : (r.serial_number ?? '-')}
+                    </Link>
+                  </TableCell>
+                  {visibleCols.has('division') && <TableCell>{r.apply_division ?? '-'}</TableCell>}
+                  {visibleCols.has('section') && <TableCell>{r.apply_section ?? '-'}</TableCell>}
+                  {visibleCols.has('applicant') && <TableCell>{r.applicant ?? '-'}</TableCell>}
+                  {visibleCols.has('role') && <TableCell>{r.apply_role ?? '-'}</TableCell>}
+                  {visibleCols.has('requestedAmount') && <TableCell>{r.amount.toLocaleString()}</TableCell>}
+                  {visibleCols.has('approvedAmount') && <TableCell>{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>}
+                  {visibleCols.has('remainingAmount') && <TableCell>-</TableCell>}
+                  {visibleCols.has('account') && <TableCell>{r.payment_account ?? '-'}</TableCell>}
+                  {visibleCols.has('expense') && <TableCell>{r.expense_item ?? '-'}</TableCell>}
+                  {visibleCols.has('name') && <TableCell>{r.name}</TableCell>}
                   <TableCell>
                     <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                       檢視 / 編輯

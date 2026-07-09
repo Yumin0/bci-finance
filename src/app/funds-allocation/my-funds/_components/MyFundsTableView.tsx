@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,8 +8,11 @@ import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FundsAllocation } from '@/lib/types'
 import { StatusLabelConfig } from '@/lib/status-label-config'
+import { FUNDS_ALLOCATION_COLUMNS } from '@/lib/fundsAllocationColumns'
 import StatusBadge from '@/app/_components/StatusBadge'
 import PageHeader from '@/app/_components/PageHeader'
+import ColumnPicker from '@/app/_components/ColumnPicker'
+import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
 import TemplateModal from './TemplateModal'
 
 type AllocationRow = FundsAllocation & {
@@ -20,21 +23,7 @@ type AllocationRow = FundsAllocation & {
   approval_records: Array<{ step_name: string; decision: string }>
 }
 
-type ColumnKey = 'division' | 'section' | 'applicant' | 'role' | 'amount' | 'account' | 'expense' | 'name'
-
-const OPTIONAL_COLUMNS: { key: ColumnKey; label: string }[] = [
-  { key: 'division', label: '申請處別' },
-  { key: 'section', label: '申請課別' },
-  { key: 'applicant', label: '申請人' },
-  { key: 'role', label: '職務' },
-  { key: 'amount', label: '金額' },
-  { key: 'account', label: '出款帳戶' },
-  { key: 'expense', label: '費用項目' },
-  { key: 'name', label: '項目' },
-]
-
-const LS_KEY = 'bci-funds-my-columns'
-const DEFAULT_VISIBLE = new Set<ColumnKey>(OPTIONAL_COLUMNS.map(c => c.key))
+const LS_KEY = 'bci-funds-my-columns-v2'
 
 const SEARCH_FIELDS: Array<(r: AllocationRow) => string | null | undefined> = [
   (r) => r.apply_section,
@@ -69,39 +58,7 @@ export default function MyFundsTableView({
 }) {
   const [query, setQuery] = useState('')
   const [showTemplateModal, setShowTemplateModal] = useState(false)
-  const [visibleCols, setVisibleCols] = useState<Set<ColumnKey>>(DEFAULT_VISIBLE)
-  const [showColPicker, setShowColPicker] = useState(false)
-  const pickerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(LS_KEY)
-      if (stored) {
-        const parsed: ColumnKey[] = JSON.parse(stored)
-        setVisibleCols(new Set(parsed))
-      }
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setShowColPicker(false)
-      }
-    }
-    if (showColPicker) document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showColPicker])
-
-  function toggleCol(key: ColumnKey) {
-    setVisibleCols(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      localStorage.setItem(LS_KEY, JSON.stringify([...next]))
-      return next
-    })
-  }
+  const { visibleCols, toggleCol } = useColumnVisibility(LS_KEY, FUNDS_ALLOCATION_COLUMNS.map(c => c.key))
 
   const filtered = query.trim()
     ? records.filter(r => SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
@@ -123,29 +80,7 @@ export default function MyFundsTableView({
               onChange={e => setQuery(e.target.value)}
               className="w-64 bg-background"
             />
-            <div className="relative" ref={pickerRef}>
-              <button
-                onClick={() => setShowColPicker(v => !v)}
-                className={buttonVariants({ variant: 'outline', size: 'sm' })}
-              >
-                欄位
-              </button>
-              {showColPicker && (
-                <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] rounded-md border bg-popover p-2 shadow-md">
-                  {OPTIONAL_COLUMNS.map(col => (
-                    <label key={col.key} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted">
-                      <input
-                        type="checkbox"
-                        checked={visibleCols.has(col.key)}
-                        onChange={() => toggleCol(col.key)}
-                        className="accent-primary"
-                      />
-                      {col.label}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ColumnPicker columns={FUNDS_ALLOCATION_COLUMNS} visibleCols={visibleCols} onToggle={toggleCol} />
             <button onClick={() => setShowTemplateModal(true)} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
               選取範本
             </button>
@@ -162,7 +97,7 @@ export default function MyFundsTableView({
             <TableRow>
               <TableHead>狀態</TableHead>
               <TableHead>單號</TableHead>
-              {OPTIONAL_COLUMNS.filter(c => visibleCols.has(c.key)).map(c => (
+              {FUNDS_ALLOCATION_COLUMNS.filter(c => visibleCols.has(c.key)).map(c => (
                 <TableHead key={c.key}>{c.label}</TableHead>
               ))}
               <TableHead></TableHead>
@@ -190,7 +125,9 @@ export default function MyFundsTableView({
                 {visibleCols.has('section') && <TableCell>{r.apply_section ?? '-'}</TableCell>}
                 {visibleCols.has('applicant') && <TableCell>{r.applicant ?? '-'}</TableCell>}
                 {visibleCols.has('role') && <TableCell>{r.apply_role ?? '-'}</TableCell>}
-                {visibleCols.has('amount') && <TableCell>{r.amount.toLocaleString()}</TableCell>}
+                {visibleCols.has('requestedAmount') && <TableCell>{r.amount.toLocaleString()}</TableCell>}
+                {visibleCols.has('approvedAmount') && <TableCell>{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>}
+                {visibleCols.has('remainingAmount') && <TableCell>-</TableCell>}
                 {visibleCols.has('account') && <TableCell>{r.payment_account ?? '-'}</TableCell>}
                 {visibleCols.has('expense') && <TableCell>{r.expense_item ?? '-'}</TableCell>}
                 {visibleCols.has('name') && <TableCell>{r.name}</TableCell>}
