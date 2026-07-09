@@ -212,6 +212,13 @@
 
 ## 已完成
 
+**修正草稿轉正式送出後單號未產生的問題**（2026-07-09，Riku）
+分支：`feature/riku-fix-draft-code`
+問題：草稿先儲存、之後從「編輯草稿」頁面送出審核時，單號一直顯示「-」；但新增申請直接送出則正常產生單號。
+原因：單號產生（`generateSerialNumber`）原本只寫在「新增申請」頁面的送出流程裡，是前端手動呼叫，`updateFundsAllocation`／`createFundsAllocation` 這兩個共用 server action 本身不負責產生單號，導致「編輯草稿→送出」這條路徑忘記呼叫，單號始終是空的。
+解法：把「補產生單號」的判斷收斂進 `createFundsAllocation` / `updateFundsAllocation` 這兩個共用 server action 內部——狀態變成 `pending` 且目前沒有單號時自動產生，一次修好、未來任何「草稿轉正式」的入口都不會再漏掉。
+附帶修復：測試時發現 `staging` 分支前一個 commit（中介層擋 svg 靜態圖片）的路由保護設定寫錯正規表達式（`src/proxy.ts` matcher 多了一個不合法的捕獲群組），導致 dev server 完全無法啟動、`staging` 測試站當時應該整個打不開；已一併修正為不捕獲寫法。
+
 **品牌色彩導入 + 深色模式切換按鈕**（2026-07-09，Riku）
 分支：`feature/riku-brand-ui`
 新增 `docs/brand-guidelines/` 品牌與 UI 規範文件（品牌色彩、Claude Design 產出的登入頁/主控台淺色深色參考稿、logo mark）供之後 UI 改動對照；`globals.css` 全站色彩 CSS 變數改為品牌用色（主要色黃 #FFEA41／近黑 #111214／白，輔助灰階 #F2F2F3、#D4D8E3、#9599A4），淺色模式主要按鈕與側邊欄選中態用近黑、深色模式改用品牌黃，維持既有元件結構（左邊框強調樣式）不變，僅換色；`--destructive` 錯誤紅保留不動（品牌規範未定義，屬功能性色彩）。
