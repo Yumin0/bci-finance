@@ -713,7 +713,7 @@ export default function EditFundsForm({
               {!disabled && instances.length > 1 && (
                 <button type="button" onClick={() => removeGroupInstance(block.id, instIdx)}
                   style={{ position: 'absolute', right: -76, top: 0, width: 56, padding: '4px 8px', fontSize: 12,
-                    border: '1px solid #fca5a5', borderRadius: 6, background: 'white', color: '#dc2626', cursor: 'pointer' }}>
+                    border: '1px solid #fca5a5', borderRadius: 6, background: 'var(--bg-card)', color: '#dc2626', cursor: 'pointer' }}>
                   刪除
                 </button>
               )}
@@ -760,7 +760,7 @@ export default function EditFundsForm({
               <button type="button" onClick={() => removeRepeatableInstance(row.id, instIdx)}
                 style={{ position: 'absolute', right: -76, top: '50%', transform: 'translateY(-50%)',
                   width: 56, padding: '4px 8px', fontSize: 12, border: '1px solid #fca5a5',
-                  borderRadius: 6, background: 'white', color: '#dc2626', cursor: 'pointer' }}>
+                  borderRadius: 6, background: 'var(--bg-card)', color: '#dc2626', cursor: 'pointer' }}>
                 刪除
               </button>
             )}

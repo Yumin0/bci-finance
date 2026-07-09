@@ -219,6 +219,22 @@
 解法：把「補產生單號」的判斷收斂進 `createFundsAllocation` / `updateFundsAllocation` 這兩個共用 server action 內部——狀態變成 `pending` 且目前沒有單號時自動產生，一次修好、未來任何「草稿轉正式」的入口都不會再漏掉。
 附帶修復：測試時發現 `staging` 分支前一個 commit（中介層擋 svg 靜態圖片）的路由保護設定寫錯正規表達式（`src/proxy.ts` matcher 多了一個不合法的捕獲群組），導致 dev server 完全無法啟動、`staging` 測試站當時應該整個打不開；已一併修正為不捕獲寫法。
 
+**深色模式寫死白底修正**（2026-07-09，Riku）
+分支：`feature/riku-dark-mode-fix`
+問題：深色模式先前被強制關閉從未實際上線，多處元件寫死白色背景、文字色未指定，深色模式下亮字疊白底看不清（下拉選單最明顯）。統一改用 `var(--bg-card)` + `var(--text-body)` 等 CSS 變數，並將選中狀態的舊藍色改為品牌主色（淺色近黑／深色品牌黃）。
+影響範圍確認：
+- [x] components/ui/searchable-select.tsx（全站共用下拉）
+- [x] _components/DateCyclePicker.tsx（含選中日改用品牌主色、停用日期改灰階變數）
+- [x] _components/AttachmentPreviewModal.tsx
+- [x] _components/StatusBadge.tsx（未知狀態 fallback 標籤）
+- [x] funds-allocation/my-funds/_components/TemplateModal.tsx（含按鈕樣式、文字灰階變數化）
+- [x] funds-allocation/my-funds/add/_components/AddFundsForm.tsx（群組/可重複列刪除按鈕）
+- [x] funds-allocation/my-funds/edit/[id]/_components/EditFundsForm.tsx（同上）
+- [x] funds-allocation/review/check/[id]/page.tsx（審核評論框、核准金額輸入框）
+- [x] funds-payment/my-payment/[id]/page.tsx（受款人搜尋下拉）
+- [x] funds-payment/my-payment/add/[id]/page.tsx（受款人搜尋下拉）
+- [x] system-settings/form-settings/_client.tsx（整頁：區塊/列/欄位卡片、選中高亮、右側面板按鈕與輸入框）
+
 **品牌色彩導入 + 深色模式切換按鈕**（2026-07-09，Riku）
 分支：`feature/riku-brand-ui`
 新增 `docs/brand-guidelines/` 品牌與 UI 規範文件（品牌色彩、Claude Design 產出的登入頁/主控台淺色深色參考稿、logo mark）供之後 UI 改動對照；`globals.css` 全站色彩 CSS 變數改為品牌用色（主要色黃 #FFEA41／近黑 #111214／白，輔助灰階 #F2F2F3、#D4D8E3、#9599A4），淺色模式主要按鈕與側邊欄選中態用近黑、深色模式改用品牌黃，維持既有元件結構（左邊框強調樣式）不變，僅換色；`--destructive` 錯誤紅保留不動（品牌規範未定義，屬功能性色彩）。
