@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import SidebarLayout from "@/app/_components/SidebarLayout";
 import ThemeProvider from "@/app/_components/ThemeProvider";
 import ThemeToggleButton from "@/app/_components/ThemeToggleButton";
+import HeaderLogo from "@/app/_components/HeaderLogo";
 import UserAvatar from "@/app/_components/UserAvatar";
 import NotificationBell from "@/app/_components/NotificationBell";
 import { getSidebarConfigForUser } from "@/app/actions/sidebar-config";
@@ -59,7 +60,8 @@ export default async function RootLayout({
           {session ? (
             <>
               <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 52, background: 'var(--bg-header)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 48px 0 24px' }}>
-                <Link href="/" style={{ fontWeight: 'bold', fontSize: 16, textDecoration: 'none', color: 'var(--text-title)' }}>
+                <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 'bold', fontSize: 16, textDecoration: 'none', color: 'var(--text-title)' }}>
+                  <HeaderLogo />
                   BC 資金分配系統
                 </Link>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
