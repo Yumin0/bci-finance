@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>財務系統 - 主控台（深色）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; }
+  * { box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; background: rgb(17, 18, 20); font-family: 'Noto Sans TC', Inter, -apple-system, sans-serif; color: rgb(244, 244, 245);">
+  <div data-screen-label="主控台" style="background: rgb(17, 18, 20);">
+
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 36px; background: rgb(17, 18, 20); border-bottom: 1px solid rgba(149, 153, 164, 0.28);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <img src="assets/logo-mark-white.svg" alt="logo" style="height: 26px; width: auto;">
+        <div style="font-size: 18px; font-weight: 700;">BCI 財務系統</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 24px;">
+        <div style="position: relative; font-size: 16px;">
+          🔔
+          <div style="position: absolute; top: -6px; right: -8px; background: rgb(229, 72, 77); color: rgb(255, 255, 255); font-size: 9px; font-weight: 700; border-radius: 999px; min-width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; padding: 0px 3px;">1</div>
+        </div>
+        <div style="width: 32px; height: 32px; border-radius: 999px; background: rgb(255, 234, 65); color: rgb(17, 18, 20); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">黃</div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: flex-start;">
+
+      <div style="width: 272px; flex-shrink: 0; background: rgb(17, 18, 20); border-right: 1px solid rgba(149, 153, 164, 0.28); min-height: calc(100vh - 65px); padding: 28px 16px;">
+
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 15px; font-weight: 700; color: rgb(244, 244, 245); padding: 10px 12px; margin-top: 4px;">資金分配申請</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(255, 234, 65); background: rgba(255, 234, 65, 0.14); font-weight: 700; cursor: pointer;">
+            <span style="width: 5px; height: 5px; border-radius: 999px; background: rgb(255, 234, 65); display: inline-block;"></span>
+            我的申請紀錄
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">審核管理</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">全部申請紀錄</div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 15px; font-weight: 700; color: rgb(244, 244, 245); padding: 10px 12px; margin-top: 4px;">付款憑單</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">我的付款憑單</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">審核管理</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">全部付款紀錄</div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 15px; font-weight: 700; color: rgb(244, 244, 245); padding: 10px 12px; margin-top: 4px;">暫付款沖銷憑單</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">我的暫付款沖銷憑單</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">審核管理</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">全部暫付款沖銷憑單</div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 15px; font-weight: 700; color: rgb(244, 244, 245); padding: 10px 12px; margin-top: 4px;">財務管理</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">資金管理</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">付款憑單管理</div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 15px; font-weight: 700; color: rgb(244, 244, 245); padding: 10px 12px; margin-top: 4px;">系統設定</div>
+          <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 1.5; padding: 11px 12px 11px 28px; border-radius: 8px; color: rgb(149, 153, 164); background: transparent; font-weight: 500; cursor: pointer;">管理權限設定</div>
+        </div>
+
+      </div>
+
+      <div style="flex: 1 1 0%; padding: 36px 40px 72px; min-width: 0px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px;">
+          <div style="font-size: 24px; font-weight: 700;">我的資金分配申請</div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <input placeholder="搜尋申請課別、申請人、項目名稱..." style="width: 280px; background: rgb(16, 17, 19); border: 1px solid rgba(149, 153, 164, 0.28); border-radius: 8px; padding: 11px 14px; font-size: 14px; color: rgb(244, 244, 245); font-family: 'Noto Sans TC', Inter, -apple-system, sans-serif;">
+            <button style="background: rgb(26, 27, 30); border: 1px solid rgba(149, 153, 164, 0.28); border-radius: 8px; padding: 11px 16px; font-size: 14px; font-weight: 600; color: rgb(244, 244, 245); cursor: pointer; font-family: 'Noto Sans TC', Inter, -apple-system, sans-serif;">欄位</button>
+            <button style="background: rgb(26, 27, 30); border: 1px solid rgba(149, 153, 164, 0.28); border-radius: 8px; padding: 11px 16px; font-size: 14px; font-weight: 600; color: rgb(244, 244, 245); cursor: pointer; font-family: 'Noto Sans TC', Inter, -apple-system, sans-serif;">選取範本</button>
+            <button style="background: rgb(255, 234, 65); color: rgb(17, 18, 20); border: none; border-radius: 8px; padding: 11px 18px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Noto Sans TC', Inter, -apple-system, sans-serif;">＋ 新增申請單</button>
+          </div>
+        </div>
+
+        <div style="background: rgb(26, 27, 30); border: 1px solid rgba(149, 153, 164, 0.28); border-radius: 14px; overflow: hidden;">
+        <div style="overflow-x: auto;">
+          <div style="display: grid; grid-template-columns: 150px 160px 140px 190px 110px 190px 110px 130px 160px 190px; min-width: 1570px; gap: 16px; padding: 16px 24px; background: rgb(20, 21, 24); font-size: 13px; font-weight: 700; color: rgb(149, 153, 164); border-bottom: 1px solid rgba(149, 153, 164, 0.28); white-space: nowrap;">
+            <div>狀態</div><div>單號</div><div>申請處別</div><div>申請課別</div><div>申請人</div><div>職務</div><div>金額</div><div>出款帳戶</div><div>費用項目</div><div>項目</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 150px 160px 140px 190px 110px 190px 110px 130px 160px 190px; min-width: 1570px; gap: 16px; padding: 20px 24px; font-size: 14px; line-height: 1.5; color: rgb(244, 244, 245); border-bottom: 1px solid rgba(149, 153, 164, 0.28); align-items: center;">
+            <div><span style="display: inline-block; background: rgba(173, 207, 255, 0.16); color: rgb(173, 207, 255); font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; white-space: nowrap;">新單 - 諮詢議會審核</span></div>
+            <div style="color: rgb(199, 222, 255); font-weight: 600;">20260708002</div>
+            <div>技術研發中心</div><div>新技術研發部 D7-21B</div><div>Yumin</div><div>新技術研發部 D7-21B</div>
+            <div style="font-weight: 700;">1,347</div><div>主要帳戶</div><div>1.1 招募費用</div><div>Test 廣告費</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 150px 160px 140px 190px 110px 190px 110px 130px 160px 190px; min-width: 1570px; gap: 16px; padding: 20px 24px; font-size: 14px; line-height: 1.5; color: rgb(244, 244, 245); border-bottom: 1px solid rgba(149, 153, 164, 0.28); align-items: center;">
+            <div><span style="display: inline-block; background: rgba(173, 207, 255, 0.16); color: rgb(173, 207, 255); font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; white-space: nowrap;">新單 - 課長審核</span></div>
+            <div style="color: rgb(199, 222, 255); font-weight: 600;">20260608001</div>
+            <div>第21課 技術事務</div><div>21B 新技術研發組</div><div>Yumin</div><div>21B 新技術研發組 課長</div>
+            <div style="font-weight: 700;">153</div><div>主要帳戶</div><div>-</div><div></div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 150px 160px 140px 190px 110px 190px 110px 130px 160px 190px; min-width: 1570px; gap: 16px; padding: 20px 24px; font-size: 14px; line-height: 1.5; color: rgb(244, 244, 245); border-bottom: 1px solid rgba(149, 153, 164, 0.28); align-items: center;">
+            <div><span style="display: inline-block; background: rgba(192, 237, 226, 0.16); color: rgb(192, 237, 226); font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; white-space: nowrap;">已核准 - 財務長審核</span></div>
+            <div style="color: rgb(199, 222, 255); font-weight: 600;">20260527001</div>
+            <div>第21課 技術事務</div><div>21B 新技術研發組</div><div>Yumin</div><div>21B 新技術研發組 課長</div>
+            <div style="font-weight: 700;">100</div><div>主要帳戶</div><div>1.1 招募費用</div><div>Yumin 測試資金分配帶入</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 150px 160px 140px 190px 110px 190px 110px 130px 160px 190px; min-width: 1570px; gap: 16px; padding: 20px 24px; font-size: 14px; line-height: 1.5; color: rgb(244, 244, 245); border-bottom: 1px solid rgba(149, 153, 164, 0.28); align-items: center;">
+            <div><span style="display: inline-block; background: rgba(192, 237, 226, 0.16); color: rgb(192, 237, 226); font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; white-space: nowrap;">已核准 - 財務長</span></div>
+            <div style="color: rgb(199, 222, 255); font-weight: 600;">20260524001</div>
+            <div>第21課 技術事務</div><div>21B 新技術研發組</div><div>Yumin</div><div>21B 新技術研發組 課長</div>
+            <div style="font-weight: 700;">200</div><div>儲備金</div><div>1.1 招募費用</div><div>測試付款方式</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 150px 160px 140px 190px 110px 190px 110px 130px 160px 190px; min-width: 1570px; gap: 16px; padding: 20px 24px; font-size: 14px; line-height: 1.5; color: rgb(244, 244, 245); border-bottom: 1px solid rgba(149, 153, 164, 0.28); align-items: center;">
+            <div><span style="display: inline-block; background: rgba(185, 173, 255, 0.16); color: rgb(185, 173, 255); font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; white-space: nowrap;">新單</span></div>
+            <div style="color: rgb(199, 222, 255); font-weight: 600;">-</div>
+            <div>第21課 技術事務</div><div>21B 新技術研發組</div><div>Yumin</div><div>21B 新技術研發組 課長</div>
+            <div style="font-weight: 700;">10,000</div><div>儲備金</div><div>B</div><div>Yumin 超級研發費</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 150px 160px 140px 190px 110px 190px 110px 130px 160px 190px; min-width: 1570px; gap: 16px; padding: 20px 24px; font-size: 14px; line-height: 1.5; color: rgb(244, 244, 245); border-bottom: 1px solid rgba(149, 153, 164, 0.28); align-items: center;">
+            <div><span style="display: inline-block; background: rgba(192, 237, 226, 0.16); color: rgb(192, 237, 226); font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; white-space: nowrap;">已核准 - 財務長審核</span></div>
+            <div style="color: rgb(199, 222, 255); font-weight: 600;">-</div>
+            <div>第一處 行政處</div><div>第2課 溝通課</div><div>Yumin</div><div>第2課 溝通課 儲備處長</div>
+            <div style="font-weight: 700;">20,000</div><div>主要帳戶</div><div>A</div><div>Test 廣告費</div>
+          </div>
+
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
