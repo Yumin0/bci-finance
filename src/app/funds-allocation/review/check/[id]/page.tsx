@@ -281,7 +281,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
                       flex: 1, minWidth: 160, padding: '8px 10px', borderRadius: 6,
                       border: '1px solid var(--btn-border)', fontSize: 14,
                       resize: 'vertical', boxSizing: 'border-box',
-                      background: '#fff',
+                      background: 'var(--bg-card)', color: 'var(--text-body)',
                     }}
                   />
                   <input
@@ -293,7 +293,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
                     style={{
                       width: 130, padding: '8px 10px', borderRadius: 6,
                       border: '1px solid var(--btn-border)', fontSize: 14,
-                      background: '#fff', flexShrink: 0,
+                      background: 'var(--bg-card)', color: 'var(--text-body)', flexShrink: 0,
                     }}
                   />
                   <Button

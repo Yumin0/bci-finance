@@ -18,7 +18,7 @@ function TemplateSummary({ t }: { t: FundsAllocationTemplate }) {
     v.name && `項目：${v.name}`,
   ].filter(Boolean)
   return parts.length > 0 ? (
-    <p style={{ margin: '3px 0 0', fontSize: 12, color: '#6b7280' }}>{parts.join('　｜　')}</p>
+    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{parts.join('　｜　')}</p>
   ) : null
 }
 
@@ -90,21 +90,21 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
         {/* Modal header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-color)' }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>選取範本</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-subtle)', lineHeight: 1 }}>×</button>
         </div>
 
         {/* Scrollable content */}
         <div style={{ overflowY: 'auto', padding: '16px 20px', flex: 1 }}>
-          {loading && <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>載入中...</p>}
+          {loading && <p style={{ textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13 }}>載入中...</p>}
 
           {!loading && (
             <>
               {/* Shared templates */}
-              <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 10, marginTop: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 10, marginTop: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 共用範本
               </p>
               {shared.length === 0 && (
-                <p style={{ fontSize: 13, color: '#9ca3af', marginBottom: 16 }}>尚未建立共用範本</p>
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)', marginBottom: 16 }}>尚未建立共用範本</p>
               )}
               {shared.map(t => (
                 <div key={t.id} style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '12px 14px', marginBottom: 8, background: 'var(--bg-page)' }}>
@@ -121,11 +121,11 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
               ))}
 
               {/* My templates */}
-              <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 10, marginTop: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 10, marginTop: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 我的範本
               </p>
               {mine.length === 0 && (
-                <p style={{ fontSize: 13, color: '#9ca3af' }}>尚未儲存個人範本。填寫申請單後可從底部「另存為我的範本」建立。</p>
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>尚未儲存個人範本。填寫申請單後可從底部「另存為我的範本」建立。</p>
               )}
               {mine.map(t => (
                 <div key={t.id} style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '12px 14px', marginBottom: 8, background: 'var(--bg-page)' }}>
@@ -137,7 +137,7 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
                             value={renameInput}
                             onChange={e => setRenameInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && confirmRename(t.id)}
-                            style={{ padding: '4px 8px', border: '1px solid #2563eb', borderRadius: 5, fontSize: 13, flex: 1 }}
+                            style={{ padding: '4px 8px', border: '1px solid var(--ring)', borderRadius: 5, fontSize: 13, flex: 1, background: 'var(--bg-card)', color: 'var(--text-body)' }}
                             autoFocus
                           />
                           <button onClick={() => confirmRename(t.id)} disabled={renameLoading} style={btnConfirm}>
@@ -176,8 +176,8 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-const btnApply: React.CSSProperties = { padding: '5px 12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: 'pointer' }
-const btnOutline: React.CSSProperties = { padding: '5px 10px', background: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 12, cursor: 'pointer' }
+const btnApply: React.CSSProperties = { padding: '5px 12px', background: 'var(--primary)', color: 'var(--primary-foreground)', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: 'pointer' }
+const btnOutline: React.CSSProperties = { padding: '5px 10px', background: 'var(--bg-card)', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 5, fontSize: 12, cursor: 'pointer' }
 const btnConfirm: React.CSSProperties = { padding: '4px 10px', background: '#16a34a', color: 'white', border: 'none', borderRadius: 5, fontSize: 12, cursor: 'pointer' }
-const btnCancel: React.CSSProperties = { padding: '4px 8px', background: 'white', color: '#6b7280', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 12, cursor: 'pointer' }
-const btnDanger: React.CSSProperties = { padding: '5px 10px', background: 'white', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 5, fontSize: 12, cursor: 'pointer' }
+const btnCancel: React.CSSProperties = { padding: '4px 8px', background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--btn-border)', borderRadius: 5, fontSize: 12, cursor: 'pointer' }
+const btnDanger: React.CSSProperties = { padding: '5px 10px', background: 'var(--bg-card)', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 5, fontSize: 12, cursor: 'pointer' }
