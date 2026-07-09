@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsAllocationTemplate, OrgUnit, DropdownOption } from '@/lib/types'
+import { FundsAllocationTemplate, OrgUnit, DropdownOption, FormBlock, FormSlot, FormSchemaRow, TaxRateOption } from '@/lib/types'
 import { allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
+import { getFormSchemas } from '@/app/actions/form-schema'
+import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   getSharedFundTemplates,
@@ -17,70 +20,48 @@ import {
 
 type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
 
-const CATEGORY_OPTIONS = ['一般', '預支']
+// dataSource 屬於系統自動帶入或需要即時上下文的欄位，範本不需要（也無法）預先設定
+const SKIP_DATA_SOURCES = new Set([
+  'current_user_name', 'current_user_id', 'current_user_email', 'current_user_role', 'today_date', 'auto_number',
+])
 
-type EditorValues = {
-  name: string
-  apply_division: string
-  apply_section: string
-  apply_role: string
-  institution: string
-  payment_account: string
-  item_name: string
-  amount: string
-  category: string
-  note: string
+function shouldSkipSlot(slot: NonNullable<FormSlot>): boolean {
+  if (slot.type === 'attachment' || slot.type === 'readonly') return true
+  if (slot.fieldId === 'serial_number' || slot.fieldId === 'applicant') return true
+  if (SKIP_DATA_SOURCES.has(slot.dataSource)) return true
+  return false
 }
 
-const EMPTY_EDITOR: EditorValues = {
-  name: '', apply_division: '', apply_section: '', apply_role: '',
-  institution: '', payment_account: '',
-  item_name: '', amount: '', category: '', note: '',
-}
-
-function templateToEditor(t: FundsAllocationTemplate): EditorValues {
-  const v = t.field_values
-  return {
-    name: t.name,
-    apply_division: v.apply_division ?? '',
-    apply_section: v.apply_section ?? '',
-    apply_role: v.apply_role ?? '',
-    institution: v.institution ?? '',
-    payment_account: v.payment_account ?? '',
-    item_name: v.name ?? '',
-    amount: v.amount ?? '',
-    category: v.category ?? '',
-    note: v.note ?? '',
-  }
-}
-
-function editorToFieldValues(ev: EditorValues): Record<string, string> {
-  return {
-    apply_division: ev.apply_division,
-    apply_section: ev.apply_section,
-    apply_role: ev.apply_role,
-    institution: ev.institution,
-    payment_account: ev.payment_account,
-    name: ev.item_name,
-    amount: ev.amount,
-    category: ev.category,
-    note: ev.note,
-  }
+function getGroupRows(block: FormBlock): FormSchemaRow[] {
+  const startIdx = block.rows.findIndex(r => r.rowGroupStart)
+  if (startIdx === -1) return []
+  return block.rows.slice(startIdx)
 }
 
 export default function TemplateManagementTab({ newTrigger }: { newTrigger: number }) {
   const [templates, setTemplates] = useState<FundsAllocationTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<number | 'new' | null>(null)
-  const [editorValues, setEditorValues] = useState<EditorValues>(EMPTY_EDITOR)
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
+  const [schema, setSchema] = useState<FormBlock[]>([])
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
   const [orgUnitRoles, setOrgUnitRoles] = useState<RoleRow[]>([])
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
+  const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
+  const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
   const [dataLoaded, setDataLoaded] = useState(false)
+
+  // 範本名稱本身（與表單欄位 fieldId 完全分開，避免跟表單的「項目」等欄位 key 撞名）
+  const [templateName, setTemplateName] = useState('')
+  const [divisionId, setDivisionId] = useState<number | null>(null)
+  const [sectionId, setSectionId] = useState<number | null>(null)
+  const [editorValues, setEditorValues] = useState<Record<string, string>>({})
+  // 可重複列 / 群組區塊：範本只需保存「一組」預設值
+  const [editorRepeatable, setEditorRepeatable] = useState<Record<string, Record<string, string>>>({})
+  const [editorGroup, setEditorGroup] = useState<Record<string, Record<string, string>>>({})
 
   useEffect(() => {
     getSharedFundTemplates().then(data => { setTemplates(data); setLoading(false) })
@@ -89,39 +70,117 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
   useEffect(() => {
     if (newTrigger === 0) return
     openNew()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newTrigger])
 
   async function loadDataSources() {
+    const schemas = await getFormSchemas()
+    const blocks = schemas.funds_allocation
+    setSchema(blocks)
     if (dataLoaded) return
-    const [ouRes, orRes, doRes] = await Promise.all([
-      supabase.from('org_units').select('*').order('sort_order'),
-      supabase.from('org_unit_roles').select('id, org_unit_id, display_name, role_types(name)').order('sort_order'),
-      supabase.from('dropdown_options').select('*').in('field', ['institution', 'payment_account']).order('sort_order'),
-    ])
-    if (ouRes.data) setOrgUnits(ouRes.data as OrgUnit[])
-    if (orRes.data) setOrgUnitRoles(orRes.data as unknown as RoleRow[])
-    if (doRes.data) {
-      const grouped: Record<string, DropdownOption[]> = {}
-      for (const opt of doRes.data as DropdownOption[]) {
-        if (!grouped[opt.field]) grouped[opt.field] = []
-        grouped[opt.field].push(opt)
-      }
-      setDropdownOptions(grouped)
+
+    const allSlots = blocks.flatMap(b => b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => !!s)))
+    const neededSources = new Set(allSlots.map(s => s.dataSource))
+
+    const fetches: Promise<void>[] = []
+    fetches.push(
+      (async () => {
+        const { data } = await supabase.from('org_units').select('*').order('sort_order')
+        if (data) setOrgUnits(data as OrgUnit[])
+      })()
+    )
+    fetches.push(
+      (async () => {
+        const { data } = await supabase.from('org_unit_roles').select('id, org_unit_id, display_name, role_types(name)').order('sort_order')
+        if (data) setOrgUnitRoles(data as unknown as RoleRow[])
+      })()
+    )
+    const dropdownFields = ['institution', 'payment_account'].filter(f => neededSources.has(`dropdown_options:${f}`))
+    if (dropdownFields.length) {
+      fetches.push(
+        (async () => {
+          const { data } = await supabase.from('dropdown_options').select('*').in('field', dropdownFields).order('sort_order')
+          if (!data) return
+          const grouped: Record<string, DropdownOption[]> = {}
+          for (const opt of data as DropdownOption[]) {
+            if (!grouped[opt.field]) grouped[opt.field] = []
+            grouped[opt.field].push(opt)
+          }
+          setDropdownOptions(grouped)
+        })()
+      )
     }
+    if (neededSources.has('tax_rates')) {
+      fetches.push(getTaxRateOptions().then(data => setTaxRateOptions(data)))
+    }
+    for (const src of neededSources) {
+      if (!src.startsWith('fee_records:') && !src.startsWith('payee_records:')) continue
+      const [table, idStr] = src.startsWith('fee_records:')
+        ? ['fee_records', src.replace('fee_records:', '')] as const
+        : ['payee_records', src.replace('payee_records:', '')] as const
+      const fieldsTable = table === 'fee_records' ? 'fee_category_fields' : 'payee_category_fields'
+      const categoryId = Number(idStr)
+      fetches.push(
+        Promise.all([
+          supabase.from(fieldsTable).select('id, sort_order').eq('category_id', categoryId).order('sort_order'),
+          supabase.from(table).select('field_values').eq('category_id', categoryId).order('sort_order'),
+        ]).then(([fieldsRes, recordsRes]) => {
+          const fieldIds = (fieldsRes.data ?? []).map(f => String(f.id))
+          const options = (recordsRes.data ?? []).map(r => {
+            const vals = fieldIds.map(fId => (r.field_values as Record<string, string>)[fId]).filter(Boolean)
+            const label = vals.join(' ')
+            return { value: label, label }
+          }).filter(o => o.label)
+          setDynamicSelectOptions(prev => ({ ...prev, [src]: options }))
+        })
+      )
+    }
+    await Promise.all(fetches)
     setDataLoaded(true)
   }
 
   function openNew() {
     loadDataSources()
-    setEditorValues(EMPTY_EDITOR)
+    setTemplateName('')
+    setDivisionId(null)
+    setSectionId(null)
+    setEditorValues({})
+    setEditorRepeatable({})
+    setEditorGroup({})
     setEditingId('new')
     setErrorMsg(null)
   }
 
   function openEdit(t: FundsAllocationTemplate) {
     loadDataSources()
-    setEditorValues(templateToEditor(t))
+    setTemplateName(t.name)
+    const v = t.field_values
+    setDivisionId(Number(v.apply_division) || null)
+    setSectionId(Number(v.apply_section) || null)
+    const flat: Record<string, string> = {}
+    const repeatable: Record<string, Record<string, string>> = {}
+    const group: Record<string, Record<string, string>> = {}
+    for (const [key, val] of Object.entries(v)) {
+      if (key === 'apply_division' || key === 'apply_section') continue
+      if (key.startsWith('__repeatable_')) {
+        try {
+          const parsed = JSON.parse(val)
+          if (Array.isArray(parsed) && parsed[0]) repeatable[key.replace('__repeatable_', '')] = parsed[0]
+        } catch { /* 忽略解析錯誤，保留空值 */ }
+        continue
+      }
+      if (key.startsWith('__group_')) {
+        try {
+          const parsed = JSON.parse(val)
+          if (Array.isArray(parsed) && parsed[0]) group[key.replace('__group_', '')] = parsed[0]
+        } catch { /* 忽略解析錯誤，保留空值 */ }
+        continue
+      }
+      flat[key] = val
+    }
+    setEditorValues(flat)
+    setEditorRepeatable(repeatable)
+    setEditorGroup(group)
     setEditingId(t.id)
     setErrorMsg(null)
   }
@@ -131,24 +190,42 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
     setErrorMsg(null)
   }
 
-  function setVal(key: keyof EditorValues, value: string) {
-    setEditorValues(prev => {
-      const next = { ...prev, [key]: value }
-      if (key === 'apply_division') { next.apply_section = ''; next.apply_role = '' }
-      if (key === 'apply_section') { next.apply_role = '' }
-      return next
-    })
+  function setEditorField(fieldId: string, value: string) {
+    setEditorValues(prev => ({ ...prev, [fieldId]: value }))
+  }
+  function setRepeatableField(rowId: string, fieldId: string, value: string) {
+    setEditorRepeatable(prev => ({ ...prev, [rowId]: { ...(prev[rowId] ?? {}), [fieldId]: value } }))
+  }
+  function setGroupField(blockId: string, fieldId: string, value: string) {
+    setEditorGroup(prev => ({ ...prev, [blockId]: { ...(prev[blockId] ?? {}), [fieldId]: value } }))
+  }
+
+  function buildFieldValues(): Record<string, string> {
+    const values: Record<string, string> = { ...editorValues }
+    if (divisionId) values.apply_division = String(divisionId)
+    if (sectionId) values.apply_section = String(sectionId)
+    for (const row of schema.flatMap(b => b.rows).filter(r => r.repeatable)) {
+      const inst = editorRepeatable[row.id]
+      if (inst && Object.values(inst).some(Boolean)) values[`__repeatable_${row.id}`] = JSON.stringify([inst])
+    }
+    for (const block of schema) {
+      const groupRows = getGroupRows(block)
+      if (!groupRows.length) continue
+      const inst = editorGroup[block.id]
+      if (inst && Object.values(inst).some(Boolean)) values[`__group_${block.id}`] = JSON.stringify([inst])
+    }
+    return values
   }
 
   async function handleSave() {
-    if (!editorValues.name.trim()) { setErrorMsg('請輸入範本名稱'); return }
+    if (!templateName.trim()) { setErrorMsg('請輸入範本名稱'); return }
     setSaving(true); setErrorMsg(null)
-    const fieldValues = editorToFieldValues(editorValues)
+    const fieldValues = buildFieldValues()
     let result: { error: string | null }
     if (editingId === 'new') {
-      result = await createSharedFundTemplate(editorValues.name.trim(), fieldValues)
+      result = await createSharedFundTemplate(templateName.trim(), fieldValues)
     } else {
-      result = await updateSharedFundTemplate(editingId as number, editorValues.name.trim(), fieldValues)
+      result = await updateSharedFundTemplate(editingId as number, templateName.trim(), fieldValues)
     }
     setSaving(false)
     if (result.error) { setErrorMsg(result.error); return }
@@ -164,23 +241,85 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
     if (!error) setTemplates(prev => prev.filter(t => t.id !== id))
   }
 
-  const divisionId = Number(editorValues.apply_division) || null
-  const sectionId = Number(editorValues.apply_section) || null
   const divisions = allDivisionOptions(orgUnits)
   const sections = allSectionOptions(orgUnits, divisionId)
   const roleOptions = orgUnitRoles
     .filter(r => r.org_unit_id === sectionId)
     .map(r => r.display_name ?? `${r.role_types.name}`)
 
-  const institutionOptions = (dropdownOptions['institution'] ?? []).map(o => ({ value: o.label, label: o.label }))
-  const paymentAccountOptions = (dropdownOptions['payment_account'] ?? []).map(o => ({ value: o.label, label: o.label }))
+  function renderSlotInput(slot: NonNullable<FormSlot>, value: string, onChange: (v: string) => void) {
+    const { fieldId, type, dataSource, staticOptions } = slot
+
+    if (fieldId === 'apply_division') {
+      return (
+        <SearchableSelect
+          value={String(divisionId ?? '')}
+          onChange={v => { setDivisionId(Number(v) || null); setSectionId(null); setEditorField('apply_role', '') }}
+          options={divisions}
+          placeholder="選填"
+        />
+      )
+    }
+    if (fieldId === 'apply_section') {
+      return (
+        <SearchableSelect
+          value={String(sectionId ?? '')}
+          onChange={v => { setSectionId(Number(v) || null); setEditorField('apply_role', '') }}
+          options={sections}
+          disabled={!divisionId}
+          placeholder="選填"
+        />
+      )
+    }
+    if (fieldId === 'apply_role') {
+      return (
+        <SearchableSelect
+          value={value}
+          onChange={onChange}
+          options={roleOptions.map(name => ({ value: name, label: name }))}
+          disabled={!sectionId}
+          placeholder="選填"
+        />
+      )
+    }
+    if (type === 'radio') {
+      return (
+        <div className="flex gap-4 py-1">
+          {['', ...(staticOptions ?? [])].map(opt => (
+            <label key={opt} className="flex cursor-pointer items-center gap-1.5 text-sm text-foreground">
+              <input type="radio" name={fieldId} checked={value === opt} onChange={() => onChange(opt)} />
+              {opt || '不指定'}
+            </label>
+          ))}
+        </div>
+      )
+    }
+    if (type === 'select') {
+      let options: { value: string; label: string }[] = []
+      if (dataSource === 'static') options = (staticOptions ?? []).map(o => ({ value: o, label: o }))
+      else if (dataSource.startsWith('dropdown_options:')) {
+        const field = dataSource.replace('dropdown_options:', '')
+        options = (dropdownOptions[field] ?? []).map(o => ({ value: o.label, label: o.label }))
+      } else if (dataSource === 'tax_rates') {
+        options = taxRateOptions.map(o => ({ value: o.label, label: o.label }))
+      } else if (dataSource.startsWith('fee_records:') || dataSource.startsWith('payee_records:')) {
+        options = dynamicSelectOptions[dataSource] ?? []
+      }
+      return <SearchableSelect value={value} onChange={onChange} options={options} placeholder="選填" />
+    }
+    if (type === 'textarea') {
+      return <Textarea value={value} onChange={e => onChange(e.target.value)} rows={2} placeholder="選填" />
+    }
+    const inputType = type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'
+    return <Input type={inputType} value={value} onChange={e => onChange(e.target.value)} placeholder="選填" />
+  }
 
   if (loading) return <p className="text-sm text-muted-foreground">載入中...</p>
 
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        設定共用範本，使用者填寫資金分配申請時可選取範本快速帶入欄位值。
+        設定共用範本，使用者填寫資金分配申請時可選取範本快速帶入欄位值。範本欄位會跟著「表單設定」的申請表單自動同步。
       </p>
 
       {/* 編輯 / 新增表單 */}
@@ -196,8 +335,8 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 
             <FieldRow label="範本名稱 *">
               <Input
-                value={editorValues.name}
-                onChange={e => setVal('name', e.target.value)}
+                value={templateName}
+                onChange={e => setTemplateName(e.target.value)}
                 placeholder="例：主要帳戶—會計師費用"
               />
             </FieldRow>
@@ -206,89 +345,66 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
               <p className="mb-3 text-xs text-muted-foreground">
                 以下欄位可選填，只有填寫的欄位會預先帶入申請表單。
               </p>
-              <div className="grid grid-cols-2 gap-3">
-                <FieldRow label="申請處別">
-                  <SearchableSelect
-                    value={editorValues.apply_division}
-                    onChange={v => setVal('apply_division', v)}
-                    options={divisions}
-                    placeholder="選填"
-                  />
-                </FieldRow>
-                <FieldRow label="申請課別">
-                  <SearchableSelect
-                    value={editorValues.apply_section}
-                    onChange={v => setVal('apply_section', v)}
-                    options={sections}
-                    disabled={!divisionId}
-                    placeholder="選填"
-                  />
-                </FieldRow>
-                <FieldRow label="職稱">
-                  <SearchableSelect
-                    value={editorValues.apply_role}
-                    onChange={v => setVal('apply_role', v)}
-                    options={roleOptions.map(name => ({ value: name, label: name }))}
-                    disabled={!sectionId}
-                    placeholder="選填"
-                  />
-                </FieldRow>
-                <FieldRow label="機構">
-                  <SearchableSelect
-                    value={editorValues.institution}
-                    onChange={v => setVal('institution', v)}
-                    options={institutionOptions}
-                    placeholder="選填"
-                  />
-                </FieldRow>
-                <FieldRow label="出款帳戶">
-                  <SearchableSelect
-                    value={editorValues.payment_account}
-                    onChange={v => setVal('payment_account', v)}
-                    options={paymentAccountOptions}
-                    placeholder="選填"
-                  />
-                </FieldRow>
-                <FieldRow label="項目名稱">
-                  <Input
-                    value={editorValues.item_name}
-                    onChange={e => setVal('item_name', e.target.value)}
-                    placeholder="選填"
-                  />
-                </FieldRow>
-                <FieldRow label="金額">
-                  <Input
-                    type="number"
-                    value={editorValues.amount}
-                    onChange={e => setVal('amount', e.target.value)}
-                    placeholder="選填"
-                  />
-                </FieldRow>
-                <FieldRow label="類型">
-                  <div className="flex gap-4 py-1">
-                    {['', ...CATEGORY_OPTIONS].map(opt => (
-                      <label key={opt} className="flex cursor-pointer items-center gap-1.5 text-sm text-foreground">
-                        <input
-                          type="radio"
-                          name="template_category"
-                          value={opt}
-                          checked={editorValues.category === opt}
-                          onChange={() => setVal('category', opt)}
-                        />
-                        {opt || '不指定'}
-                      </label>
-                    ))}
-                  </div>
-                </FieldRow>
-                <FieldRow label="備註">
-                  <textarea
-                    value={editorValues.note}
-                    onChange={e => setVal('note', e.target.value)}
-                    placeholder="選填"
-                    rows={2}
-                    className="w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus:border-ring dark:bg-input/30"
-                  />
-                </FieldRow>
+              <div className="flex flex-col gap-4">
+                {schema.map(block => {
+                  const groupRows = getGroupRows(block)
+                  const normalRows = block.rows.filter(r => !r.repeatable && !groupRows.includes(r))
+                  const repeatableRows = block.rows.filter(r => r.repeatable)
+                  const hasAnyVisible =
+                    normalRows.some(r => r.slots.some(s => s && !shouldSkipSlot(s))) ||
+                    repeatableRows.some(r => r.slots.some(s => s && !shouldSkipSlot(s))) ||
+                    groupRows.some(r => r.slots.some(s => s && !shouldSkipSlot(s)))
+                  if (!hasAnyVisible) return null
+                  return (
+                    <div key={block.id} className="border-t border-border pt-4 first:border-t-0 first:pt-0">
+                      {block.title && <p className="mb-2 text-xs font-semibold text-muted-foreground">{block.title}</p>}
+                      <div className="grid grid-cols-2 gap-3">
+                        {normalRows.flatMap(row => row.slots.map((slot, idx) => {
+                          if (!slot || shouldSkipSlot(slot)) return null
+                          return (
+                            <FieldRow key={`${row.id}_${idx}`} label={slot.label}>
+                              {renderSlotInput(slot, editorValues[slot.fieldId] ?? '', v => setEditorField(slot.fieldId, v))}
+                            </FieldRow>
+                          )
+                        }))}
+                      </div>
+                      {repeatableRows.map(row => {
+                        const visible = row.slots.filter((s): s is NonNullable<FormSlot> => !!s && !shouldSkipSlot(s))
+                        if (!visible.length) return null
+                        const inst = editorRepeatable[row.id] ?? {}
+                        return (
+                          <div key={row.id} className="mt-3 grid grid-cols-2 gap-3">
+                            {visible.map(slot => (
+                              <FieldRow key={slot.fieldId} label={slot.label}>
+                                {renderSlotInput(slot, inst[slot.fieldId] ?? '', v => setRepeatableField(row.id, slot.fieldId, v))}
+                              </FieldRow>
+                            ))}
+                          </div>
+                        )
+                      })}
+                      {groupRows.length > 0 && (() => {
+                        const inst = editorGroup[block.id] ?? {}
+                        return (
+                          <div className="mt-3 flex flex-col gap-3">
+                            {groupRows.map(row => {
+                              const visible = row.slots.filter((s): s is NonNullable<FormSlot> => !!s && !shouldSkipSlot(s))
+                              if (!visible.length) return null
+                              return (
+                                <div key={row.id} className="grid grid-cols-2 gap-3">
+                                  {visible.map(slot => (
+                                    <FieldRow key={slot.fieldId} label={slot.label}>
+                                      {renderSlotInput(slot, inst[slot.fieldId] ?? '', v => setGroupField(block.id, slot.fieldId, v))}
+                                    </FieldRow>
+                                  ))}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
@@ -311,8 +427,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
         const v = t.field_values
         const summary = [
           v.payment_account && `出款帳戶：${v.payment_account}`,
-          v.expense_item && `費用項目：${v.expense_item}`,
-          v.name && `項目：${v.name}`,
+          v.institution && `機構：${v.institution}`,
         ].filter(Boolean).join('　｜　')
 
         return (

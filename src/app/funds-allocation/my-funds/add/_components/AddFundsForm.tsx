@@ -64,12 +64,16 @@ export default function AddFundsForm({
     Number(initialValues?.apply_section) || null
   )
 
-  // Generic field values — initialised from template, excluding cascade ID keys
+  // Generic field values — initialised from template, excluding cascade ID keys 與 repeatable/group 預設值
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => {
     if (!initialValues) return {}
-    const { apply_division, apply_section, ...rest } = initialValues
-    void apply_division; void apply_section
-    return rest
+    const flat: Record<string, string> = {}
+    for (const [key, val] of Object.entries(initialValues)) {
+      if (key === 'apply_division' || key === 'apply_section') continue
+      if (key.startsWith('__repeatable_') || key.startsWith('__group_')) continue
+      flat[key] = val
+    }
+    return flat
   })
 
   // 審核流程（根據出款帳號自動帶入）
@@ -79,11 +83,33 @@ export default function AddFundsForm({
   // 附件（key = slot.label）
   const [pendingAttachments, setPendingAttachments] = useState<Record<string, AttachmentItem[]>>({})
 
-  // 可重複列資料（key = rowId, value = 每筆的欄位值陣列）
-  const [repeatableValues, setRepeatableValues] = useState<Record<string, Record<string, string>[]>>({})
+  // 可重複列資料（key = rowId, value = 每筆的欄位值陣列）— 從範本帶入預設值（若有）
+  const [repeatableValues, setRepeatableValues] = useState<Record<string, Record<string, string>[]>>(() => {
+    if (!initialValues) return {}
+    const out: Record<string, Record<string, string>[]> = {}
+    for (const [key, val] of Object.entries(initialValues)) {
+      if (!key.startsWith('__repeatable_')) continue
+      try {
+        const parsed = JSON.parse(val)
+        if (Array.isArray(parsed) && parsed.length) out[key.replace('__repeatable_', '')] = parsed
+      } catch { /* 忽略解析錯誤 */ }
+    }
+    return out
+  })
 
-  // 群組重複資料（key = blockId, value = 每筆的欄位值陣列）
-  const [groupInstances, setGroupInstances] = useState<Record<string, Record<string, string>[]>>({})
+  // 群組重複資料（key = blockId, value = 每筆的欄位值陣列）— 從範本帶入預設值（若有）
+  const [groupInstances, setGroupInstances] = useState<Record<string, Record<string, string>[]>>(() => {
+    if (!initialValues) return {}
+    const out: Record<string, Record<string, string>[]> = {}
+    for (const [key, val] of Object.entries(initialValues)) {
+      if (!key.startsWith('__group_')) continue
+      try {
+        const parsed = JSON.parse(val)
+        if (Array.isArray(parsed) && parsed.length) out[key.replace('__group_', '')] = parsed
+      } catch { /* 忽略解析錯誤 */ }
+    }
+    return out
+  })
 
   // 稅額選項
   const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
@@ -838,10 +864,27 @@ export default function AddFundsForm({
     })))
   }
 
+  function buildTemplateFieldValues(): Record<string, string> {
+    const values: Record<string, string> = { ...fieldValues }
+    if (divisionId) values.apply_division = String(divisionId)
+    if (sectionId) values.apply_section = String(sectionId)
+    for (const row of allRows.filter(r => r.repeatable)) {
+      const instances = repeatableValues[row.id] ?? []
+      if (instances.length) values[`__repeatable_${row.id}`] = JSON.stringify(instances)
+    }
+    for (const block of schema) {
+      const groupRows = getGroupRows(block)
+      if (!groupRows.length) continue
+      const instances = groupInstances[block.id] ?? []
+      if (instances.length) values[`__group_${block.id}`] = JSON.stringify(instances)
+    }
+    return values
+  }
+
   async function handleSaveAsTemplate() {
     if (!saveAsName.trim()) return
     setSavingTemplate(true)
-    const { error } = await saveUserFundTemplate(saveAsName.trim(), fieldValues)
+    const { error } = await saveUserFundTemplate(saveAsName.trim(), buildTemplateFieldValues())
     setSavingTemplate(false)
     if (!error) {
       setShowSaveAs(false)
