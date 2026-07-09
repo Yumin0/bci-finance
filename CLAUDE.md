@@ -116,6 +116,7 @@ src/
 - **動態表單**：三層結構 FormBlock → FormSchemaRow → FormSlot，支援多區塊卡片排版；資料來源 12+ 種，可在 Supabase 管理不需部署
 - **主題**：CSS Variables 定義顏色，偏好存 localStorage（`bci-theme`），有防 hydration 閃爍 script
 - **MOCK_USER_ID**：`'00000000-0000-0000-0000-000000000001'`，待整合真正 Supabase Auth 後替換
+- **部署區域**：兩個 Supabase 專案（dev/staging 與正式）皆位於孟買（ap-south-1），`vercel.json` 將 Vercel 函數區域固定為 `bom1` 與資料庫同機房，勿隨意移除（移除會退回預設美東 iad1，全站每頁回應時間會從 <1 秒惡化到 2~3 秒）
 
 ---
 
