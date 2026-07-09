@@ -26,7 +26,7 @@ export default function LoginPage() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-sidebar)' }}>
       <div style={{ width: 400, background: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border-color)', padding: 32 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24, textAlign: 'center' }}>BCI 財務系統</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24, textAlign: 'center' }}>BC 資金分配系統</h1>
 
         <div style={{ display: 'flex', marginBottom: 24, borderBottom: '1px solid var(--border-color)' }}>
           {(['login', 'register'] as const).map((m) => (

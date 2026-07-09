@@ -23,8 +23,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BCI 財務系統",
-  description: "BCI 內部財務管理系統",
+  title: "BC 資金分配系統",
+  description: "BC 內部資金分配管理系統",
 };
 
 // 暫時強制淺色：移除 dark class，不讀 localStorage
@@ -55,7 +55,7 @@ export default async function RootLayout({
             <>
               <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 52, background: 'var(--bg-header)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 48px 0 24px' }}>
                 <Link href="/" style={{ fontWeight: 'bold', fontSize: 16, textDecoration: 'none', color: 'var(--text-title)' }}>
-                  BCI 財務系統
+                  BC 資金分配系統
                 </Link>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <NotificationBell userId={session.userId} initialUnreadCount={unreadCount} />
