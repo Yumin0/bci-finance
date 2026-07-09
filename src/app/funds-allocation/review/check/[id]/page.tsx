@@ -233,6 +233,11 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
                 <span style={{ flex: 1, fontSize: 14, color: 'var(--text-body)', textAlign: 'center' }}>
                   {isDone && past.comment ? past.comment : ''}
                 </span>
+                {isDone && past.decision === 'approved' && past.approved_amount != null && (
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
+                    核准金額：{past.approved_amount.toLocaleString()} 元
+                  </span>
+                )}
                 {isDone && (
                   <span style={{
                     fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, flexShrink: 0,

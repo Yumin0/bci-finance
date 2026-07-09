@@ -37,7 +37,7 @@ export async function getGroupReachedTotals(
   const { data: allocations } = await supabase
     .from('funds_allocation')
     .select(`
-      amount, payment_account, status, current_step,
+      amount, approved_amount, payment_account, status, current_step,
       approval_flow_templates(
         approval_flow_steps(step_number, approval_group_id)
       )
@@ -47,6 +47,7 @@ export async function getGroupReachedTotals(
   const totals: Record<string, number> = {}
   for (const a of (allocations ?? []) as unknown as Array<{
     amount: number
+    approved_amount: number | null
     payment_account: string | null
     status: string
     current_step: number | null
@@ -62,7 +63,7 @@ export async function getGroupReachedTotals(
 
     if (reached) {
       const key = a.payment_account ?? '（未指定帳戶）'
-      totals[key] = (totals[key] ?? 0) + (a.amount ?? 0)
+      totals[key] = (totals[key] ?? 0) + (a.approved_amount ?? a.amount ?? 0)
     }
   }
   return totals
