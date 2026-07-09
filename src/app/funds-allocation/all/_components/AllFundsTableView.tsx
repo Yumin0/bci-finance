@@ -8,9 +8,14 @@ import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FundsAllocation } from '@/lib/types'
 import { StatusLabelConfig } from '@/lib/status-label-config'
+import { FUNDS_ALLOCATION_COLUMNS } from '@/lib/fundsAllocationColumns'
 import StatusBadge from '@/app/_components/StatusBadge'
 import PageHeader from '@/app/_components/PageHeader'
+import ColumnPicker from '@/app/_components/ColumnPicker'
+import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
 import ExportCsvButton from './ExportCsvButton'
+
+const LS_KEY = 'bci-funds-all-columns-v2'
 
 type AllocationRow = FundsAllocation & {
   approval_flow_templates: {
@@ -55,6 +60,7 @@ export default function AllFundsTableView({
   canExport: boolean
 }) {
   const [query, setQuery] = useState('')
+  const { visibleCols, toggleCol } = useColumnVisibility(LS_KEY, FUNDS_ALLOCATION_COLUMNS.map(c => c.key))
 
   const filtered = query.trim()
     ? records.filter(r => SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
@@ -73,6 +79,7 @@ export default function AllFundsTableView({
                 onChange={e => setQuery(e.target.value)}
                 className="w-64 bg-background"
               />
+              <ColumnPicker columns={FUNDS_ALLOCATION_COLUMNS} visibleCols={visibleCols} onToggle={toggleCol} />
               {canExport && <ExportCsvButton labelConfig={labelConfig} />}
             </div>
           }
@@ -84,15 +91,18 @@ export default function AllFundsTableView({
         <Table>
           <TableHeader>
             <TableRow>
-              {['狀態', '單號', '申請處別', '申請課別', '申請人', '職務', '金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
-                <TableHead key={i}>{col}</TableHead>
+              <TableHead>狀態</TableHead>
+              <TableHead>單號</TableHead>
+              {FUNDS_ALLOCATION_COLUMNS.filter(c => visibleCols.has(c.key)).map(c => (
+                <TableHead key={c.key}>{c.label}</TableHead>
               ))}
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={11} className="py-6 text-center text-muted-foreground">
+                <TableCell colSpan={2 + visibleCols.size + 1} className="py-6 text-center text-muted-foreground">
                   {query ? '找不到符合的紀錄' : '目前無申請紀錄'}
                 </TableCell>
               </TableRow>
@@ -107,14 +117,16 @@ export default function AllFundsTableView({
                     {r.status === 'draft' ? '繼續編輯' : (r.serial_number ?? '-')}
                   </Link>
                 </TableCell>
-                <TableCell>{r.apply_division ?? '-'}</TableCell>
-                <TableCell>{r.apply_section ?? '-'}</TableCell>
-                <TableCell>{r.applicant ?? r.created_by}</TableCell>
-                <TableCell>{r.apply_role ?? '-'}</TableCell>
-                <TableCell>{r.amount.toLocaleString()}</TableCell>
-                <TableCell>{r.payment_account ?? '-'}</TableCell>
-                <TableCell>{r.expense_item ?? '-'}</TableCell>
-                <TableCell>{r.name}</TableCell>
+                {visibleCols.has('division') && <TableCell>{r.apply_division ?? '-'}</TableCell>}
+                {visibleCols.has('section') && <TableCell>{r.apply_section ?? '-'}</TableCell>}
+                {visibleCols.has('applicant') && <TableCell>{r.applicant ?? r.created_by}</TableCell>}
+                {visibleCols.has('role') && <TableCell>{r.apply_role ?? '-'}</TableCell>}
+                {visibleCols.has('requestedAmount') && <TableCell>{r.amount.toLocaleString()}</TableCell>}
+                {visibleCols.has('approvedAmount') && <TableCell>{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>}
+                {visibleCols.has('remainingAmount') && <TableCell>-</TableCell>}
+                {visibleCols.has('account') && <TableCell>{r.payment_account ?? '-'}</TableCell>}
+                {visibleCols.has('expense') && <TableCell>{r.expense_item ?? '-'}</TableCell>}
+                {visibleCols.has('name') && <TableCell>{r.name}</TableCell>}
                 <TableCell>
                   <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                     查閱
