@@ -212,6 +212,19 @@
 
 ## 已完成
 
+**付款憑單/暫付款沖銷憑單審核人解析修正：org_role 步驟接上處別/課別**（2026-07-10，Yumin）
+分支：`feature/yumin-payment-review-orgcontext`
+問題：付款憑單與暫付款沖銷憑單的審核比對（待我審核清單、審核頁、通知）呼叫 `stepMatchesReviewer`/`checkCanReviewStep` 時未傳處別/課別 orgContext，且憑單資料表沒有 `apply_division_id`/`apply_section_id` 欄位，導致範本步驟為「課長/處長審核」（org_role + section/division）時永遠無人可審；另範本查詢用 `maybeSingle()` 遇多筆綁定會回錯誤且被靜默忽略，導致 `flow_template_id` 存成 null、憑單卡死無人可審。修法：不加欄位，一律回溯關聯的資金分配申請單取得處別/課別（新共用函式 `getAllocationOrgContext`；清單查詢用 PostgREST 巢狀 embed）；範本查詢改 `.limit(1)` 並記錄錯誤。
+影響範圍確認：
+- [x] `getPendingPaymentsForReviewer`（付款憑單待我審核清單，join 申請單 org ids）
+- [x] `getPendingVouchersForReviewer`（暫付款沖銷待我審核清單，雙層 join）
+- [x] /funds-payment/review/check/[id]（審核頁 canReview 判斷 + steps select 補 org_unit_type）
+- [x] /funds-voucher/review/check/[id]（審核頁 canReview 判斷 + steps select 補 org_unit_type）
+- [x] `submitApprovalDecision` 通知下一步審核人（付款憑單/暫付款沖銷分支）
+- [x] `submitMyPayment` / `submitTempVoucher` 送審通知第一步審核人
+- [x] `createPayment` / `submitMyPayment` / `createTempVoucher` / `submitTempVoucher` 範本查詢 maybeSingle 靜默失敗修正
+- [ ] staging 資料修復：funds_payment #2 補 `flow_template_id = 2`（SQL 待使用者在 Supabase 執行）
+
 **品牌 UI 全面調整：元件尺寸統一、側邊欄/header 改版、表單橫式排版**（2026-07-10，Yumin）
 分支：`feature/yumin-ui-polish`（基於 staging 品牌新樣式，參考 docs/brand-guidelines 與 Claude Design 稿）
 影響範圍確認：

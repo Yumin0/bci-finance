@@ -296,7 +296,7 @@ export async function submitApprovalDecision(params: {
     if (fundsPaymentId) {
       const { data: payment } = await supabase
         .from('funds_payment')
-        .select('created_by, flow_template_id, name')
+        .select('created_by, flow_template_id, name, funds_allocation_id')
         .eq('id', fundsPaymentId)
         .single()
       if (payment) {
@@ -304,11 +304,12 @@ export async function submitApprovalDecision(params: {
         const { data: paymentCreator } = await supabase.from('app_users').select('email').eq('id', applicantId).single()
         const paymentBody = paymentCreator?.email ? `申請人：${emailToEnglishName(paymentCreator.email)}` : payment.name
         if (decision === 'approved' && !isLastStep) {
+          const orgContext = await getAllocationOrgContext(payment.funds_allocation_id)
           await notifyReviewersForStep({
             templateId: payment.flow_template_id,
             stepNumber: stepNumber + 1,
-            applyDivisionId: null,
-            applySectionId: null,
+            applyDivisionId: orgContext.applyDivisionId,
+            applySectionId: orgContext.applySectionId,
             title: '付款憑單待審核',
             itemName: payment.name,
             body: paymentBody,
@@ -348,20 +349,23 @@ export async function submitApprovalDecision(params: {
       if (voucher) {
         const applicantId = Number(voucher.created_by)
         let voucherItemName: string | null = null
+        let voucherAllocationId: number | null = null
         if (voucher.funds_payment_id) {
           const { data: relatedPayment } = await supabase
             .from('funds_payment')
-            .select('name')
+            .select('name, funds_allocation_id')
             .eq('id', voucher.funds_payment_id)
             .single()
           voucherItemName = relatedPayment?.name ?? null
+          voucherAllocationId = relatedPayment?.funds_allocation_id ?? null
         }
         if (decision === 'approved' && !isLastStep) {
+          const orgContext = await getAllocationOrgContext(voucherAllocationId)
           await notifyReviewersForStep({
             templateId: voucher.flow_template_id,
             stepNumber: stepNumber + 1,
-            applyDivisionId: null,
-            applySectionId: null,
+            applyDivisionId: orgContext.applyDivisionId,
+            applySectionId: orgContext.applySectionId,
             title: '暫付款沖銷憑單待審核',
             itemName: voucherItemName,
             body: null,
@@ -712,17 +716,37 @@ export async function getApprovalHistoryForReviewer(userId: number) {
   })
 }
 
+// 付款憑單/暫付款沖銷憑單本身沒有 apply_division_id/apply_section_id 欄位，
+// org_role（課長/處長）步驟的審核人需回溯關聯的資金分配申請單取得
+export async function getAllocationOrgContext(
+  allocationId: number | null | undefined
+): Promise<{ applyDivisionId: number | null; applySectionId: number | null }> {
+  if (!allocationId) return { applyDivisionId: null, applySectionId: null }
+  const { data } = await supabase
+    .from('funds_allocation')
+    .select('apply_division_id, apply_section_id')
+    .eq('id', allocationId)
+    .single()
+  const alloc = data as { apply_division_id: number | null; apply_section_id: number | null } | null
+  return { applyDivisionId: alloc?.apply_division_id ?? null, applySectionId: alloc?.apply_section_id ?? null }
+}
+
+type AllocOrgRef = { apply_division_id: number | null; apply_section_id: number | null } | null
+
 export async function getPendingPaymentsForReviewer(userId: number) {
   const reviewerInfo = await getReviewerInfo(userId)
   const { data } = await supabase
     .from('funds_payment')
-    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT}))`)
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT})), funds_allocation:funds_allocation_id(apply_division_id, apply_section_id)`)
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
-  return ((data ?? []) as unknown as Array<{ current_step: number | null; approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
+  return ((data ?? []) as unknown as Array<{ current_step: number | null; funds_allocation: AllocOrgRef; approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
     .filter(r => {
       const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
-      return stepDef ? stepMatchesReviewer(stepDef, reviewerInfo) : false
+      return stepDef ? stepMatchesReviewer(stepDef, reviewerInfo, {
+        applyDivisionId: r.funds_allocation?.apply_division_id,
+        applySectionId: r.funds_allocation?.apply_section_id,
+      }) : false
     })
     .map(r => {
       const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
@@ -734,13 +758,16 @@ export async function getPendingVouchersForReviewer(userId: number) {
   const reviewerInfo = await getReviewerInfo(userId)
   const { data } = await supabase
     .from('temp_vouchers')
-    .select(`*, approval_flow_templates(approval_flow_steps(${STEP_SELECT}))`)
+    .select(`*, approval_flow_templates(approval_flow_steps(${STEP_SELECT})), funds_payment:funds_payment_id(funds_allocation:funds_allocation_id(apply_division_id, apply_section_id))`)
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
-  return ((data ?? []) as unknown as Array<{ current_step: number | null; approval_flow_templates: { approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
+  return ((data ?? []) as unknown as Array<{ current_step: number | null; funds_payment: { funds_allocation: AllocOrgRef } | null; approval_flow_templates: { approval_flow_steps: StepRef[] } | null } & Record<string, unknown>>)
     .filter(r => {
       const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
-      return stepDef ? stepMatchesReviewer(stepDef, reviewerInfo) : false
+      return stepDef ? stepMatchesReviewer(stepDef, reviewerInfo, {
+        applyDivisionId: r.funds_payment?.funds_allocation?.apply_division_id,
+        applySectionId: r.funds_payment?.funds_allocation?.apply_section_id,
+      }) : false
     })
     .map(r => {
       const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)

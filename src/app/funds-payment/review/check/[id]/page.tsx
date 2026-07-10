@@ -19,6 +19,7 @@ type StepDef = {
   step_name: string
   reviewer_type: 'org_role' | 'system_role' | 'approval_group'
   role_type_id: number | null
+  org_unit_type: string | null
   system_role_id: number | null
   approval_group_id: number | null
 }
@@ -67,7 +68,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
       if (payment.flow_template_id) {
         const [tmplRes, stepsRes] = await Promise.all([
           supabase.from('approval_flow_templates').select('id, name').eq('id', payment.flow_template_id).single(),
-          supabase.from('approval_flow_steps').select('id, step_number, step_name, reviewer_type, role_type_id, system_role_id, approval_group_id').eq('template_id', payment.flow_template_id).order('step_number'),
+          supabase.from('approval_flow_steps').select('id, step_number, step_name, reviewer_type, role_type_id, org_unit_type, system_role_id, approval_group_id').eq('template_id', payment.flow_template_id).order('step_number'),
         ])
         steps = (stepsRes.data ?? []) as StepDef[]
         setRecord({
@@ -83,7 +84,19 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
       if (session.userId && payment.status === 'pending' && payment.current_step !== null) {
         const stepDef = steps.find(s => s.step_number === payment.current_step)
         if (stepDef) {
-          const canReview = await checkCanReviewStep({ userId: session.userId, stepDef })
+          // 課長/處長（org_role）步驟需要申請單的處別/課別才能解析審核人
+          let applyDivisionId: number | null = null
+          let applySectionId: number | null = null
+          if (payment.funds_allocation_id) {
+            const { data: alloc } = await supabase
+              .from('funds_allocation')
+              .select('apply_division_id, apply_section_id')
+              .eq('id', payment.funds_allocation_id)
+              .single()
+            applyDivisionId = alloc?.apply_division_id ?? null
+            applySectionId = alloc?.apply_section_id ?? null
+          }
+          const canReview = await checkCanReviewStep({ userId: session.userId, stepDef, applyDivisionId, applySectionId })
           setCanReviewStep(canReview)
         }
       }

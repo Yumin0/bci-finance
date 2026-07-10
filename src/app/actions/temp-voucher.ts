@@ -3,6 +3,21 @@
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { notifyReviewersForStep } from './notifications'
+import { getAllocationOrgContext } from './approval-flow'
+
+// 注意不可用 maybeSingle()：若同時存在多個啟用中的暫付款範本，
+// maybeSingle 會回傳錯誤且被靜默忽略，導致 flow_template_id 存成 null、憑單無人可審
+async function findTempVoucherTemplateId(): Promise<number | null> {
+  const { data: tpls, error } = await supabase
+    .from('approval_flow_templates')
+    .select('id')
+    .eq('form_type', 'temp_voucher')
+    .eq('is_active', true)
+    .order('id')
+    .limit(1)
+  if (error) console.error('findTempVoucherTemplateId error:', error.message)
+  return tpls?.[0]?.id ?? null
+}
 
 export async function createTempVoucher(
   fundsPaymentId: number,
@@ -11,14 +26,7 @@ export async function createTempVoucher(
   const session = await getSession()
   if (!session) return { id: null, error: '請先登入' }
 
-  const { data: tpl } = await supabase
-    .from('approval_flow_templates')
-    .select('id')
-    .eq('form_type', 'temp_voucher')
-    .eq('is_active', true)
-    .maybeSingle()
-
-  const flowTemplateId: number | null = tpl?.id ?? null
+  const flowTemplateId = await findTempVoucherTemplateId()
 
   const { data, error } = await supabase
     .from('temp_vouchers')
@@ -47,14 +55,7 @@ export async function submitTempVoucher(id: number): Promise<{ error: string | n
   const session = await getSession()
   if (!session) return { error: '請先登入' }
 
-  const { data: tpl } = await supabase
-    .from('approval_flow_templates')
-    .select('id')
-    .eq('form_type', 'temp_voucher')
-    .eq('is_active', true)
-    .maybeSingle()
-
-  const flowTemplateId: number | null = tpl?.id ?? null
+  const flowTemplateId = await findTempVoucherTemplateId()
 
   const { error } = await supabase
     .from('temp_vouchers')
@@ -78,19 +79,22 @@ export async function submitTempVoucher(id: number): Promise<{ error: string | n
         .eq('id', id)
         .single()
       let itemName: string | null = null
+      let allocationId: number | null = null
       if (voucher?.funds_payment_id) {
         const { data: relatedPayment } = await supabase
           .from('funds_payment')
-          .select('name')
+          .select('name, funds_allocation_id')
           .eq('id', voucher.funds_payment_id)
           .single()
         itemName = relatedPayment?.name ?? null
+        allocationId = relatedPayment?.funds_allocation_id ?? null
       }
+      const orgContext = await getAllocationOrgContext(allocationId)
       await notifyReviewersForStep({
         templateId: flowTemplateId,
         stepNumber: 1,
-        applyDivisionId: null,
-        applySectionId: null,
+        applyDivisionId: orgContext.applyDivisionId,
+        applySectionId: orgContext.applySectionId,
         title: '暫付款沖銷憑單待審核',
         itemName,
         body: null,

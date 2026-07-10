@@ -19,6 +19,7 @@ type StepDef = {
   step_name: string
   reviewer_type: 'org_role' | 'system_role' | 'approval_group'
   role_type_id: number | null
+  org_unit_type: string | null
   system_role_id: number | null
   approval_group_id: number | null
 }
@@ -96,7 +97,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       if (voucher.flow_template_id) {
         const [tmplRes, stepsRes] = await Promise.all([
           supabase.from('approval_flow_templates').select('id, name').eq('id', voucher.flow_template_id).single(),
-          supabase.from('approval_flow_steps').select('id, step_number, step_name, reviewer_type, role_type_id, system_role_id, approval_group_id').eq('template_id', voucher.flow_template_id).order('step_number'),
+          supabase.from('approval_flow_steps').select('id, step_number, step_name, reviewer_type, role_type_id, org_unit_type, system_role_id, approval_group_id').eq('template_id', voucher.flow_template_id).order('step_number'),
         ])
         steps = (stepsRes.data ?? []) as StepDef[]
         setRecord({
@@ -112,7 +113,26 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       if (session.userId && voucher.status === 'pending' && voucher.current_step !== null) {
         const stepDef = steps.find(s => s.step_number === voucher.current_step)
         if (stepDef) {
-          const canReview = await checkCanReviewStep({ userId: session.userId, stepDef })
+          // 課長/處長（org_role）步驟需回溯付款憑單→申請單的處別/課別才能解析審核人
+          let applyDivisionId: number | null = null
+          let applySectionId: number | null = null
+          if (voucher.funds_payment_id) {
+            const { data: relatedPayment } = await supabase
+              .from('funds_payment')
+              .select('funds_allocation_id')
+              .eq('id', voucher.funds_payment_id)
+              .single()
+            if (relatedPayment?.funds_allocation_id) {
+              const { data: alloc } = await supabase
+                .from('funds_allocation')
+                .select('apply_division_id, apply_section_id')
+                .eq('id', relatedPayment.funds_allocation_id)
+                .single()
+              applyDivisionId = alloc?.apply_division_id ?? null
+              applySectionId = alloc?.apply_section_id ?? null
+            }
+          }
+          const canReview = await checkCanReviewStep({ userId: session.userId, stepDef, applyDivisionId, applySectionId })
           setCanReviewStep(canReview)
         }
       }
