@@ -212,6 +212,15 @@
 
 ## 已完成
 
+**付款憑單審核管理 Tab 分類（比照資金分配審核管理）**（2026-07-10，Yumin）
+分支：`feature/yumin-payment-review-tabs`
+`/funds-payment/review` 從「待我審核/我的審核紀錄」改為「課、處長審核＋動態群組 Tab＋我的審核紀錄」：群組 Tab 依啟用中付款憑單範本實際使用的審核群組動態產生（範本改用其他群組時 Tab 自動跟著變，不用改程式）；週次篩選（年份＋週次下拉，依 `date` 過濾顯示該週全部狀態，badge 只計仍在此步驟待審筆數）；各 Tab 依出款帳戶分區塊；頁面重構為 server component（`page.tsx`）＋`PaymentReviewClient.tsx`。新增權限 ID `fp-review-div`（課、處長審核 Tab）、`fp-review-group`（群組 Tab），需在帳號管理為各角色勾選才看得到（管理員不受限）。金額彙總（已核准總額/剩餘可分配）與快速/批次審核本次不做。
+影響範圍確認：
+- [x] /funds-payment/review（頁面重寫，本機以 user 1 session 實測渲染：三 Tab、帳戶分區、審核/查閱按鈕正確）
+- [x] `approval-flow.ts` 新增 `getPaymentsForOrgRoleByWeek` / `getPaymentsForApprovalGroupByWeek` / `getPaymentVoucherReviewGroups`（is_pending_here 直接判斷目前步驟，支援同範本多步驟用同一群組）
+- [x] `sidebar-config.ts` 新增 fp-review-div / fp-review-group 權限項目
+- [x] 帳號管理權限勾選 UI（由 DEFAULT_SIDEBAR_CONFIG 自動帶出子項）
+
 **付款憑單/暫付款沖銷憑單審核人解析修正：org_role 步驟接上處別/課別**（2026-07-10，Yumin）
 分支：`feature/yumin-payment-review-orgcontext`
 問題：付款憑單與暫付款沖銷憑單的審核比對（待我審核清單、審核頁、通知）呼叫 `stepMatchesReviewer`/`checkCanReviewStep` 時未傳處別/課別 orgContext，且憑單資料表沒有 `apply_division_id`/`apply_section_id` 欄位，導致範本步驟為「課長/處長審核」（org_role + section/division）時永遠無人可審；另範本查詢用 `maybeSingle()` 遇多筆綁定會回錯誤且被靜默忽略，導致 `flow_template_id` 存成 null、憑單卡死無人可審。修法：不加欄位，一律回溯關聯的資金分配申請單取得處別/課別（新共用函式 `getAllocationOrgContext`；清單查詢用 PostgREST 巢狀 embed）；範本查詢改 `.limit(1)` 並記錄錯誤。

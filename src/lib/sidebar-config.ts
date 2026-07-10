@@ -41,9 +41,11 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
     id: 'funds-payment',
     label: '付款憑單',
     entries: [
-      { kind: 'item', id: 'my-payment', label: '我的付款憑單', href: '/funds-payment/my-payment' },
-      { kind: 'item', id: 'fp-review',  label: '審核管理',     href: '/funds-payment/review' },
-      { kind: 'item', id: 'fp-all',     label: '全部付款紀錄', href: '/funds-payment/all' },
+      { kind: 'item', id: 'my-payment',      label: '我的付款憑單', href: '/funds-payment/my-payment' },
+      { kind: 'item', id: 'fp-review',       label: '審核管理',     href: '/funds-payment/review' },
+      { kind: 'item', id: 'fp-review-div',   label: '課、處長審核', href: '', navHidden: true, permissionParent: 'fp-review' },
+      { kind: 'item', id: 'fp-review-group', label: '議會/群組審核', href: '', navHidden: true, permissionParent: 'fp-review' },
+      { kind: 'item', id: 'fp-all',          label: '全部付款紀錄', href: '/funds-payment/all' },
     ],
   },
   {

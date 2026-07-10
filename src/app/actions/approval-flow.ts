@@ -733,6 +733,114 @@ export async function getAllocationOrgContext(
 
 type AllocOrgRef = { apply_division_id: number | null; apply_section_id: number | null } | null
 
+type PaymentWeekRaw = {
+  status: string
+  current_step: number | null
+  created_by: string
+  applicant: string | null
+  funds_allocation: AllocOrgRef
+  approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null
+} & Record<string, unknown>
+
+// 啟用中付款憑單範本實際使用到的審核群組（審核管理頁動態 Tab 用）
+export async function getPaymentVoucherReviewGroups(): Promise<{ id: number; name: string }[]> {
+  const { data } = await supabase
+    .from('approval_flow_steps')
+    .select('approval_group_id, approval_flow_templates!inner(form_type, is_active)')
+    .eq('reviewer_type', 'approval_group')
+    .eq('approval_flow_templates.form_type', 'payment_voucher')
+    .eq('approval_flow_templates.is_active', true)
+    .not('approval_group_id', 'is', null)
+  const ids = [...new Set((data ?? []).map((r: { approval_group_id: number }) => r.approval_group_id))]
+  if (ids.length === 0) return []
+  const { data: groups } = await supabase
+    .from('approval_groups')
+    .select('id, name')
+    .in('id', ids)
+    .order('sort_order')
+  return (groups ?? []) as { id: number; name: string }[]
+}
+
+export async function getPaymentsForOrgRoleByWeek(userId: number, weekStart: string, weekEnd: string) {
+  const reviewerInfo = await getReviewerInfo(userId)
+  const { data } = await supabase
+    .from('funds_payment')
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT})), funds_allocation:funds_allocation_id(apply_division_id, apply_section_id)`)
+    .gte('date', weekStart)
+    .lte('date', weekEnd)
+    .order('date', { ascending: false })
+
+  const filtered = ((data ?? []) as unknown as PaymentWeekRaw[]).filter(r => {
+    const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+    return steps.some(s =>
+      s.reviewer_type === 'org_role' &&
+      stepMatchesReviewer(s, reviewerInfo, {
+        applyDivisionId: r.funds_allocation?.apply_division_id,
+        applySectionId: r.funds_allocation?.apply_section_id,
+      })
+    )
+  })
+
+  const emailMap = await resolvePendingNames(filtered as unknown as PendingRaw[])
+  return filtered.map(r => {
+    const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+    const currentStepDef = steps.find(s => s.step_number === r.current_step)
+    // 直接判斷「目前步驟」是否輪到此使用者（同範本可能有多個 org_role 步驟，不能只找第一個符合的）
+    const isPendingHere = r.status === 'pending' &&
+      currentStepDef?.reviewer_type === 'org_role' &&
+      stepMatchesReviewer(currentStepDef, reviewerInfo, {
+        applyDivisionId: r.funds_allocation?.apply_division_id,
+        applySectionId: r.funds_allocation?.apply_section_id,
+      })
+    const id = parseInt(r.created_by, 10)
+    const email = !isNaN(id) ? emailMap.get(id) : undefined
+    return {
+      ...r,
+      applicant: email ? emailToEnglishName(email) : (r.applicant ?? r.created_by),
+      step_name: r.status === 'pending'
+        ? (currentStepDef?.step_name ?? `第 ${r.current_step ?? 1} 步`)
+        : undefined,
+      total_steps: steps.length,
+      is_pending_here: isPendingHere,
+    }
+  })
+}
+
+export async function getPaymentsForApprovalGroupByWeek(groupId: number, weekStart: string, weekEnd: string) {
+  const { data } = await supabase
+    .from('funds_payment')
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT})), funds_allocation:funds_allocation_id(apply_division_id, apply_section_id)`)
+    .gte('date', weekStart)
+    .lte('date', weekEnd)
+    .order('date', { ascending: false })
+
+  const filtered = ((data ?? []) as unknown as PaymentWeekRaw[]).filter(r => {
+    const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+    return steps.some(s => s.reviewer_type === 'approval_group' && s.approval_group_id === groupId)
+  })
+
+  const emailMap = await resolvePendingNames(filtered as unknown as PendingRaw[])
+  return filtered.map(r => {
+    const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+    const currentStepDef = steps.find(s => s.step_number === r.current_step)
+    // 直接判斷「目前步驟」是否屬於此群組（同範本可能有多個步驟用同一群組，不能只找第一個符合的）
+    const isPendingHere = r.status === 'pending' &&
+      currentStepDef?.reviewer_type === 'approval_group' &&
+      currentStepDef.approval_group_id === groupId
+    const id = parseInt(r.created_by, 10)
+    const email = !isNaN(id) ? emailMap.get(id) : undefined
+    return {
+      ...r,
+      applicant: email ? emailToEnglishName(email) : (r.applicant ?? r.created_by),
+      step_name: r.status === 'pending'
+        ? (currentStepDef?.step_name ?? `第 ${r.current_step ?? 1} 步`)
+        : undefined,
+      total_steps: steps.length,
+      is_pending_here: isPendingHere,
+    }
+  })
+}
+
 export async function getPendingPaymentsForReviewer(userId: number) {
   const reviewerInfo = await getReviewerInfo(userId)
   const { data } = await supabase
