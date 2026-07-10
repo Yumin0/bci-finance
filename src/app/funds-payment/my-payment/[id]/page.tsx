@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsPayment, ApprovalRecord, FormBlock, FormSlot, DropdownOption, FundAttachment, TaxRateOption } from '@/lib/types'
-import { computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
+import { FundsPayment, ApprovalRecord, FormBlock, FormSchemaRow, FormSlot, DropdownOption, FundAttachment, TaxRateOption } from '@/lib/types'
+import { applyTaxFormula, computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { PAYMENT_STATUS } from '@/lib/constants'
 import { submitMyPayment, updateDraftPayment } from '@/app/actions/payment'
@@ -38,6 +38,12 @@ const ALLOCATION_READONLY_FIELDS = new Set([
 const ALLOCATION_READONLY_LABELS = new Set([
   '日期', '職稱', '類型', '是否為國外費用？',
 ])
+
+function getGroupRows(block: FormBlock): FormSchemaRow[] {
+  const startIdx = block.rows.findIndex(r => r.rowGroupStart)
+  if (startIdx === -1) return []
+  return block.rows.slice(startIdx)
+}
 
 type RecordWithTemplate = FundsPayment & {
   approval_flow_templates: {
@@ -121,6 +127,18 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   // 受款人自動帶入的欄位 label 集合（只能由選取受款人填入，不可手動輸入）
   const [payeeAutoFillLabels, setPayeeAutoFillLabels] = useState<Set<string>>(new Set())
   const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
+  // 群組重複資料（key = blockId）：從已存的 __group_ 資料載入，可增刪修改
+  const [groupInstances, setGroupInstances] = useState<Record<string, Record<string, string>[]>>({})
+
+  function addGroupInstance(blockId: string) {
+    setGroupInstances(prev => ({ ...prev, [blockId]: [...(prev[blockId] ?? [{}]), {}] }))
+  }
+  function removeGroupInstance(blockId: string, instIdx: number) {
+    setGroupInstances(prev => {
+      const instances = (prev[blockId] ?? [{}]).filter((_, i) => i !== instIdx)
+      return { ...prev, [blockId]: instances.length ? instances : [{}] }
+    })
+  }
 
   // 附件
   const [inheritedAttachments, setInheritedAttachments] = useState<FundAttachment[]>([])
@@ -202,8 +220,12 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
         // 從已存資料初始化欄位值。
         // 其他欄位：|| 而非 ?? ，因為舊資料存入的是空字串 '' 而非 null/undefined
+        const groupSlotIds = new Set(
+          paymentSchema.flatMap(b => getGroupRows(b).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId)))
+        )
         const initial: Record<string, string> = { payment_method: rec.payment_method ?? '' }
         for (const slot of allSlots) {
+          if (groupSlotIds.has(slot.fieldId)) continue
           if (isReadonlySlot(slot) || slot.fieldId === 'payment_method') continue
           if (payeeAutoFillLabelSet.has(slot.label)) {
             initial[slot.fieldId] = rec.extra_data?.[slot.label] || ''
@@ -224,6 +246,33 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         }
 
         setFieldValues(initial)
+
+        // 初始化群組資料：優先讀本憑單已存的 __group_{blockId}，
+        // 沒有時退回其他 __group_ key（申請單合併進來的資料，舊憑單相容）
+        const initGroups: Record<string, Record<string, string>[]> = {}
+        for (const block of paymentSchema) {
+          const groupSlots = getGroupRows(block).flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+          if (!groupSlots.length) continue
+          let raw = rec.extra_data?.[`__group_${block.id}`]
+          if (!raw) {
+            const fallbackKey = Object.keys(rec.extra_data ?? {}).find(k => k.startsWith('__group_'))
+              ?? (allocExtra ? Object.keys(allocExtra).find(k => k.startsWith('__group_')) : undefined)
+            if (fallbackKey) raw = rec.extra_data?.[fallbackKey] ?? allocExtra?.[fallbackKey]
+          }
+          let parsed: Record<string, string>[] = []
+          try { parsed = JSON.parse(raw ?? '[]') } catch { parsed = [] }
+          initGroups[block.id] = parsed.length
+            ? parsed.map(inst => {
+                const mapped: Record<string, string> = {}
+                for (const slot of groupSlots) {
+                  const v = inst[slot.label]
+                  if (v != null && v !== '') mapped[slot.fieldId] = v
+                }
+                return mapped
+              })
+            : [{}]
+        }
+        if (Object.keys(initGroups).length > 0) setGroupInstances(initGroups)
 
         // 收集需要的資料來源（只針對可編輯欄位）
         const neededSources = new Set<string>()
@@ -367,7 +416,32 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
+  // 群組區塊的彙總顯示（key = blockId）：加總所有組
+  const groupBlockSummary: Record<string, { taxBase: number; handling: number; taxAmount: number; total: number }> = {}
   for (const block of schema) {
+    const groupRows = getGroupRows(block)
+    if (groupRows.length > 0) {
+      const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+      const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+      const baseFieldId = taxSelectSlot?.taxConfig?.baseFieldId ?? ''
+      const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+      const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
+      const handlingSlots = groupSlots.filter(s =>
+        s.type === 'number' &&
+        s.fieldId !== baseFieldId &&
+        (!taxAmtFieldId || s.fieldId !== taxAmtFieldId) &&
+        (!totalFieldId || s.fieldId !== totalFieldId)
+      )
+      const instances = groupInstances[block.id] ?? [{}]
+      let totalBase = 0, totalHandling = 0, totalTax = 0
+      for (const inst of instances) {
+        totalBase += parseFloat(inst[baseFieldId] ?? '0') || 0
+        totalHandling += handlingSlots.reduce((acc, s) => acc + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0)
+        totalTax += taxAmtFieldId ? (parseFloat(inst[taxAmtFieldId] ?? '0') || 0) : 0
+      }
+      groupBlockSummary[block.id] = { taxBase: totalBase, handling: totalHandling, taxAmount: totalTax, total: totalBase + totalHandling + totalTax }
+      continue
+    }
     const info = computeBlockTax(block, fieldValues, taxRateOptions)
     if (info) blockTaxMap[block.id] = info
   }
@@ -488,14 +562,165 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     )
   }
 
+  // 群組內欄位渲染（讀寫該組的 instValues，而非 fieldValues）
+  function renderGroupField(slot: NonNullable<FormSlot>, instValues: Record<string, string>, setInstField: (fieldId: string, val: string) => void) {
+    const { fieldId, type, dataSource, staticOptions } = slot
+    if (type === 'select') {
+      let options: { value: string; label: string }[] = []
+      if (dataSource === 'tax_rates') {
+        options = taxRateOptions.map(o => ({ value: o.label, label: o.label }))
+      } else if (dataSource === 'static') {
+        options = (staticOptions ?? []).map(o => ({ value: o, label: o }))
+      } else if (dataSource.startsWith('dropdown_options:')) {
+        const field = dataSource.replace('dropdown_options:', '')
+        options = (dropdownOptions[field] ?? []).map(o => ({ value: o.label, label: o.label }))
+      } else if (dataSource.startsWith('fee_records:') || dataSource.startsWith('payee_records:')) {
+        options = dynamicSelectOptions[dataSource] ?? []
+      }
+      return (
+        <SearchableSelect
+          value={instValues[fieldId] ?? ''}
+          onChange={v => setInstField(fieldId, v)}
+          options={options}
+        />
+      )
+    }
+    if (type === 'textarea') {
+      return <Textarea value={instValues[fieldId] ?? ''} onChange={e => setInstField(fieldId, e.target.value)} rows={4} />
+    }
+    const inputType = type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'
+    return (
+      <Input type={inputType} value={instValues[fieldId] ?? ''} onChange={e => setInstField(fieldId, e.target.value)} />
+    )
+  }
+
+  // 群組區塊：逐組渲染（可增刪修改），與付款憑單建立頁行為一致
+  function renderGroupInstances(block: FormBlock) {
+    const groupRows = getGroupRows(block)
+    if (groupRows.length === 0) return null
+    const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+    const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+    const instances = groupInstances[block.id] ?? [{}]
+
+    // 費用或稅額選擇改變時，自動帶入稅額（不鎖定，使用者仍可手動覆寫）
+    function setInstFieldWithAutoTax(instIdx: number, fieldId: string, val: string) {
+      setGroupInstances(prev => {
+        const allInst = [...(prev[block.id] ?? [{}])]
+        const newInst = { ...allInst[instIdx], [fieldId]: val }
+        if (taxSelectSlot?.taxConfig) {
+          const { baseFieldId, taxAmountFieldId } = taxSelectSlot.taxConfig
+          if (taxAmountFieldId && (fieldId === baseFieldId || fieldId === taxSelectSlot.fieldId)) {
+            const fee = parseFloat(fieldId === baseFieldId ? val : (newInst[baseFieldId] ?? '0')) || 0
+            const label = fieldId === taxSelectSlot.fieldId ? val : (newInst[taxSelectSlot.fieldId] ?? '')
+            const opt = taxRateOptions.find(o => o.label === label)
+            newInst[taxAmountFieldId] = String(opt ? Math.floor(applyTaxFormula(fee, opt.formula_steps)) : 0)
+          }
+        }
+        allInst[instIdx] = newInst
+        return { ...prev, [block.id]: allInst }
+      })
+    }
+
+    return (
+      <div>
+        {instances.map((instValues, instIdx) => {
+          const setInstField = (fid: string, val: string) => setInstFieldWithAutoTax(instIdx, fid, val)
+
+          const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
+          const taxAmountFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+          const storedTax = taxAmountFieldId ? (parseFloat(instValues[taxAmountFieldId] ?? '0') || 0) : 0
+          const otherNums = taxSelectSlot?.taxConfig
+            ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmountFieldId)
+            : []
+          const computedTotal = otherNums.reduce((sum, s) => sum + (parseFloat(instValues[s.fieldId] ?? '0') || 0), 0) + storedTax
+
+          return (
+            <div key={instIdx} style={{
+              position: 'relative',
+              paddingBottom: 16,
+              marginBottom: instances.length > 1 && instIdx < instances.length - 1 ? 16 : 0,
+              borderBottom: instances.length > 1 && instIdx < instances.length - 1 ? '1px dashed var(--border-color)' : undefined,
+            }}>
+              {groupRows.map(row => (
+                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
+                  {row.slots.map((slot, slotIdx) => {
+                    if (!slot) return <div key={slotIdx} />
+                    if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
+                      return (
+                        <div key={slotIdx}>
+                          <label style={labelStyle}>{slot.label}</label>
+                          <Input value={String(computedTotal)} readOnly className={readonlyCls} />
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={slotIdx}>
+                        <label style={labelStyle}>{slot.label}</label>
+                        {renderGroupField(slot, instValues, setInstField)}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+              {instances.length > 1 && (
+                <button type="button" onClick={() => removeGroupInstance(block.id, instIdx)}
+                  style={{ position: 'absolute', right: -76, top: 0, width: 56, padding: '4px 8px', fontSize: 12,
+                    border: '1px solid #fca5a5', borderRadius: 6, background: 'var(--bg-card)', color: '#dc2626', cursor: 'pointer' }}>
+                  刪除
+                </button>
+              )}
+            </div>
+          )
+        })}
+        <button type="button" onClick={() => addGroupInstance(block.id)}
+          style={{ padding: '6px 14px', fontSize: 13, border: '1.5px dashed #d1d5db',
+            borderRadius: 6, background: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginTop: 4 }}>
+          ＋ 新增項目
+        </button>
+      </div>
+    )
+  }
+
   function buildExtraData(): Record<string, string> {
     const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
       b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
     )
+    const groupSlotFieldIds = new Set(
+      schema.flatMap(b => getGroupRows(b).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId)))
+    )
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
+      if (groupSlotFieldIds.has(slot.fieldId)) continue
       if (slot.type === 'readonly' || ALLOCATION_READONLY_FIELDS.has(slot.fieldId) || ALLOCATION_READONLY_LABELS.has(slot.label) || slot.fieldId === 'payment_method') continue
       extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
+    }
+    // 群組重複資料：以 label 為 key 存成 JSON（與申請單格式一致）
+    for (const block of schema) {
+      const groupRows = getGroupRows(block)
+      if (groupRows.length === 0) continue
+      const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+      const instances = groupInstances[block.id] ?? [{}]
+      const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+      const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
+      const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+      const otherNums = taxSelectSlot?.taxConfig
+        ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmtFieldId)
+        : []
+      const labeled = instances.map(inst => {
+        const storedTax = taxAmtFieldId ? (parseFloat(inst[taxAmtFieldId] ?? '0') || 0) : 0
+        const numsSum = otherNums.reduce((sum, s) => sum + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0)
+        const total = numsSum + storedTax
+        const obj: Record<string, string> = {}
+        for (const slot of groupSlots) {
+          if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
+            obj[slot.label] = String(total)
+          } else {
+            obj[slot.label] = inst[slot.fieldId] ?? ''
+          }
+        }
+        return obj
+      })
+      extraData[`__group_${block.id}`] = JSON.stringify(labeled)
     }
     return extraData
   }
@@ -578,6 +803,9 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           <div style={{ marginBottom: 32 }}>
             {schema.map(block => {
               if (block.showWhen && fieldValues[block.showWhen.fieldId] !== block.showWhen.value) return null
+              const groupRows = getGroupRows(block)
+              const preGroupRows = block.rows.filter(r => !groupRows.includes(r))
+              const groupSummary = groupBlockSummary[block.id]
               return (
                 <div key={block.id} style={{
                   marginBottom: 16,
@@ -585,10 +813,17 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                   borderRadius: 10,
                   background: 'var(--bg-card)',
                 }}>
-                  {(block.title || blockTaxMap[block.id]) && (
+                  {(block.title || blockTaxMap[block.id] || groupSummary) && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0' }}>
                       <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
-                      {blockTaxMap[block.id] && (() => {
+                      {groupSummary ? (
+                        <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                          <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxBase)}</strong></span>
+                          <span style={{ color: 'var(--text-muted)' }}>手續費 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.handling)}</strong></span>
+                          <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxAmount)}</strong></span>
+                          <span style={{ color: 'var(--text-muted)' }}>總額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.total)}</strong></span>
+                        </div>
+                      ) : blockTaxMap[block.id] && (() => {
                         const info = blockTaxMap[block.id]!
                         return (
                           <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
@@ -600,7 +835,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                   )}
                   <div style={{ padding: '20px 20px 4px' }}>
-                    {block.rows.map(row => (
+                    {preGroupRows.map(row => (
                       <div key={row.id} style={{
                         display: 'grid',
                         gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
@@ -623,6 +858,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                         })}
                       </div>
                     ))}
+                    {renderGroupInstances(block)}
                   </div>
                 </div>
               )

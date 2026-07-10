@@ -1,4 +1,5 @@
-import { FundsPayment, FormBlock, FormSlot } from '@/lib/types'
+import { FundsPayment, FormBlock, FormSchemaRow, FormSlot } from '@/lib/types'
+import { formatTaxNumber } from '@/lib/taxUtils'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -40,45 +41,149 @@ function renderSlot(slot: NonNullable<FormSlot>, record: FundsPayment) {
   return <Input value={value} readOnly className={readonlyCls} />
 }
 
+function getGroupRows(block: FormBlock): FormSchemaRow[] {
+  const startIdx = block.rows.findIndex(r => r.rowGroupStart)
+  if (startIdx === -1) return []
+  return block.rows.slice(startIdx)
+}
+
+function parseGroupInstances(record: FundsPayment, blockId: string): Record<string, string>[] {
+  // 優先讀本憑單的群組資料；沒有時退回申請單合併進來的 __group_ 資料（舊憑單相容）
+  let raw = record.extra_data?.[`__group_${blockId}`]
+  if (!raw) {
+    const fallbackKey = Object.keys(record.extra_data ?? {}).find(k => k.startsWith('__group_'))
+    if (fallbackKey) raw = record.extra_data![fallbackKey]
+  }
+  let instances: Record<string, string>[] = []
+  try { instances = JSON.parse(raw ?? '[]') } catch { instances = [] }
+  if (instances.length === 1 && !Object.keys(instances[0]).length) return []
+  return instances
+}
+
 export default function FundsPaymentDetail({ record, schema }: { record: FundsPayment; schema: FormBlock[] }) {
+  function renderGroupInstances(block: FormBlock) {
+    const groupRows = getGroupRows(block)
+    if (!groupRows.length) return null
+
+    const instances = parseGroupInstances(record, block.id)
+    if (!instances.length) return null
+
+    const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+    const headers = groupSlots.map(s => s.label)
+
+    return (
+      <div style={{ marginBottom: 20, overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr>
+              {headers.map(h => (
+                <th key={h} style={{ textAlign: 'left', padding: '6px 12px 6px 0', fontWeight: 500, color: 'var(--text-body)', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {instances.map((inst, i) => (
+              <tr key={i}>
+                {headers.map(h => (
+                  <td key={h} style={{ padding: '8px 12px 8px 0', borderBottom: i < instances.length - 1 ? '1px solid var(--border-color)' : 'none', color: 'var(--text-body)' }}>
+                    {inst[h] || '—'}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  function computeGroupSummary(block: FormBlock): { taxBase: number; handling: number; taxAmount: number; total: number } | null {
+    const groupRows = getGroupRows(block)
+    if (!groupRows.length) return null
+
+    const instances = parseGroupInstances(record, block.id)
+    if (!instances.length) return null
+
+    const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+    const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+    if (!taxSelectSlot?.taxConfig) return null
+
+    const { baseFieldId, taxAmountFieldId, totalFieldId } = taxSelectSlot.taxConfig
+    const baseSlot = groupSlots.find(s => s.fieldId === baseFieldId)
+    const taxAmtSlot = groupSlots.find(s => s.fieldId === taxAmountFieldId)
+    const handlingSlots = groupSlots.filter(s =>
+      s.type === 'number' &&
+      s.fieldId !== baseFieldId &&
+      (!taxAmountFieldId || s.fieldId !== taxAmountFieldId) &&
+      s.fieldId !== totalFieldId
+    )
+
+    let totalBase = 0, totalHandling = 0, totalTax = 0
+    for (const inst of instances) {
+      totalBase += baseSlot ? (parseFloat(inst[baseSlot.label] ?? '0') || 0) : 0
+      totalHandling += handlingSlots.reduce((acc, s) => acc + (parseFloat(inst[s.label] ?? '0') || 0), 0)
+      totalTax += taxAmtSlot ? (parseFloat(inst[taxAmtSlot.label] ?? '0') || 0) : 0
+    }
+
+    return { taxBase: totalBase, handling: totalHandling, taxAmount: totalTax, total: totalBase + totalHandling + totalTax }
+  }
+
   return (
     <div style={{ marginBottom: 32 }}>
-      {schema.map(block => (
-        <div key={block.id} style={{
-          marginBottom: 16,
-          border: '1px solid var(--border-color)',
-          borderRadius: 10,
-          overflow: 'hidden',
-          background: 'var(--bg-card)',
-        }}>
-          {block.title && (
-            <div style={{
-              padding: '10px 20px',
-              background: 'var(--bg-sidebar)',
-              borderBottom: '1px solid var(--border-color)',
-            }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
-            </div>
-          )}
-          <div style={{ padding: '20px 20px 4px' }}>
-            {block.rows.map(row => (
-              <div key={row.id} style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
-                gap: 20,
-                marginBottom: 20,
+      {schema.map(block => {
+        const groupRows = getGroupRows(block)
+        const preGroupRows = block.rows.filter(r => !groupRows.includes(r))
+        const groupSummary = computeGroupSummary(block)
+
+        return (
+          <div key={block.id} style={{
+            marginBottom: 16,
+            border: '1px solid var(--border-color)',
+            borderRadius: 10,
+            overflow: 'hidden',
+            background: 'var(--bg-card)',
+          }}>
+            {(block.title || groupSummary) && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 20px',
+                background: 'var(--bg-sidebar)',
+                borderBottom: '1px solid var(--border-color)',
               }}>
-                {row.slots.map((slot, idx) => slot ? (
-                  <div key={idx}>
-                    <label style={labelStyle}>{slot.label}</label>
-                    {renderSlot(slot, record)}
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
+                {groupSummary && (
+                  <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                    <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxBase)}</strong></span>
+                    <span style={{ color: 'var(--text-muted)' }}>手續費 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.handling)}</strong></span>
+                    <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxAmount)}</strong></span>
+                    <span style={{ color: 'var(--text-muted)' }}>總額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.total)}</strong></span>
                   </div>
-                ) : <div key={idx} />)}
+                )}
               </div>
-            ))}
+            )}
+            <div style={{ padding: '20px 20px 4px' }}>
+              {preGroupRows.map(row => (
+                <div key={row.id} style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
+                  gap: 20,
+                  marginBottom: 20,
+                }}>
+                  {row.slots.map((slot, idx) => slot ? (
+                    <div key={idx}>
+                      <label style={labelStyle}>{slot.label}</label>
+                      {renderSlot(slot, record)}
+                    </div>
+                  ) : <div key={idx} />)}
+                </div>
+              ))}
+              {renderGroupInstances(block)}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

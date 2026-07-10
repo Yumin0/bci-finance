@@ -17,7 +17,7 @@
 | 模組 | 路徑 | 說明 |
 |------|------|------|
 | 資金分配申請 | `/funds-allocation` | 申請、編輯、動態審核流程（範本驅動）、審核管理頁、全部申請紀錄；預選範本（共用範本 Admin 管理、個人範本另存）；附件上傳（PDF/JPG/PNG，表單設定驅動，支援 Modal 預覽）；付款明細支援整組重複新增（`rowGroupStart` 標記起始列），稅額雙向自動計算，右上角彙總費用/手續費/稅額/總額；**審核人可在審核頁直接編輯申請單**，每次儲存記錄欄位級變更歷程（含附件新增/刪除、group block 逐行比對），可開 Modal 查看；**申請人視角顯示動態審核進度**（依範本步驟顯示已核准/不核准/待審核，含審核人評論與該步驟核准金額）；審核頁核准時可填寫/修改核准金額（存入 `approval_records.approved_amount`），已核准步驟旁會顯示「核准金額：X 元」；**審核管理 Tab 分類**：課、處長審核（依組織架構過濾）、諮詢議會、主管議會、財務長（依審核群組過濾，顯示該階段所有申請單）、我的審核紀錄；各 Tab 依出款帳戶分區塊顯示；帳號管理的系統角色可獨立開關每個 Tab 的可見權限（`fa-review-div` / `fa-review-advisory` / `fa-review-executive` / `fa-review-cfo`）；**週次篩選**：各 Tab 右上角自訂週次下拉選單（年份 + 週次，均為自訂樣式非 native select），依申請日期（`date` 欄位）過濾顯示該週所有申請單（不限狀態），已審核單子停留在對應 Tab；Tab 數字 badge 只計算目前仍在此步驟待審核的筆數；表格欄位「職稱」改名「職務」、「金額」改名「申請金額」，新增「核准金額」「剩餘金額」佔位欄（邏輯待補）；**列表欄位統一**：首頁「我的申請紀錄」、`/funds-allocation/my-funds`、`/funds-allocation/all` 三個列表頁欄位統一為審核管理頁的欄位組合（狀態/單號/申請處別/申請課別/申請人/職務/申請金額/核准金額/剩餘金額/出款帳戶/費用項目/項目），共用 `useColumnVisibility` hook + `ColumnPicker` 元件與 `lib/fundsAllocationColumns.ts` 欄位定義，可自由開關欄位（localStorage 記憶） |
-| 付款憑單 | `/funds-payment` | 新增、動態審核流程（共用同一套範本架構）、審核管理頁、全部付款紀錄；繼承申請單附件（唯讀）＋可補傳本憑單附件 |
+| 付款憑單 | `/funds-payment` | 新增、動態審核流程（共用同一套範本架構）、審核管理頁、全部付款紀錄；繼承申請單附件（唯讀）＋可補傳本憑單附件；**付款明細與申請單同步**：付款明細區塊欄位與申請單相同（憑證類型/費用項目/幣別＋會計科目，群組列：稅額選擇/摘要/費用/手續費/稅額），建立時自動帶入申請單所有群組明細（多組全帶、以欄位 label 對應），草稿編輯頁支援逐組增刪修改（每組稅額自動計算），詳細/審核頁以表格顯示所有組並在標題列彙總費用/手續費/稅額/總額；憑單群組資料存 `extra_data.__group_{blockId}`，舊憑單無此 key 時退回申請單合併進來的 `__group_` 資料顯示（**注意：正式機 Supabase 為獨立專案，部署 main 後需在正式站表單設定同步調整付款憑單付款明細區塊欄位**） |
 | 暫付款沖銷憑單 | `/funds-voucher` | 從付款憑單（已付款+預支）建立、我的列表、詳細頁（送出審核）、審核管理頁、全部紀錄 |
 | 財務管理 | `/finance` | 資金管理與付款憑單總覽；資金管理頁時間篩選改用共用自訂下拉元件（`WeekPicker`） |
 | 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位（機構/出款帳戶）、側邊欄自定義、角色權限、表單設定、狀態標籤設定、付款對象設定 |
@@ -48,7 +48,7 @@
 - `dropdown_options`：下拉選項（institution / payment_account 欄位）
 - `dev_tracker`：問題回報（type: bug/feature/improvement/performance）
 - `fund_attachments`：資金申請/付款憑單附件（`funds_allocation_id`、`funds_payment_id`、`slot_label`、`storage_path`、`file_type`）；對應 Storage Bucket `fund-attachments`（Private）；上傳走 `/api/upload-attachment`，預覽走 `/api/attachment?path=...`（驗證登入後代理回傳，不暴露公開 URL）
-- `form_schema_rows` / `form_slots`：動態表單配置；`form_schema_rows.rowGroupStart boolean`（前端 schema 欄位，儲存於 Supabase `form_schemas` jsonb）標記「從此列起以下整組可重複新增」，搭配 AddFundsForm / EditFundsForm 的 `groupInstances` state 與 `__group_{blockId}` extra_data key 實作整組重複功能
+- `form_schema_rows` / `form_slots`：動態表單配置；`form_schema_rows.rowGroupStart boolean`（前端 schema 欄位，儲存於 Supabase `form_schemas` jsonb）標記「從此列起以下整組可重複新增」，搭配 AddFundsForm / EditFundsForm 的 `groupInstances` state 與 `__group_{blockId}` extra_data key 實作整組重複功能；付款憑單表單（`payment_voucher`）的付款明細區塊亦使用同一機制（建立頁 / 草稿編輯頁支援編輯，FundsPaymentDetail 以表格唯讀顯示）
 - `payee_categories`：付款對象類別（名稱、sort_order）
 - `payee_category_fields`：各類別欄位定義（label、field_type: text|number|dropdown|date、options jsonb）
 - `payee_records`：實際付款對象資料（field_values jsonb 動態存欄位值，key 為 field id）
