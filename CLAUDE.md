@@ -23,7 +23,7 @@
 | 系統設定 | `/system-settings` | 帳號管理、組織架構、支出欄位（機構/出款帳戶）、側邊欄自定義、角色權限、表單設定、狀態標籤設定、付款對象設定 |
 | 費用類型設定 | `/settings/fee` | 自訂費用類別（Tab 式切換）、各類別自訂欄位（文字/數字/下拉/日期）、費用項目資料管理 |
 | 問題回報 | `/report-issue` | Rich Text + 圖片上傳、狀態追蹤、影響模組標籤 |
-| 登入 | `/login` | Email + Password；Google OAuth（保留 Email 登入，同 email 自動合併帳號）|
+| 登入 | `/login` | Email + Password；Google OAuth（保留 Email 登入，同 email 自動合併帳號）；面板頂部顯示品牌完整 Logo（`public/logo-login-black/white.png`，依主題切換）|
 | 首頁 | `/` | 顯示我的申請紀錄與付款憑單 |
 
 ## 主要資料模型（Supabase 資料表）

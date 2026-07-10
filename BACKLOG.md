@@ -223,6 +223,7 @@
 - [x] Header：高 75px、白底、底部陰影、PNG 新 logo（public/logo-mark-*.png）、文字改「資金分配系統」
 - [x] 內容區 padding 44px 68px 96px（全站，SidebarLayout）
 - [x] 資金分配申請表單（新增/編輯）：橫式 label 排版（含群組列區塊整塊直式規則）、卡片 16px 圓角與 Design 稿間距、radio 加大
+- [x] 登入頁：面板標題文字改為品牌完整 Logo（public/logo-login-black/white.png，依主題自動切換黑/白版）
 注意：付款憑單/暫付款沖銷憑單的建立頁表單間距尚未同步（沿用舊排版），待後續處理。
 
 **全站速度優化第一步：Vercel 伺服器區域改至孟買與資料庫同區**（2026-07-09，Riku）

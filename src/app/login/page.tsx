@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { login, register } from '@/app/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useTheme } from '@/app/_components/ThemeProvider'
 
 function GoogleIcon() {
   return (
@@ -22,11 +23,24 @@ export default function LoginPage() {
   const [registerState, registerAction, registerPending] = useActionState(register, undefined)
   const searchParams = useSearchParams()
   const oauthError = searchParams.get('error')
+  const { resolvedDark } = useTheme()
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-sidebar)' }}>
-      <div style={{ width: 400, background: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border-color)', padding: 32 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24, textAlign: 'center' }}>BC 資金分配系統</h1>
+      <div
+        style={{
+          width: 400, background: 'var(--bg-card)', borderRadius: 8, padding: 32,
+          border: resolvedDark ? '1px solid var(--border-color)' : 'none',
+          boxShadow: resolvedDark ? 'none' : '0 1px 3px rgba(17,18,20,0.05), 0 2px 10px rgba(17,18,20,0.04)',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={resolvedDark ? '/logo-login-white.png' : '/logo-login-black.png'}
+          alt="商明國際集團 BizCivilization"
+          style={{ width: 260, height: 'auto', display: 'block', margin: '0 auto 24px' }}
+        />
+
 
         <div style={{ display: 'flex', marginBottom: 24, borderBottom: '1px solid var(--border-color)' }}>
           {(['login', 'register'] as const).map((m) => (
