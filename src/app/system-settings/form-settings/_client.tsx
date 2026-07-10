@@ -380,18 +380,18 @@ export default function FormSettingsClient({
             return (
             <div key={block.id} style={{
               marginBottom: 16,
-              border: `1.5px solid ${isBlockSel ? '#2563eb' : 'var(--border-color)'}`,
+              border: `1.5px solid ${isBlockSel ? 'var(--primary)' : 'var(--border-color)'}`,
               borderRadius: 10,
               overflow: 'hidden',
             }}>
               {/* Block header */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                background: isBlockSel ? '#eff6ff' : '#f3f4f6', borderBottom: '1px solid var(--border-color)',
+                background: isBlockSel ? 'var(--sidebar-active-bg)' : 'var(--bg-page)', borderBottom: '1px solid var(--border-color)',
               }}>
                 <span
                   onClick={() => setSelection({ kind: 'block', blockId: block.id })}
-                  style={{ fontSize: 12, color: isBlockSel ? '#2563eb' : 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>
+                  style={{ fontSize: 12, color: isBlockSel ? 'var(--sidebar-accent)' : 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>
                   第 {blockIdx + 1} 區塊
                 </span>
                 <input
@@ -399,14 +399,14 @@ export default function FormSettingsClient({
                   onChange={e => updateBlockTitle(block.id, e.target.value)}
                   placeholder="區塊名稱（選填）"
                   style={{
-                    flex: 1, padding: '4px 8px', fontSize: 13, border: '1px solid #d1d5db',
-                    borderRadius: 5, background: 'white', color: 'var(--text-body)',
+                    flex: 1, padding: '4px 8px', fontSize: 13, border: '1px solid var(--btn-border)',
+                    borderRadius: 5, background: 'var(--bg-card)', color: 'var(--text-body)',
                   }}
                 />
                 <button
                   onClick={() => deleteBlock(block.id)}
                   title="刪除區塊"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16, padding: '0 4px', lineHeight: 1 }}>
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', fontSize: 16, padding: '0 4px', lineHeight: 1 }}>
                   ×
                 </button>
               </div>
@@ -416,19 +416,19 @@ export default function FormSettingsClient({
                 {block.rows.map((row, rowIdx) => {
                   const isRowSel = selection?.kind === 'row' && selection.rowId === row.id && selection.blockId === block.id
                   return (
-                    <div key={row.id} style={{ marginBottom: 8, border: `1.5px solid ${isRowSel ? '#2563eb' : '#e5e7eb'}`, borderRadius: 7, overflow: 'hidden' }}>
+                    <div key={row.id} style={{ marginBottom: 8, border: `1.5px solid ${isRowSel ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: 7, overflow: 'hidden' }}>
                       {/* Row header */}
                       <div onClick={() => setSelection({ kind: 'row', blockId: block.id, rowId: row.id })}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px',
-                          background: isRowSel ? '#eff6ff' : '#f9fafb', borderBottom: '1px solid var(--border-color)', cursor: 'pointer' }}>
+                          background: isRowSel ? 'var(--sidebar-active-bg)' : 'var(--bg-page)', borderBottom: '1px solid var(--border-color)', cursor: 'pointer' }}>
                         <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>第 {rowIdx + 1} 列</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                           {([1, 2, 3] as FormColCount[]).map(c => (
                             <button key={c} onClick={e => { e.stopPropagation(); setRowCols(block.id, row.id, c) }}
                               style={{ padding: '2px 7px', fontSize: 11, border: '1px solid',
-                                borderColor: row.cols === c ? '#2563eb' : '#d1d5db', borderRadius: 4,
-                                background: row.cols === c ? '#2563eb' : 'white',
-                                color: row.cols === c ? 'white' : '#374151', cursor: 'pointer', fontWeight: row.cols === c ? 600 : 400 }}>
+                                borderColor: row.cols === c ? 'var(--primary)' : 'var(--btn-border)', borderRadius: 4,
+                                background: row.cols === c ? 'var(--primary)' : 'var(--bg-card)',
+                                color: row.cols === c ? 'var(--primary-foreground)' : 'var(--text-body)', cursor: 'pointer', fontWeight: row.cols === c ? 600 : 400 }}>
                               {c}欄
                             </button>
                           ))}
@@ -443,7 +443,7 @@ export default function FormSettingsClient({
                           return (
                             <div key={slotIdx} onClick={() => setSelection({ kind: 'slot', blockId: block.id, rowId: row.id, slotIdx })}
                               style={{ padding: 12, borderRight: slotIdx < row.cols - 1 ? '1px solid var(--border-color)' : 'none',
-                                background: isSlotSel ? '#eff6ff' : 'white', cursor: 'pointer', minHeight: 64 }}>
+                                background: isSlotSel ? 'var(--sidebar-active-bg)' : 'var(--bg-card)', cursor: 'pointer', minHeight: 64 }}>
                               {slot ? (
                                 <>
                                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
@@ -451,7 +451,7 @@ export default function FormSettingsClient({
                                     {slot.showWhen && <span style={{ fontSize: 10, marginLeft: 5, padding: '1px 5px', background: '#fef3c7', color: '#92400e', borderRadius: 3 }}>條件</span>}
                                   </div>
                                   <div style={{ padding: '5px 10px', border: '1px solid var(--btn-border)', borderRadius: 5,
-                                    fontSize: 13, color: 'var(--text-subtle)', background: slot.type === 'readonly' ? '#f3f4f6' : 'white' }}>
+                                    fontSize: 13, color: 'var(--text-subtle)', background: slot.type === 'readonly' ? 'var(--bg-page)' : 'var(--bg-card)' }}>
                                     {slot.type === 'radio' && slot.staticOptions?.length
                                       ? slot.staticOptions.map(o => `○ ${o}`).join('  ')
                                       : fieldPlaceholder(slot.type)}
@@ -460,8 +460,8 @@ export default function FormSettingsClient({
                               ) : (
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
                                   height: '100%', minHeight: 40,
-                                  border: `1.5px dashed ${isSlotSel ? '#93c5fd' : '#d1d5db'}`, borderRadius: 5,
-                                  color: isSlotSel ? '#2563eb' : '#9ca3af', fontSize: 13 }}>
+                                  border: `1.5px dashed ${isSlotSel ? 'var(--primary)' : 'var(--btn-border)'}`, borderRadius: 5,
+                                  color: isSlotSel ? 'var(--sidebar-accent)' : 'var(--text-subtle)', fontSize: 13 }}>
                                   ＋ 點選新增欄位
                                 </div>
                               )}
@@ -475,7 +475,7 @@ export default function FormSettingsClient({
 
                 {/* Add row button inside block */}
                 <button onClick={() => addRow(block.id)}
-                  style={{ width: '100%', padding: '7px 10px', border: '1.5px dashed #d1d5db', borderRadius: 6,
+                  style={{ width: '100%', padding: '7px 10px', border: '1.5px dashed var(--btn-border)', borderRadius: 6,
                     background: 'none', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
                   ＋ 新增列
                 </button>
@@ -486,7 +486,7 @@ export default function FormSettingsClient({
 
           {/* Add block button */}
           <button onClick={addBlock}
-            style={{ width: '100%', padding: 12, border: '2px dashed #d1d5db', borderRadius: 10,
+            style={{ width: '100%', padding: 12, border: '2px dashed var(--btn-border)', borderRadius: 10,
               background: 'none', color: 'var(--text-muted)', fontSize: 14, cursor: 'pointer', fontWeight: 500 }}>
             ＋ 新增區塊
           </button>
@@ -527,8 +527,8 @@ export default function FormSettingsClient({
                     <button key={dir} onClick={() => moveRow(selectedBlock.id, selectedRow.id, dir)}
                       disabled={disabled}
                       style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid var(--btn-border)', borderRadius: 6,
-                        background: disabled ? '#f9fafb' : 'white',
-                        color: disabled ? '#d1d5db' : '#374151',
+                        background: disabled ? 'var(--bg-page)' : 'var(--bg-card)',
+                        color: disabled ? 'var(--text-subtle)' : 'var(--text-body)',
                         cursor: disabled ? 'not-allowed' : 'pointer' }}>
                       {label}
                     </button>
@@ -540,9 +540,9 @@ export default function FormSettingsClient({
                 {([1, 2, 3] as FormColCount[]).map(c => (
                   <button key={c} onClick={() => setRowCols(selectedBlock.id, selectedRow.id, c)}
                     style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid',
-                      borderColor: selectedRow.cols === c ? '#2563eb' : '#d1d5db', borderRadius: 6,
-                      background: selectedRow.cols === c ? '#2563eb' : 'white',
-                      color: selectedRow.cols === c ? 'white' : '#374151', cursor: 'pointer' }}>
+                      borderColor: selectedRow.cols === c ? 'var(--primary)' : 'var(--btn-border)', borderRadius: 6,
+                      background: selectedRow.cols === c ? 'var(--primary)' : 'var(--bg-card)',
+                      color: selectedRow.cols === c ? 'var(--primary-foreground)' : 'var(--text-body)', cursor: 'pointer' }}>
                     {c} 欄
                   </button>
                 ))}
@@ -552,9 +552,9 @@ export default function FormSettingsClient({
                 {[true, false].map(val => (
                   <button key={String(val)} onClick={() => setRowRepeatable(selectedBlock.id, selectedRow.id, val)}
                     style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid',
-                      borderColor: (selectedRow.repeatable ?? false) === val ? '#2563eb' : '#d1d5db', borderRadius: 6,
-                      background: (selectedRow.repeatable ?? false) === val ? '#2563eb' : 'white',
-                      color: (selectedRow.repeatable ?? false) === val ? 'white' : '#374151', cursor: 'pointer' }}>
+                      borderColor: (selectedRow.repeatable ?? false) === val ? 'var(--primary)' : 'var(--btn-border)', borderRadius: 6,
+                      background: (selectedRow.repeatable ?? false) === val ? 'var(--primary)' : 'var(--bg-card)',
+                      color: (selectedRow.repeatable ?? false) === val ? 'var(--primary-foreground)' : 'var(--text-body)', cursor: 'pointer' }}>
                     {val ? '是' : '否'}
                   </button>
                 ))}
@@ -567,9 +567,9 @@ export default function FormSettingsClient({
                 {[true, false].map(val => (
                   <button key={String(val)} onClick={() => setRowGroupStart(selectedBlock.id, selectedRow.id, val)}
                     style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid',
-                      borderColor: (selectedRow.rowGroupStart ?? false) === val ? '#16a34a' : '#d1d5db', borderRadius: 6,
-                      background: (selectedRow.rowGroupStart ?? false) === val ? '#16a34a' : 'white',
-                      color: (selectedRow.rowGroupStart ?? false) === val ? 'white' : '#374151', cursor: 'pointer' }}>
+                      borderColor: (selectedRow.rowGroupStart ?? false) === val ? '#16a34a' : 'var(--btn-border)', borderRadius: 6,
+                      background: (selectedRow.rowGroupStart ?? false) === val ? '#16a34a' : 'var(--bg-card)',
+                      color: (selectedRow.rowGroupStart ?? false) === val ? 'white' : 'var(--text-body)', cursor: 'pointer' }}>
                     {val ? '是' : '否'}
                   </button>
                 ))}
@@ -589,7 +589,7 @@ export default function FormSettingsClient({
                     {availableFields.map(f => (
                       <button key={f.id} onClick={() => placeField(selectedBlock.id, selection.rowId, selection.slotIdx, f)}
                         style={{ padding: '7px 12px', textAlign: 'left', border: '1px solid var(--border-color)',
-                          borderRadius: 6, background: 'white', fontSize: 13, cursor: 'pointer', color: 'var(--text-body)' }}>
+                          borderRadius: 6, background: 'var(--bg-card)', fontSize: 13, cursor: 'pointer', color: 'var(--text-body)' }}>
                         {f.label}
                       </button>
                     ))}
@@ -633,8 +633,8 @@ export default function FormSettingsClient({
                 <button onClick={() => placeCustomField(selectedBlock.id, selection.rowId, selection.slotIdx)}
                   disabled={!customLabel.trim()}
                   style={{ width: '100%', padding: '7px', fontSize: 13, border: '1px solid var(--btn-border)', borderRadius: 6,
-                    background: customLabel.trim() ? '#111827' : '#f3f4f6',
-                    color: customLabel.trim() ? 'white' : '#9ca3af',
+                    background: customLabel.trim() ? 'var(--primary)' : 'var(--bg-page)',
+                    color: customLabel.trim() ? 'var(--primary-foreground)' : 'var(--text-subtle)',
                     cursor: customLabel.trim() ? 'pointer' : 'not-allowed' }}>
                   新增
                 </button>
@@ -657,9 +657,9 @@ export default function FormSettingsClient({
                 {[true, false].map(val => (
                   <button key={String(val)} onClick={() => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, { required: val })}
                     style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid',
-                      borderColor: selectedSlot.required === val ? '#2563eb' : '#d1d5db', borderRadius: 6,
-                      background: selectedSlot.required === val ? '#2563eb' : 'white',
-                      color: selectedSlot.required === val ? 'white' : '#374151', cursor: 'pointer' }}>
+                      borderColor: selectedSlot.required === val ? 'var(--primary)' : 'var(--btn-border)', borderRadius: 6,
+                      background: selectedSlot.required === val ? 'var(--primary)' : 'var(--bg-card)',
+                      color: selectedSlot.required === val ? 'var(--primary-foreground)' : 'var(--text-body)', cursor: 'pointer' }}>
                     {val ? '必填' : '選填'}
                   </button>
                 ))}
@@ -834,8 +834,8 @@ export default function FormSettingsClient({
                     <button key={label} onClick={() => swapSlots(selectedBlock.id, selectedRow.id, selection.slotIdx, target)}
                       disabled={disabled}
                       style={{ flex: 1, padding: '7px 0', fontSize: 13, border: '1px solid var(--btn-border)', borderRadius: 6,
-                        background: disabled ? '#f9fafb' : 'white',
-                        color: disabled ? '#d1d5db' : '#374151',
+                        background: disabled ? 'var(--bg-page)' : 'var(--bg-card)',
+                        color: disabled ? 'var(--text-subtle)' : 'var(--text-body)',
                         cursor: disabled ? 'not-allowed' : 'pointer' }}>
                       {label}
                     </button>
@@ -853,8 +853,8 @@ export default function FormSettingsClient({
                       <button key={label} onClick={() => moveFieldToRow(selectedBlock.id, selectedRow.id, selection.slotIdx, dir)}
                         disabled={!ok}
                         style={{ flex: 1, padding: '7px 0', fontSize: 12, border: '1px solid var(--btn-border)', borderRadius: 6,
-                          background: !ok ? '#f9fafb' : 'white',
-                          color: !ok ? '#d1d5db' : '#374151',
+                          background: !ok ? 'var(--bg-page)' : 'var(--bg-card)',
+                          color: !ok ? 'var(--text-subtle)' : 'var(--text-body)',
                           cursor: !ok ? 'not-allowed' : 'pointer' }}>
                         {label}
                       </button>
@@ -876,5 +876,5 @@ export default function FormSettingsClient({
 
 const panelTitle: React.CSSProperties = { fontSize: 14, fontWeight: 600, color: 'var(--text-title)', marginBottom: 14, marginTop: 0 }
 const panelLabel: React.CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6, marginTop: 0 }
-const panelInput: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }
-const btnDanger: React.CSSProperties = { width: '100%', padding: '8px 12px', background: 'white', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 13, cursor: 'pointer' }
+const panelInput: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid var(--btn-border)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--bg-card)', color: 'var(--text-body)' }
+const btnDanger: React.CSSProperties = { width: '100%', padding: '8px 12px', background: 'var(--bg-card)', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 13, cursor: 'pointer' }

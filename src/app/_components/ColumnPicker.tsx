@@ -29,7 +29,7 @@ export default function ColumnPicker<K extends string>({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
-        className={buttonVariants({ variant: 'outline', size: 'sm' })}
+        className={buttonVariants({ variant: 'outline' })}
       >
         欄位
       </button>

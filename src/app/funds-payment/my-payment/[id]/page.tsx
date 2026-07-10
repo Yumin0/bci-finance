@@ -344,17 +344,18 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         {isOpen && filtered.length > 0 && (
           <div style={{
             position: 'absolute', top: '100%', left: 0, right: 0,
-            background: 'white', border: '1px solid var(--border-color)',
+            background: 'var(--bg-card)', border: '1px solid var(--border-color)',
             borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
             zIndex: 50, maxHeight: 200, overflowY: 'auto',
+            color: 'var(--text-body)',
           }}>
             {filtered.map((r, i) => (
               <div
                 key={i}
                 onMouseDown={() => handlePayeeSelect(slot.fieldId, r)}
                 style={{ padding: '8px 12px', fontSize: 14, cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sidebar)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'white')}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-page)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-card)')}
               >
                 {r.label}
               </div>

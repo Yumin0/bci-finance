@@ -18,7 +18,7 @@ export default function StatusBadge({ module, status, stepName, labelConfig }: P
 
   if (!entry) {
     return (
-      <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 4, background: '#f3f4f6', color: '#4b5563', fontWeight: 500 }}>
+      <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 4, background: 'var(--bg-page)', color: 'var(--text-muted)', fontWeight: 500 }}>
         {status}
       </span>
     )

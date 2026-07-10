@@ -114,7 +114,7 @@ export default function ExportCsvButton({ labelConfig }: { labelConfig: StatusLa
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={handleOpen}>
+      <Button variant="outline" onClick={handleOpen}>
         匯出 CSV
       </Button>
 

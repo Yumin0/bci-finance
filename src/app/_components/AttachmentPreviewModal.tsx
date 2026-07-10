@@ -49,7 +49,7 @@ export default function AttachmentPreviewModal({ url, fileName, fileType, onClos
               download={fileName}
               style={{
                 fontSize: 12, padding: '4px 12px', borderRadius: 5, border: '1px solid var(--border-color)',
-                background: 'white', color: 'var(--text-body)', textDecoration: 'none', cursor: 'pointer',
+                background: 'var(--bg-card)', color: 'var(--text-body)', textDecoration: 'none', cursor: 'pointer',
               }}
             >
               下載

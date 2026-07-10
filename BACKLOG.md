@@ -212,6 +212,54 @@
 
 ## 已完成
 
+**品牌 UI 全面調整：元件尺寸統一、側邊欄/header 改版、表單橫式排版**（2026-07-10，Yumin）
+分支：`feature/yumin-ui-polish`（基於 staging 品牌新樣式，參考 docs/brand-guidelines 與 Claude Design 稿）
+影響範圍確認：
+- [x] 共用 Button：尺寸階梯統一（sm 36px / default 42px / lg 44px），outline hover 改邊框加深＋陰影；6 處列表頁頂部動作按鈕由 sm 改 default
+- [x] 共用 Table：列上下間距 20px、欄間距 24px、首末欄邊距 24px、表頭 h-12
+- [x] 共用 Card：淺色模式移除外框改淡陰影，深色保留框線（28 個檔案生效）
+- [x] 共用 Input / Select / SearchableSelect / Textarea：高度統一 42px（Textarea 固定最小 112px）
+- [x] 側邊欄：黑底膠囊＋品牌黃選中樣式（新增 --sidebar-item-active-bg/text 變數）、寬度 280px、間距加大
+- [x] Header：高 75px、白底、底部陰影、PNG 新 logo（public/logo-mark-*.png）、文字改「資金分配系統」
+- [x] 內容區 padding 44px 68px 96px（全站，SidebarLayout）
+- [x] 資金分配申請表單（新增/編輯）：橫式 label 排版（含群組列區塊整塊直式規則）、卡片 16px 圓角與 Design 稿間距、radio 加大
+注意：付款憑單/暫付款沖銷憑單的建立頁表單間距尚未同步（沿用舊排版），待後續處理。
+
+**全站速度優化第一步：Vercel 伺服器區域改至孟買與資料庫同區**（2026-07-09，Riku）
+實測發現全站每頁伺服器回應 2~3 秒的主因：Vercel 函數跑在預設美東（iad1），而兩個 Supabase 資料庫都在孟買（ap-south-1），每頁約 8 波查詢各付一次美東↔孟買往返。新增 `vercel.json` 將函數區域固定為 `bom1`，部署後查詢往返從約 0.2 秒降到 0.02 秒以內。後續優化候選（尚未做）：layout 三個依序查詢改平行、半靜態資料快取、loading 骨架屏。
+
+**修正草稿轉正式送出後單號未產生的問題**（2026-07-09，Riku）
+分支：`feature/riku-fix-draft-code`
+問題：草稿先儲存、之後從「編輯草稿」頁面送出審核時，單號一直顯示「-」；但新增申請直接送出則正常產生單號。
+原因：單號產生（`generateSerialNumber`）原本只寫在「新增申請」頁面的送出流程裡，是前端手動呼叫，`updateFundsAllocation`／`createFundsAllocation` 這兩個共用 server action 本身不負責產生單號，導致「編輯草稿→送出」這條路徑忘記呼叫，單號始終是空的。
+解法：把「補產生單號」的判斷收斂進 `createFundsAllocation` / `updateFundsAllocation` 這兩個共用 server action 內部——狀態變成 `pending` 且目前沒有單號時自動產生，一次修好、未來任何「草稿轉正式」的入口都不會再漏掉。
+附帶修復：測試時發現 `staging` 分支前一個 commit（中介層擋 svg 靜態圖片）的路由保護設定寫錯正規表達式（`src/proxy.ts` matcher 多了一個不合法的捕獲群組），導致 dev server 完全無法啟動、`staging` 測試站當時應該整個打不開；已一併修正為不捕獲寫法。
+
+**深色模式寫死白底修正**（2026-07-09，Riku）
+分支：`feature/riku-dark-mode-fix`
+問題：深色模式先前被強制關閉從未實際上線，多處元件寫死白色背景、文字色未指定，深色模式下亮字疊白底看不清（下拉選單最明顯）。統一改用 `var(--bg-card)` + `var(--text-body)` 等 CSS 變數，並將選中狀態的舊藍色改為品牌主色（淺色近黑／深色品牌黃）。
+影響範圍確認：
+- [x] components/ui/searchable-select.tsx（全站共用下拉）
+- [x] _components/DateCyclePicker.tsx（含選中日改用品牌主色、停用日期改灰階變數）
+- [x] _components/AttachmentPreviewModal.tsx
+- [x] _components/StatusBadge.tsx（未知狀態 fallback 標籤）
+- [x] funds-allocation/my-funds/_components/TemplateModal.tsx（含按鈕樣式、文字灰階變數化）
+- [x] funds-allocation/my-funds/add/_components/AddFundsForm.tsx（群組/可重複列刪除按鈕）
+- [x] funds-allocation/my-funds/edit/[id]/_components/EditFundsForm.tsx（同上）
+- [x] funds-allocation/review/check/[id]/page.tsx（審核評論框、核准金額輸入框）
+- [x] funds-payment/my-payment/[id]/page.tsx（受款人搜尋下拉）
+- [x] funds-payment/my-payment/add/[id]/page.tsx（受款人搜尋下拉）
+- [x] system-settings/form-settings/_client.tsx（整頁：區塊/列/欄位卡片、選中高亮、右側面板按鈕與輸入框）
+
+**品牌色彩導入 + 深色模式切換按鈕**（2026-07-09，Riku）
+分支：`feature/riku-brand-ui`
+新增 `docs/brand-guidelines/` 品牌與 UI 規範文件（品牌色彩、Claude Design 產出的登入頁/主控台淺色深色參考稿、logo mark）供之後 UI 改動對照；`globals.css` 全站色彩 CSS 變數改為品牌用色（主要色黃 #FFEA41／近黑 #111214／白，輔助灰階 #F2F2F3、#D4D8E3、#9599A4），淺色模式主要按鈕與側邊欄選中態用近黑、深色模式改用品牌黃，維持既有元件結構（左邊框強調樣式）不變，僅換色；`--destructive` 錯誤紅保留不動（品牌規範未定義，屬功能性色彩）。
+另外發現 `layout.tsx` 先前寫死強制淺色（不讀 localStorage）、`ThemeToggle.tsx` 元件存在但從未被引用，導致深色模式實際上完全無法啟動；新增 `ThemeToggleButton.tsx`（通知鈴鐺左側圖示按鈕，淺色☀️→深色🌙→自動🌙+A 循環切換）取代舊的未使用元件（已刪除 `ThemeToggle.tsx`），並修正 `layout.tsx` 防閃爍腳本改為真的讀取 localStorage／系統偏好。
+影響範圍確認：
+- [x] 全站色彩（`globals.css`，所有頁面共用）
+- [x] Header 深色模式切換按鈕（`layout.tsx`，所有登入後頁面共用）
+按鈕形狀、圓角、間距等元件級外觀改動列為後續階段，本次僅處理色彩與新增切換入口。
+
 **審核核准金額輸入 + 審核進度顯示核准金額**（2026-07-09，Riku）
 資金分配申請審核頁新增核准金額輸入欄位（送出核准時可修改預填金額）；審核進度列表中已核准的步驟旁補上「核准金額：X 元」顯示，讓審核人與申請人能看到當時實際核准的金額，而不只是核准/不核准狀態。付款憑單審核頁尚未有此功能，暫不在此次範圍內。
 另修正審核管理頁「諮詢議會/主管議會/財務長」Tab 帳戶區塊標頭「已核准總額」計算錯誤：原本加總的是申請時的原始金額（`amount`），審核人修改核准金額後總額不會跟著變；改為優先加總 `approved_amount`（未核准過則退回 `amount`）。

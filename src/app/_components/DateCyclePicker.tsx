@@ -104,8 +104,8 @@ export default function DateCyclePicker({ value, onChange, allowedWeekdays, week
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '6px 12px', border: '1px solid var(--btn-border)', borderRadius: 6,
-          background: 'white', cursor: 'pointer', fontSize: 14, minHeight: 38,
-          color: value ? 'var(--text-body)' : '#9ca3af',
+          background: 'var(--bg-card)', cursor: 'pointer', fontSize: 14, minHeight: 38,
+          color: value ? 'var(--text-body)' : 'var(--text-subtle)',
         }}
       >
         <span>{formatDisplay(value) ?? '年 / 月 / 日'}</span>
@@ -115,9 +115,9 @@ export default function DateCyclePicker({ value, onChange, allowedWeekdays, week
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
-          background: 'white', border: '1px solid var(--border-color)',
+          background: 'var(--bg-card)', border: '1px solid var(--border-color)',
           borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-          padding: 12, width: 248,
+          padding: 12, width: 248, color: 'var(--text-body)',
         }}>
           {/* Month navigation */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -129,7 +129,7 @@ export default function DateCyclePicker({ value, onChange, allowedWeekdays, week
           {/* Weekday headers */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 2 }}>
             {WEEKDAY_LABELS.map(l => (
-              <div key={l} style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af', padding: '2px 0' }}>{l}</div>
+              <div key={l} style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-subtle)', padding: '2px 0' }}>{l}</div>
             ))}
           </div>
 
@@ -148,8 +148,8 @@ export default function DateCyclePicker({ value, onChange, allowedWeekdays, week
                   style={{
                     padding: '5px 2px', textAlign: 'center', fontSize: 12,
                     borderRadius: 4, border: 'none',
-                    background: isSelected ? '#2563eb' : 'transparent',
-                    color: isSelected ? 'white' : allowed ? 'var(--text-body)' : '#d1d5db',
+                    background: isSelected ? 'var(--primary)' : 'transparent',
+                    color: isSelected ? 'var(--primary-foreground)' : allowed ? 'var(--text-body)' : 'var(--text-subtle)',
                     cursor: allowed ? 'pointer' : 'default',
                     fontWeight: isSelected ? 600 : 400,
                   }}
@@ -163,11 +163,11 @@ export default function DateCyclePicker({ value, onChange, allowedWeekdays, week
           {/* Footer */}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, borderTop: '1px solid var(--border-color)', paddingTop: 8 }}>
             <button type="button" onClick={() => { onChange(''); setOpen(false) }}
-              style={{ fontSize: 12, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer' }}>
+              style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
               清除
             </button>
             <button type="button" onClick={() => { setViewYear(todayObj.getFullYear()); setViewMonth(todayObj.getMonth()) }}
-              style={{ fontSize: 12, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer' }}>
+              style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
               今天
             </button>
           </div>
@@ -179,5 +179,5 @@ export default function DateCyclePicker({ value, onChange, allowedWeekdays, week
 
 const navBtn: React.CSSProperties = {
   background: 'none', border: 'none', cursor: 'pointer',
-  padding: '2px 8px', fontSize: 14, color: '#374151',
+  padding: '2px 8px', fontSize: 14, color: 'var(--text-body)',
 }

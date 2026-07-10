@@ -4,6 +4,8 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import SidebarLayout from "@/app/_components/SidebarLayout";
 import ThemeProvider from "@/app/_components/ThemeProvider";
+import ThemeToggleButton from "@/app/_components/ThemeToggleButton";
+import HeaderLogo from "@/app/_components/HeaderLogo";
 import UserAvatar from "@/app/_components/UserAvatar";
 import NotificationBell from "@/app/_components/NotificationBell";
 import { getSidebarConfigForUser } from "@/app/actions/sidebar-config";
@@ -27,8 +29,12 @@ export const metadata: Metadata = {
   description: "BC 內部資金分配管理系統",
 };
 
-// 暫時強制淺色：移除 dark class，不讀 localStorage
-const themeInitScript = `document.documentElement.classList.remove('dark')`;
+// 頁面渲染前依 localStorage（或系統偏好）套用深色 class，避免刷新時閃爍
+const themeInitScript = `(function() {
+  var saved = localStorage.getItem('bci-theme');
+  var dark = saved === 'dark' || (saved !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (dark) document.documentElement.classList.add('dark');
+})()`;
 
 export default async function RootLayout({
   children,
@@ -53,11 +59,13 @@ export default async function RootLayout({
         <ThemeProvider>
           {session ? (
             <>
-              <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 52, background: 'var(--bg-header)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 48px 0 24px' }}>
-                <Link href="/" style={{ fontWeight: 'bold', fontSize: 16, textDecoration: 'none', color: 'var(--text-title)' }}>
-                  BC 資金分配系統
+              <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 75, background: 'var(--bg-header)', boxShadow: '0 1px 6px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 48px 0 24px' }}>
+                <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 'bold', fontSize: 16, textDecoration: 'none', color: 'var(--text-title)' }}>
+                  <HeaderLogo />
+                  資金分配系統
                 </Link>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <ThemeToggleButton />
                   <NotificationBell userId={session.userId} initialUnreadCount={unreadCount} />
                   <UserAvatar userId={session.userId} name={session.name} initialAvatarUrl={avatarUrl} />
                 </div>

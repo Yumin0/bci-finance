@@ -71,14 +71,14 @@ export function SearchableSelect({
 
   const baseStyle: React.CSSProperties = {
     width: '100%',
-    padding: '8px 36px 8px 12px',
+    padding: '9px 36px 9px 14px',
     border: '1px solid var(--btn-border)',
     borderRadius: 6,
     fontSize: 14,
     boxSizing: 'border-box',
-    background: disabled ? 'var(--bg-page)' : 'white',
+    background: disabled ? 'var(--bg-page)' : 'var(--bg-card)',
     cursor: disabled ? 'not-allowed' : 'text',
-    color: (!isOpen && !value) ? '#9ca3af' : 'inherit',
+    color: (!isOpen && !value) ? 'var(--text-subtle)' : 'var(--text-body)',
     outline: 'none',
     ...style,
   }
@@ -108,13 +108,13 @@ export function SearchableSelect({
         {value && !disabled ? (
           <span
             onClick={handleClear}
-            style={{ fontSize: 16, color: '#9ca3af', lineHeight: 1 }}
+            style={{ fontSize: 16, color: 'var(--text-subtle)', lineHeight: 1 }}
             title="清除"
           >
             ×
           </span>
         ) : (
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: '#6b7280' }}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: 'var(--text-muted)' }}>
             <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
@@ -124,12 +124,13 @@ export function SearchableSelect({
       {isOpen && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
-          background: 'white', border: '1px solid var(--border-color)',
+          background: 'var(--bg-card)', border: '1px solid var(--border-color)',
           borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
           zIndex: 100, maxHeight: 220, overflowY: 'auto',
+          color: 'var(--text-body)',
         }}>
           {filtered.length === 0 ? (
-            <div style={{ padding: '10px 12px', fontSize: 13, color: '#9ca3af' }}>無符合選項</div>
+            <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text-subtle)' }}>無符合選項</div>
           ) : (
             filtered.map(o => (
               <div
@@ -137,11 +138,11 @@ export function SearchableSelect({
                 onMouseDown={() => handleSelect(o)}
                 style={{
                   padding: '8px 12px', fontSize: 14, cursor: 'pointer',
-                  background: o.value === value ? 'var(--bg-sidebar)' : 'white',
+                  background: o.value === value ? 'var(--bg-page)' : 'var(--bg-card)',
                   fontWeight: o.value === value ? 500 : 400,
                 }}
                 onMouseEnter={e => { if (o.value !== value) e.currentTarget.style.background = 'var(--bg-page)' }}
-                onMouseLeave={e => { if (o.value !== value) e.currentTarget.style.background = 'white' }}
+                onMouseLeave={e => { if (o.value !== value) e.currentTarget.style.background = 'var(--bg-card)' }}
               >
                 {o.label}
               </div>

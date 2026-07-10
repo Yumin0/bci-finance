@@ -28,9 +28,14 @@ type FundsAllocationPayload = {
 }
 
 export async function createFundsAllocation(payload: FundsAllocationPayload) {
+  const finalPayload = { ...payload }
+  if (finalPayload.status === 'pending' && !finalPayload.serial_number) {
+    finalPayload.serial_number = await generateSerialNumber(finalPayload.date)
+  }
+
   const { data, error } = await supabase
     .from('funds_allocation')
-    .insert(payload)
+    .insert(finalPayload)
     .select('id')
     .single()
   if (error) return { data: null, error: error.message }
@@ -63,7 +68,19 @@ export async function updateFundsAllocation(
   id: number,
   updates: Partial<FundsAllocationPayload> & { updated_at?: string }
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('funds_allocation').update(updates).eq('id', id)
+  const finalUpdates = { ...updates }
+  if (finalUpdates.status === 'pending' && !finalUpdates.serial_number) {
+    const { data: existing } = await supabase
+      .from('funds_allocation')
+      .select('serial_number, date')
+      .eq('id', id)
+      .single()
+    if (!existing?.serial_number) {
+      finalUpdates.serial_number = await generateSerialNumber(finalUpdates.date ?? existing?.date)
+    }
+  }
+
+  const { error } = await supabase.from('funds_allocation').update(finalUpdates).eq('id', id)
   if (error) return { error: error.message }
 
   if (updates.status === 'pending' && updates.flow_template_id) {

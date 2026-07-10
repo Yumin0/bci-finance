@@ -4,7 +4,7 @@ import { useState } from 'react'
 import SidebarNav from './SidebarNav'
 import { type SidebarCategory } from '@/lib/sidebar-config'
 
-const SIDEBAR_WIDTH = 240
+const SIDEBAR_WIDTH = 280
 const SIDEBAR_COLLAPSED_WIDTH = 0
 
 export default function SidebarLayout({
@@ -18,17 +18,16 @@ export default function SidebarLayout({
   const width = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
 
   return (
-    <div style={{ display: 'flex', marginTop: 52, minHeight: 'calc(100vh - 52px)' }}>
+    <div style={{ display: 'flex', marginTop: 75, minHeight: 'calc(100vh - 75px)' }}>
       {/* Sidebar */}
       <nav
         style={{
           position: 'fixed',
-          top: 52,
+          top: 75,
           left: 0,
           bottom: 0,
           width: collapsed ? 0 : SIDEBAR_WIDTH,
           background: 'var(--bg-sidebar)',
-          borderRight: collapsed ? 'none' : '1px solid var(--border-color)',
           overflowY: collapsed ? 'hidden' : 'auto',
           overflowX: 'hidden',
           transition: 'width 0.22s ease',
@@ -70,7 +69,7 @@ export default function SidebarLayout({
           title="展開側欄"
           style={{
             position: 'fixed',
-            top: 62,
+            top: 85,
             left: 8,
             zIndex: 50,
             display: 'flex',
@@ -97,7 +96,7 @@ export default function SidebarLayout({
         style={{
           marginLeft: width,
           flex: 1,
-          padding: 32,
+          padding: '44px 68px 96px',
           transition: 'margin-left 0.22s ease',
           minWidth: 0,
         }}
