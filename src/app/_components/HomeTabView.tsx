@@ -84,13 +84,12 @@ export default function HomeTabView({
                 {FUNDS_ALLOCATION_COLUMNS.filter(c => visibleCols.has(c.key)).map(c => (
                   <TableHead key={c.key}>{c.label}</TableHead>
                 ))}
-                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {fundsRecords.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={2 + visibleCols.size + 1} className="py-6 text-center text-muted-foreground">尚無申請紀錄</TableCell>
+                  <TableCell colSpan={2 + visibleCols.size} className="py-6 text-center text-muted-foreground">尚無申請紀錄</TableCell>
                 </TableRow>
               )}
               {fundsRecords.map((r) => (
@@ -111,11 +110,6 @@ export default function HomeTabView({
                   {visibleCols.has('account') && <TableCell>{r.payment_account ?? '-'}</TableCell>}
                   {visibleCols.has('expense') && <TableCell>{r.expense_item ?? '-'}</TableCell>}
                   {visibleCols.has('name') && <TableCell>{r.name}</TableCell>}
-                  <TableCell>
-                    <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                      檢視 / 編輯
-                    </Link>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

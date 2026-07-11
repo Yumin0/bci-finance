@@ -7,7 +7,6 @@ import {
   getVisibleSharedFundTemplates,
   getUserFundTemplates,
   updateUserFundTemplateName,
-  deleteUserFundTemplate,
 } from '@/app/actions/fund-templates'
 
 function TemplateSummary({ t }: { t: FundsAllocationTemplate }) {
@@ -33,9 +32,6 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
   const [renameInput, setRenameInput] = useState('')
   const [renameLoading, setRenameLoading] = useState(false)
 
-  // Delete state
-  const [deletingId, setDeletingId] = useState<number | null>(null)
-
   useEffect(() => {
     Promise.all([
       getVisibleSharedFundTemplates(),
@@ -46,6 +42,11 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
   function applyTemplate(id: number) {
     onClose()
     router.push(`/funds-allocation/my-funds/add?templateId=${id}`)
+  }
+
+  function editTemplate(id: number) {
+    onClose()
+    router.push(`/funds-allocation/my-funds/add?editTemplateId=${id}`)
   }
 
   function startRename(t: FundsAllocationTemplate) {
@@ -62,13 +63,6 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
       setRenamingId(null)
       setMine(prev => prev.map(t => t.id === id ? { ...t, name: renameInput.trim() } : t))
     }
-  }
-
-  async function handleDelete(id: number) {
-    setDeletingId(id)
-    const { error } = await deleteUserFundTemplate(id)
-    setDeletingId(null)
-    if (!error) setMine(prev => prev.filter(t => t.id !== id))
   }
 
   return (
@@ -154,15 +148,9 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
                     </div>
                     {renamingId !== t.id && (
                       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => applyTemplate(t.id)} style={btnApply}>套用</button>
+                        <button onClick={() => editTemplate(t.id)} style={btnOutline}>編輯</button>
                         <button onClick={() => startRename(t)} style={btnOutline}>改名</button>
-                        <button
-                          onClick={() => handleDelete(t.id)}
-                          disabled={deletingId === t.id}
-                          style={btnDanger}
-                        >
-                          {deletingId === t.id ? '...' : '刪除'}
-                        </button>
+                        <button onClick={() => applyTemplate(t.id)} style={btnApply}>套用</button>
                       </div>
                     )}
                   </div>
@@ -180,4 +168,3 @@ const btnApply: React.CSSProperties = { padding: '5px 12px', background: 'var(--
 const btnOutline: React.CSSProperties = { padding: '5px 10px', background: 'var(--bg-card)', color: 'var(--text-body)', border: '1px solid var(--btn-border)', borderRadius: 5, fontSize: 12, cursor: 'pointer' }
 const btnConfirm: React.CSSProperties = { padding: '4px 10px', background: '#16a34a', color: 'white', border: 'none', borderRadius: 5, fontSize: 12, cursor: 'pointer' }
 const btnCancel: React.CSSProperties = { padding: '4px 8px', background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--btn-border)', borderRadius: 5, fontSize: 12, cursor: 'pointer' }
-const btnDanger: React.CSSProperties = { padding: '5px 10px', background: 'var(--bg-card)', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 5, fontSize: 12, cursor: 'pointer' }

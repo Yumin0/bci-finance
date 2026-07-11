@@ -64,7 +64,7 @@ export default function MyFundsTableView({
     ? records.filter(r => SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
     : records
 
-  const colCount = 2 + visibleCols.size + 1 // 狀態 + 單號 + visible + action
+  const colCount = 2 + visibleCols.size // 狀態 + 單號 + visible
 
   return (
     <div className="flex flex-col gap-6">
@@ -100,7 +100,6 @@ export default function MyFundsTableView({
               {FUNDS_ALLOCATION_COLUMNS.filter(c => visibleCols.has(c.key)).map(c => (
                 <TableHead key={c.key}>{c.label}</TableHead>
               ))}
-              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -131,11 +130,6 @@ export default function MyFundsTableView({
                 {visibleCols.has('account') && <TableCell>{r.payment_account ?? '-'}</TableCell>}
                 {visibleCols.has('expense') && <TableCell>{r.expense_item ?? '-'}</TableCell>}
                 {visibleCols.has('name') && <TableCell>{r.name}</TableCell>}
-                <TableCell>
-                  <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                    檢視 / 編輯
-                  </Link>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>

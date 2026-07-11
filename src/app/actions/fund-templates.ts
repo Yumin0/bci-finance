@@ -112,6 +112,21 @@ export async function saveUserFundTemplate(
   return { error: error?.message ?? null }
 }
 
+export async function updateUserFundTemplate(
+  id: number,
+  fieldValues: Record<string, string>
+): Promise<{ error: string | null }> {
+  const session = await getSession()
+  if (!session) return { error: '未登入' }
+  const { error } = await supabase
+    .from('funds_allocation_templates')
+    .update({ field_values: fieldValues, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('is_shared', false)
+    .eq('created_by', session.userId)
+  return { error: error?.message ?? null }
+}
+
 export async function updateUserFundTemplateName(
   id: number,
   name: string

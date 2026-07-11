@@ -1192,28 +1192,32 @@ export default function EditFundsForm({
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>此申請單已進入審核程序，無法編輯。</p>
         )}
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-          {isDraft && (
-            <>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, marginBottom: 28, alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {isDraft && (
               <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
                 {savingDraft ? '儲存中...' : '儲存草稿'}
               </Button>
+            )}
+            {record.status === FUNDS_STATUS.APPROVED && record.current_step === null && (
+              <Button type="button" onClick={() => router.push(`/funds-payment/my-payment/add/${record.id}`)}>
+                建立付款憑單
+              </Button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Button type="button" variant="outline" onClick={() => router.back()}>
+              {isDraft ? '取消' : '返回'}
+            </Button>
+            {isDraft && (
               <Button type="submit" disabled={submitting || savingDraft || (!!fieldValues.payment_account && !flowTemplateId)}>
                 {submitting ? '送出中...' : '確定送出'}
               </Button>
-            </>
-          )}
-          {!isDraft && canEdit && (
-            <Button type="submit" disabled={submitting}>{submitting ? '儲存中...' : '儲存變更'}</Button>
-          )}
-          <Button type="button" variant="outline" onClick={() => router.back()}>
-            {isDraft ? '取消' : '返回'}
-          </Button>
-          {record.status === FUNDS_STATUS.APPROVED && record.current_step === null && (
-            <Button type="button" onClick={() => router.push(`/funds-payment/my-payment/add/${record.id}`)}>
-              建立付款憑單
-            </Button>
-          )}
+            )}
+            {!isDraft && canEdit && (
+              <Button type="submit" disabled={submitting}>{submitting ? '儲存中...' : '儲存變更'}</Button>
+            )}
+          </div>
         </div>
       </form>
 

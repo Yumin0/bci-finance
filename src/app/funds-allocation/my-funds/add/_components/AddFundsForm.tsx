@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import { saveAttachments } from '@/app/actions/attachments'
-import { saveUserFundTemplate } from '@/app/actions/fund-templates'
+import { saveUserFundTemplate, updateUserFundTemplate, deleteUserFundTemplate } from '@/app/actions/fund-templates'
 import DateCyclePicker from '@/app/_components/DateCyclePicker'
 import { ApplicationCycleConfig } from '@/app/actions/application-cycle'
 
@@ -34,12 +34,14 @@ export default function AddFundsForm({
   schema,
   initialValues,
   cycleConfig,
+  editTemplate,
 }: {
   applicantName: string
   userId: number | null
   schema: FormBlock[]
   initialValues?: Record<string, string>
   cycleConfig?: ApplicationCycleConfig
+  editTemplate?: { id: number; name: string }
 }) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
@@ -48,6 +50,7 @@ export default function AddFundsForm({
   const [showSaveAs, setShowSaveAs] = useState(false)
   const [saveAsName, setSaveAsName] = useState('')
   const [savingTemplate, setSavingTemplate] = useState(false)
+  const [deletingTemplate, setDeletingTemplate] = useState(false)
 
   // Data source state
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
@@ -892,6 +895,25 @@ export default function AddFundsForm({
     }
   }
 
+  async function handleUpdateTemplate() {
+    if (!editTemplate) return
+    setSavingTemplate(true); setError(null)
+    const { error: updateError } = await updateUserFundTemplate(editTemplate.id, buildTemplateFieldValues())
+    setSavingTemplate(false)
+    if (updateError) { setError(updateError); return }
+    router.push('/funds-allocation/my-funds')
+  }
+
+  async function handleDeleteTemplate() {
+    if (!editTemplate) return
+    if (!confirm(`確定要刪除範本「${editTemplate.name}」嗎？刪除後無法復原。`)) return
+    setDeletingTemplate(true); setError(null)
+    const { error: deleteError } = await deleteUserFundTemplate(editTemplate.id)
+    setDeletingTemplate(false)
+    if (deleteError) { setError(deleteError); return }
+    router.push('/funds-allocation/my-funds')
+  }
+
   async function handleSaveDraft() {
     setSavingDraft(true); setError(null)
     const { data, error: insertError } = await createFundsAllocation(buildPayload('draft'))
@@ -903,6 +925,7 @@ export default function AddFundsForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (editTemplate) { handleUpdateTemplate(); return }
     setSubmitting(true); setError(null)
     const serialNumber = await genSerialNumber(fieldValues['date'] || undefined)
     const { data, error: insertError } = await createFundsAllocation({ ...buildPayload('pending'), serial_number: serialNumber })
@@ -913,7 +936,9 @@ export default function AddFundsForm({
 
   return (
     <div>
-      <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 32 }}>新增資金分配申請單</h1>
+      <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 32 }}>
+        {editTemplate ? `編輯範本：${editTemplate.name}` : '新增資金分配申請單'}
+      </h1>
       {error && (
         <p style={errorStyle}>
           送出失敗：{getChineseHint(error) ?? error}
@@ -1028,35 +1053,59 @@ export default function AddFundsForm({
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {showSaveAs ? (
-            <>
-              <input
-                value={saveAsName}
-                onChange={e => setSaveAsName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSaveAsTemplate()}
-                placeholder="輸入範本名稱"
-                style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, width: 160 }}
-                autoFocus
-              />
-              <Button type="button" variant="outline" onClick={handleSaveAsTemplate} disabled={savingTemplate || !saveAsName.trim()}>
-                {savingTemplate ? '儲存中...' : '確認'}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => { setShowSaveAs(false); setSaveAsName('') }}>取消</Button>
-            </>
-          ) : (
-            <Button type="button" variant="outline" onClick={() => setShowSaveAs(true)} disabled={savingDraft || submitting}>
-              另存為我的範本
+        {editTemplate ? (
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', justifyContent: 'space-between' }}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDeleteTemplate}
+              disabled={deletingTemplate || savingTemplate}
+              style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+            >
+              {deletingTemplate ? '刪除中...' : '刪除範本'}
             </Button>
-          )}
-          <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
-            {savingDraft ? '儲存中...' : '儲存草稿'}
-          </Button>
-          <Button type="submit" disabled={submitting || savingDraft || (!!fieldValues.payment_account && !flowTemplateId)}>
-            {submitting ? '送出中...' : '確定送出'}
-          </Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>取消</Button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Button type="button" variant="outline" onClick={() => router.back()}>取消</Button>
+              <Button type="submit" disabled={savingTemplate || deletingTemplate}>
+                {savingTemplate ? '儲存中...' : '儲存範本'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {showSaveAs ? (
+              <>
+                <input
+                  value={saveAsName}
+                  onChange={e => setSaveAsName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveAsTemplate()}
+                  placeholder="輸入範本名稱"
+                  style={{ padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, width: 160 }}
+                  autoFocus
+                />
+                <Button type="button" variant="outline" onClick={handleSaveAsTemplate} disabled={savingTemplate || !saveAsName.trim()}>
+                  {savingTemplate ? '儲存中...' : '確認'}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => { setShowSaveAs(false); setSaveAsName('') }}>取消</Button>
+              </>
+            ) : (
+              <Button type="button" variant="outline" onClick={() => setShowSaveAs(true)} disabled={savingDraft || submitting}>
+                另存為我的範本
+              </Button>
+            )}
+            <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
+              {savingDraft ? '儲存中...' : '儲存草稿'}
+            </Button>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Button type="button" variant="outline" onClick={() => router.back()}>取消</Button>
+            <Button type="submit" disabled={submitting || savingDraft || (!!fieldValues.payment_account && !flowTemplateId)}>
+              {submitting ? '送出中...' : '確定送出'}
+            </Button>
+          </div>
         </div>
+        )}
       </form>
     </div>
   )
