@@ -26,6 +26,17 @@ export async function createTempVoucher(
   const session = await getSession()
   if (!session) return { id: null, error: '請先登入' }
 
+  // 僅限「已付款＋預支」的付款憑單可建立沖銷憑單（畫面按鈕已有同樣條件，這裡擋直接呼叫的情況）
+  const { data: payment, error: paymentErr } = await supabase
+    .from('funds_payment')
+    .select('status, category')
+    .eq('id', fundsPaymentId)
+    .single()
+  if (paymentErr || !payment) return { id: null, error: '找不到關聯的付款憑單' }
+  if (payment.status !== 'paid' || payment.category !== '預支') {
+    return { id: null, error: '僅限「已付款」且類型為「預支」的付款憑單可建立暫付款沖銷憑單' }
+  }
+
   const flowTemplateId = await findTempVoucherTemplateId()
 
   const { data, error } = await supabase

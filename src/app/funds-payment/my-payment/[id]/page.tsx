@@ -35,9 +35,16 @@ const ALLOCATION_READONLY_FIELDS = new Set([
 
 // 透過 label 比對來認定唯讀：這些欄位在表單設定中使用了 custom fieldId，
 // 但語意上屬於從申請單帶入的資訊，送出前不應修改
+// 注意：「類型」（一般/預支）不在此列 — 自 2026-07 起改在付款憑單階段選擇，草稿可修改
 const ALLOCATION_READONLY_LABELS = new Set([
-  '日期', '職稱', '類型', '是否為國外費用？',
+  '日期', '職稱', '是否為國外費用？',
 ])
+
+// 類型欄位（一般/預支）：存入 funds_payment.category 結構化欄位（沖銷憑單判斷依據）
+// 表單設定中的類型欄位可能是預設 fieldId 或自訂 fieldId（以 label 比對相容）
+// 畫面以單一勾選框呈現：勾＝預支、不勾＝一般（資料仍存「一般/預支」，下游判斷不變）
+const isCategorySlot = (slot: NonNullable<FormSlot>) =>
+  slot.fieldId === 'category' || slot.label === '類型'
 
 function getGroupRows(block: FormBlock): FormSchemaRow[] {
   const startIdx = block.rows.findIndex(r => r.rowGroupStart)
@@ -227,7 +234,10 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         for (const slot of allSlots) {
           if (groupSlotIds.has(slot.fieldId)) continue
           if (isReadonlySlot(slot) || slot.fieldId === 'payment_method') continue
-          if (payeeAutoFillLabelSet.has(slot.label)) {
+          if (isCategorySlot(slot)) {
+            // 類型從結構化欄位載入，預設「一般」
+            initial[slot.fieldId] = rec.category || '一般'
+          } else if (payeeAutoFillLabelSet.has(slot.label)) {
             initial[slot.fieldId] = rec.extra_data?.[slot.label] || ''
           } else {
             initial[slot.fieldId] = rec.extra_data?.[slot.label] || allocExtra?.[slot.label] || ''
@@ -483,6 +493,22 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       return <Input value={getRecordFieldValue(slot, record!, allocExtraData)} readOnly className={readonlyCls} />
     }
 
+    // 類型：單一勾選框（勾＝預支、不勾＝一般）
+    if (isCategorySlot(slot)) {
+      return (
+        <div style={{ padding: '8px 0' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer', width: 'fit-content' }}>
+            <input
+              type="checkbox"
+              checked={fieldValues[fieldId] === '預支'}
+              onChange={e => setField(fieldId, e.target.checked ? '預支' : '一般')}
+            />
+            預支（需事後沖銷）
+          </label>
+        </div>
+      )
+    }
+
     if (type === 'radio') {
       return (
         <div style={{ display: 'flex', gap: 20, padding: '8px 0' }}>
@@ -692,6 +718,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     for (const slot of allSlots) {
       if (groupSlotFieldIds.has(slot.fieldId)) continue
       if (slot.type === 'readonly' || ALLOCATION_READONLY_FIELDS.has(slot.fieldId) || ALLOCATION_READONLY_LABELS.has(slot.label) || slot.fieldId === 'payment_method') continue
+      // 類型存入 funds_payment.category 結構化欄位，不重複存進動態欄位資料
+      if (isCategorySlot(slot)) continue
       extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
     }
     // 群組重複資料：以 label 為 key 存成 JSON（與申請單格式一致）
@@ -735,11 +763,20 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
+  // 目前表單裡類型欄位的選擇值（schema 沒有類型欄位時回傳 undefined，不更新該欄位）
+  function getCategoryValue(): string | undefined {
+    const categorySlot = schema
+      .flatMap(b => b.rows.flatMap(r => r.slots))
+      .find((s): s is NonNullable<FormSlot> => s !== null && isCategorySlot(s))
+    if (!categorySlot) return undefined
+    return fieldValues[categorySlot.fieldId] || '一般'
+  }
+
   async function handleSave() {
     if (!record) return
     setSaving(true)
     setError(null)
-    const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData())
+    const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue())
     if (saveError) { setError(saveError); setSaving(false); return }
     await persistPaymentAttachments(record.id)
     setSaving(false)
@@ -749,7 +786,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     if (!record) return
     setSubmitting(true)
     setError(null)
-    const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData())
+    const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue())
     if (saveError) { setError(saveError); setSubmitting(false); return }
     await persistPaymentAttachments(record.id)
     const { error: submitError } = await submitMyPayment(record.id)

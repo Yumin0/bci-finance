@@ -17,12 +17,19 @@ import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUp
 
 
 // fieldId-based: known default fieldIds that are direct allocation columns → always readonly
+// 注意：category（類型：一般/預支）不在此列 — 自 2026-07 起改在付款憑單階段由使用者選擇
 const ALLOCATION_READONLY_FIELD_IDS = new Set([
   'purchase_order_number', 'date',
   'apply_division', 'apply_section', 'applicant', 'apply_role',
   'institution', 'payment_account', 'expense_item',
-  'amount', 'category',
+  'amount',
 ])
+
+// 類型欄位（一般/預支）：在付款憑單建立時選擇，存入 funds_payment.category 結構化欄位
+// 表單設定中的類型欄位可能是預設 fieldId 或自訂 fieldId（以 label 比對相容）
+// 畫面以單一勾選框呈現：勾＝預支、不勾＝一般（資料仍存「一般/預支」，下游判斷不變）
+const isCategorySlot = (slot: NonNullable<FormSlot>) =>
+  slot.fieldId === 'category' || slot.label === '類型'
 
 // Label-based fallback: catches fields whose Supabase fieldId differs from the default
 // (e.g. 職稱/類型 in a customised schema). Also covers extra_data-only fields.
@@ -34,7 +41,6 @@ const ALLOCATION_READONLY_LABEL_MAP: Record<string, (r: FundsAllocation) => stri
   '申請課別':     r => r.apply_section ?? '',
   '申請人':       r => r.applicant ?? '',
   '職稱':         r => r.apply_role ?? '',
-  '類型':         r => r.category ?? '',
   '是否為國外費用？': r => r.extra_data?.['是否為國外費用？'] ?? '',
   '機構':         r => r.institution ?? '',
   '出款帳戶':     r => r.payment_account ?? '',
@@ -64,7 +70,6 @@ function getAllocFieldValue(fieldId: string, record: FundsAllocation): string {
     institution: record.institution,
     payment_account: record.payment_account,
     expense_item: record.expense_item,
-    category: record.category,
     amount: record.amount,
     name: record.name,
     note: record.note,
@@ -138,6 +143,11 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
         // Skip readonly fields (they read directly from rec, not from fieldValues)
         if (ALLOCATION_READONLY_FIELD_IDS.has(slot.fieldId)) return
         if (slot.label in ALLOCATION_READONLY_LABEL_MAP) return
+        // 類型：預設「一般」；舊申請單仍存有類型時帶入舊值
+        if (isCategorySlot(slot)) {
+          initValues[slot.fieldId] = rec.category || '一般'
+          return
+        }
         // Pre-fill known editable fields by fieldId
         if (ALLOCATION_PREFILL_FIELD_IDS.has(slot.fieldId)) {
           const val = getAllocFieldValue(slot.fieldId, rec)
@@ -400,6 +410,22 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       return <Input value={allocVal} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
     }
 
+    // 類型：單一勾選框（勾＝預支、不勾＝一般）
+    if (isCategorySlot(slot)) {
+      return (
+        <div style={{ padding: '8px 0' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer', width: 'fit-content' }}>
+            <input
+              type="checkbox"
+              checked={fieldValues[fieldId] === '預支'}
+              onChange={e => setField(fieldId, e.target.checked ? '預支' : '一般')}
+            />
+            預支（需事後沖銷）
+          </label>
+        </div>
+      )
+    }
+
     if (type === 'radio') {
       return (
         <div style={{ display: 'flex', gap: 20, padding: '8px 0' }}>
@@ -640,6 +666,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       if (ALLOCATION_READONLY_FIELD_IDS.has(slot.fieldId)) continue
       if (slot.label in ALLOCATION_READONLY_LABEL_MAP) continue
       if (slot.fieldId === 'payment_method') continue
+      // 類型存入 funds_payment.category 結構化欄位（沖銷憑單判斷依據），不重複存進動態欄位資料
+      if (isCategorySlot(slot)) continue
       extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
     }
     // 群組重複資料：以 label 為 key 存成 JSON（與申請單格式一致）
@@ -671,10 +699,14 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       extraData[`__group_${block.id}`] = JSON.stringify(labeled)
     }
 
+    const categorySlot = allSlots.find(isCategorySlot)
+    const categoryValue = categorySlot ? (fieldValues[categorySlot.fieldId] || '一般') : null
+
     const { id: newPaymentId, error: insertError } = await createPayment(
       allocationId,
       fieldValues['payment_method'] ?? '',
       extraData,
+      categoryValue,
     )
     if (insertError) { setError(insertError); setSubmitting(false); return }
 

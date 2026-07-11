@@ -25,6 +25,8 @@ function getFieldValue(slot: NonNullable<FormSlot>, record: FundsPayment): strin
   }
   const val = map[slot.fieldId]
   if (val != null && val !== '') return String(val)
+  // 類型（一般/預支）存在結構化欄位，schema 中可能掛自訂 fieldId，以 label 回退
+  if (slot.label === '類型' && record.category) return record.category
   // Custom / extra fields stored by label
   if (record.extra_data) {
     const extra = record.extra_data[slot.label]

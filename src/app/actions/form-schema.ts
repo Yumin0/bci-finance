@@ -77,7 +77,7 @@ const DEFAULT_FUNDS_BLOCKS: FormBlock[] = [
       ]},
       { id: 'r3', cols: 2, slots: [
         { fieldId: 'apply_role', label: '職稱', required: false, type: 'select', dataSource: 'org_unit_roles' },
-        { fieldId: 'category', label: '類型', required: false, type: 'radio', dataSource: 'static', staticOptions: ['一般', '預支'] },
+        null,
       ]},
     ],
   },
@@ -178,6 +178,19 @@ function isSingleMigratedBlock(data: unknown): data is FormBlock[] {
   return typeof block.id === 'string' && block.id.startsWith('block_migrated_') && Array.isArray(block.rows)
 }
 
+// 「類型（一般/預支）」已移到付款憑單階段選擇，資金分配申請不再出現此欄位。
+// 在讀取時過濾（而非只改預設值），讓 Supabase 已儲存的舊 schema 也不會渲染出這個欄位；
+// 管理員下次在表單設定儲存後，舊 schema 裡的類型欄位就會真正移除。
+function stripAllocationCategorySlots(blocks: FormBlock[]): FormBlock[] {
+  return blocks.map(b => ({
+    ...b,
+    rows: b.rows.map(r => ({
+      ...r,
+      slots: r.slots.map(s => (s && (s.fieldId === 'category' || s.label === '類型')) ? null : s),
+    })),
+  }))
+}
+
 function splitFundsAllocationRows(rows: FormSchemaRow[]): FormBlock[] {
   const groups = [
     rows.slice(0, 4),
@@ -198,18 +211,21 @@ export async function getFormSchemas(): Promise<Record<FormType, FormBlock[]>> {
     if (error || !data) return { ...DEFAULT_BLOCKS }
 
     const resolve = (formType: FormType): FormBlock[] => {
-      const raw = data.find(d => d.form_type === formType)?.rows
-      if (!raw) return DEFAULT_BLOCKS[formType]
-      // 舊格式（flat FormSchemaRow[]）：按表單類型分組遷移
-      if (isOldRowsFormat(raw)) {
-        if (formType === 'funds_allocation') return splitFundsAllocationRows(raw)
-        return [{ id: `block_migrated_${formType}`, title: null, rows: raw }]
-      }
-      // 遷移暫存格式（一個大區塊）：funds_allocation 重新按指定分組拆分
-      if (formType === 'funds_allocation' && isSingleMigratedBlock(raw)) {
-        return splitFundsAllocationRows((raw as FormBlock[])[0].rows)
-      }
-      return raw as FormBlock[]
+      const blocks = ((): FormBlock[] => {
+        const raw = data.find(d => d.form_type === formType)?.rows
+        if (!raw) return DEFAULT_BLOCKS[formType]
+        // 舊格式（flat FormSchemaRow[]）：按表單類型分組遷移
+        if (isOldRowsFormat(raw)) {
+          if (formType === 'funds_allocation') return splitFundsAllocationRows(raw)
+          return [{ id: `block_migrated_${formType}`, title: null, rows: raw }]
+        }
+        // 遷移暫存格式（一個大區塊）：funds_allocation 重新按指定分組拆分
+        if (formType === 'funds_allocation' && isSingleMigratedBlock(raw)) {
+          return splitFundsAllocationRows((raw as FormBlock[])[0].rows)
+        }
+        return raw as FormBlock[]
+      })()
+      return formType === 'funds_allocation' ? stripAllocationCategorySlots(blocks) : blocks
     }
 
     return {

@@ -49,7 +49,8 @@ export async function getMyPayment(id: number): Promise<{ data: FundsPayment | n
 export async function createPayment(
   allocationId: number,
   paymentMethod: string,
-  extraData: Record<string, string> = {}
+  extraData: Record<string, string> = {},
+  category: string | null = null
 ): Promise<{ id: number | null; error: string | null }> {
   const session = await getSession()
   if (!session) return { id: null, error: '請先登入' }
@@ -75,7 +76,8 @@ export async function createPayment(
     institution: record.institution,
     payment_account: record.payment_account,
     expense_item: record.expense_item,
-    category: record.category,
+    // 類型（一般/預支）自 2026-07 起改在建立付款憑單時選擇；未傳入時退回申請單的舊值（相容舊資料）
+    category: category ?? record.category,
     note: record.note,
     apply_division: record.apply_division,
     apply_section: record.apply_section,
@@ -97,7 +99,8 @@ export async function createPayment(
 export async function updateDraftPayment(
   id: number,
   paymentMethod: string,
-  extraData: Record<string, string>
+  extraData: Record<string, string>,
+  category?: string
 ): Promise<{ error: string | null }> {
   const session = await getSession()
   if (!session) return { error: '請先登入' }
@@ -107,6 +110,7 @@ export async function updateDraftPayment(
     .update({
       payment_method: paymentMethod || null,
       extra_data: Object.keys(extraData).length > 0 ? extraData : null,
+      ...(category !== undefined ? { category: category || null } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
