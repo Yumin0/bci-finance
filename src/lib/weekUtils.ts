@@ -60,6 +60,24 @@ export function getCurrentWeekStart(): Date {
   return getWeekStart(new Date())
 }
 
+/** Sentinel value meaning "no week filter" (全部週次) */
+export const ALL_WEEKS = 'all'
+
+/** YYYY-MM-DD in Asia/Taipei for a UTC timestamp */
+export function toTaipeiDateStr(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })
+}
+
+/** Default selectable week when switching year: current week for this year, otherwise the latest selectable week of that year */
+export function getDefaultWeekForYear(year: number, maxFutureWeeks = 4): Date {
+  const current = getCurrentWeekStart()
+  if (year === current.getFullYear()) return current
+  const maxFuture = new Date(current)
+  maxFuture.setDate(maxFuture.getDate() + maxFutureWeeks * 7)
+  const weeks = getWeeksForYear(year).filter(w => w <= maxFuture)
+  return weeks[weeks.length - 1] ?? current
+}
+
 export function getAvailableYears(): number[] {
   const y = new Date().getFullYear()
   return [y - 1, y, y + 1]

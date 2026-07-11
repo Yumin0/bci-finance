@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getWeeksForYear, formatWeekRange, toDateStr, getCurrentWeekStart } from '@/lib/weekUtils'
+import { getWeeksForYear, formatWeekRange, toDateStr, getCurrentWeekStart, ALL_WEEKS } from '@/lib/weekUtils'
 
 function ChevronDown() {
   return (
@@ -64,12 +64,15 @@ export function WeekDropdown({
   maxFutureWeeks = 4,
   onChange,
   align = 'left',
+  allowAll = false,
 }: {
   selectedYear: number
   selectedWeekStart: string
   maxFutureWeeks?: number
   onChange: (weekStart: string) => void
   align?: 'left' | 'right'
+  /** 顯示「全部週次」選項（選取時 onChange 收到 ALL_WEEKS） */
+  allowAll?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const selectedRef = useRef<HTMLButtonElement>(null)
@@ -86,6 +89,7 @@ export function WeekDropdown({
     }
   }, [open])
 
+  const isAll = allowAll && selectedWeekStart === ALL_WEEKS
   const displayDate = weeks.find(w => toDateStr(w) === selectedWeekStart) ?? weeks[weeks.length - 1]
 
   return (
@@ -95,13 +99,22 @@ export function WeekDropdown({
         onClick={() => setOpen(prev => !prev)}
         className="flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-foreground hover:bg-muted"
       >
-        {displayDate ? formatWeekRange(displayDate) : selectedWeekStart}
+        {isAll ? '全部週次' : displayDate ? formatWeekRange(displayDate) : selectedWeekStart}
         <ChevronDown />
       </button>
       {open && (
         <div
           className={`absolute top-full z-50 mt-1 max-h-64 w-44 overflow-y-auto rounded-lg border border-border bg-background shadow-lg ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
+          {allowAll && (
+            <button
+              onClick={() => { onChange(ALL_WEEKS); setOpen(false) }}
+              className={`sticky top-0 z-10 flex w-full items-center justify-between border-b border-border bg-background px-4 py-2.5 text-sm transition-colors hover:bg-muted ${isAll ? 'text-primary' : 'text-foreground'}`}
+            >
+              <span>全部週次</span>
+              {isAll && <CheckMark />}
+            </button>
+          )}
           {weeks.map(wk => {
             const s = toDateStr(wk)
             const isSelected = s === selectedWeekStart

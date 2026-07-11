@@ -13,6 +13,7 @@ import StatusBadge from '@/app/_components/StatusBadge'
 import PageHeader from '@/app/_components/PageHeader'
 import ColumnPicker from '@/app/_components/ColumnPicker'
 import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
+import WeekFilterBar, { useWeekFilter } from '@/app/_components/WeekFilterBar'
 import TemplateModal from './TemplateModal'
 
 type AllocationRow = FundsAllocation & {
@@ -59,10 +60,12 @@ export default function MyFundsTableView({
   const [query, setQuery] = useState('')
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const { visibleCols, toggleCol } = useColumnVisibility(LS_KEY, FUNDS_ALLOCATION_COLUMNS.map(c => c.key))
+  const weekFilter = useWeekFilter()
 
+  const weekFiltered = records.filter(r => weekFilter.matches(r.date, r.created_at))
   const filtered = query.trim()
-    ? records.filter(r => SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
-    : records
+    ? weekFiltered.filter(r => SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
+    : weekFiltered
 
   const colCount = 2 + visibleCols.size // 狀態 + 單號 + visible
 
@@ -70,9 +73,22 @@ export default function MyFundsTableView({
     <div className="flex flex-col gap-6">
       {showTemplateModal && <TemplateModal onClose={() => setShowTemplateModal(false)} />}
 
-      <PageHeader
-        title="我的資金分配申請"
-        action={
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="我的資金分配申請"
+          action={
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowTemplateModal(true)} className={buttonVariants({ variant: 'outline' })}>
+                選取範本
+              </button>
+              <Link href="/funds-allocation/my-funds/add" className={buttonVariants({ variant: 'default' })}>
+                ＋ 新增申請單
+              </Link>
+            </div>
+          }
+        />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <WeekFilterBar filter={weekFilter} />
           <div className="flex items-center gap-2">
             <Input
               placeholder="搜尋申請課別、申請人、項目名稱…"
@@ -81,15 +97,9 @@ export default function MyFundsTableView({
               className="w-64 bg-background"
             />
             <ColumnPicker columns={FUNDS_ALLOCATION_COLUMNS} visibleCols={visibleCols} onToggle={toggleCol} />
-            <button onClick={() => setShowTemplateModal(true)} className={buttonVariants({ variant: 'outline' })}>
-              選取範本
-            </button>
-            <Link href="/funds-allocation/my-funds/add" className={buttonVariants({ variant: 'default' })}>
-              ＋ 新增申請單
-            </Link>
           </div>
-        }
-      />
+        </div>
+      </div>
 
       <Card className="overflow-hidden p-0">
         <Table>
@@ -106,7 +116,7 @@ export default function MyFundsTableView({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={colCount} className="py-6 text-center text-muted-foreground">
-                  {query ? '找不到符合的紀錄' : '尚無申請紀錄'}
+                  {query ? '找不到符合的紀錄' : weekFilter.isFiltering ? '此週次尚無申請紀錄，可切換「全部週次」查看' : '尚無申請紀錄'}
                 </TableCell>
               </TableRow>
             )}

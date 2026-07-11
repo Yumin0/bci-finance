@@ -10,6 +10,7 @@ import { FundsPayment } from '@/lib/types'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import PageHeader from '@/app/_components/PageHeader'
+import WeekFilterBar, { useWeekFilter } from '@/app/_components/WeekFilterBar'
 
 type PaymentRow = FundsPayment & {
   approval_flow_templates: {
@@ -52,25 +53,28 @@ export default function MyPaymentTableView({
   payeeLabel: string | null
 }) {
   const [query, setQuery] = useState('')
+  const weekFilter = useWeekFilter()
 
   const searchFields = buildSearchFields(payeeLabel)
+  const weekFiltered = records.filter(r => weekFilter.matches(r.date, r.created_at))
   const filtered = query.trim()
-    ? records.filter(r => searchFields.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
-    : records
+    ? weekFiltered.filter(r => searchFields.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
+    : weekFiltered
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="我的付款憑單"
-        action={
+      <div className="flex flex-col gap-4">
+        <PageHeader title="我的付款憑單" />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <WeekFilterBar filter={weekFilter} />
           <Input
             placeholder="搜尋採購單號、憑單名稱、付款方式…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             className="w-64 bg-background"
           />
-        }
-      />
+        </div>
+      </div>
 
       <Card className="overflow-hidden p-0">
         <Table>
@@ -85,7 +89,7 @@ export default function MyPaymentTableView({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
-                  {query ? '找不到符合的紀錄' : '尚無付款憑單'}
+                  {query ? '找不到符合的紀錄' : weekFilter.isFiltering ? '此週次尚無付款憑單，可切換「全部週次」查看' : '尚無付款憑單'}
                 </TableCell>
               </TableRow>
             )}

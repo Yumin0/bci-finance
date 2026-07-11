@@ -10,6 +10,7 @@ import { formatDate } from '@/lib/dateUtils'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import PageHeader from '@/app/_components/PageHeader'
+import WeekFilterBar, { useWeekFilter } from '@/app/_components/WeekFilterBar'
 
 type TempVoucherRow = {
   id: number
@@ -57,24 +58,27 @@ export default function MyVoucherTableView({
   labelConfig: StatusLabelConfig
 }) {
   const [query, setQuery] = useState('')
+  const weekFilter = useWeekFilter()
 
+  const weekFiltered = records.filter(r => weekFilter.matches(r.date, r.created_at))
   const filtered = query.trim()
-    ? records.filter(r => SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
-    : records
+    ? weekFiltered.filter(r => SEARCH_FIELDS.some(fn => fn(r)?.toLowerCase().includes(query.toLowerCase())))
+    : weekFiltered
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="我的暫付款沖銷憑單"
-        action={
+      <div className="flex flex-col gap-4">
+        <PageHeader title="我的暫付款沖銷憑單" />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <WeekFilterBar filter={weekFilter} />
           <Input
             placeholder="搜尋申請人或關聯付款憑單編號…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             className="w-64 bg-background"
           />
-        }
-      />
+        </div>
+      </div>
 
       <Card className="overflow-hidden p-0">
         <Table>
@@ -89,7 +93,7 @@ export default function MyVoucherTableView({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
-                  {query ? '找不到符合的紀錄' : '尚無暫付款沖銷憑單'}
+                  {query ? '找不到符合的紀錄' : weekFilter.isFiltering ? '此週次尚無暫付款沖銷憑單，可切換「全部週次」查看' : '尚無暫付款沖銷憑單'}
                 </TableCell>
               </TableRow>
             )}
