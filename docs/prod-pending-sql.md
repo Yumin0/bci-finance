@@ -8,9 +8,15 @@
 
 ## ⏳ 待執行
 
+（目前沒有）
+
+---
+
+## ✅ 已執行
+
 ### 共用範本適用組織範圍（feature/riku-template-scope）
 
-- [ ] 已在正式機執行（執行日期：＿＿＿＿）
+- [x] 已在正式機執行（執行日期：2026-07-11）
 
 用途：共用範本資料表加上「適用組織節點清單」欄位，範本管理的組織範圍設定與選取範本的過濾都靠這個欄位。未執行前正式機建立共用範本會失敗。
 
@@ -18,9 +24,3 @@
 alter table funds_allocation_templates
   add column if not exists org_unit_ids bigint[] not null default '{}';
 ```
-
----
-
-## ✅ 已執行
-
-（尚無）
