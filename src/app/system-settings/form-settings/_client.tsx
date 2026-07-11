@@ -29,7 +29,6 @@ const FIELD_CATALOG: Record<FormType, FieldDef[]> = {
     { id: 'payment_account',  label: '出款帳戶', type: 'select',   dataSource: 'dropdown_options:payment_account', dataSourceLabel: '出款帳戶清單（下拉選項設定）' },
     { id: 'name',             label: '項目',     type: 'text',     dataSource: 'none',                          dataSourceLabel: '手動輸入' },
     { id: 'amount',           label: '金額',     type: 'number',   dataSource: 'none',                          dataSourceLabel: '手動輸入' },
-    { id: 'category',         label: '類型',     type: 'radio',    dataSource: 'static',                        dataSourceLabel: '固定選項：一般 / 預支' },
     { id: 'note',             label: '備註',     type: 'textarea', dataSource: 'none',                          dataSourceLabel: '手動輸入' },
   ],
   payment_voucher: [
@@ -45,6 +44,7 @@ const FIELD_CATALOG: Record<FormType, FieldDef[]> = {
     { id: 'amount',           label: '金額',     type: 'number',   dataSource: 'none',                          dataSourceLabel: '手動輸入' },
     { id: 'note',             label: '備註',     type: 'textarea', dataSource: 'none',                          dataSourceLabel: '手動輸入' },
     { id: 'payment_method',   label: '付款方式', type: 'select',   dataSource: 'static',                        dataSourceLabel: '固定選項（可自訂）' },
+    { id: 'category',         label: '類型',     type: 'radio',    dataSource: 'static',                        dataSourceLabel: '填表時呈現為「預支」勾選框（勾＝預支、不勾＝一般）' },
   ],
   temp_voucher: [
     { id: 'date',             label: '申請日期', type: 'date',     dataSource: 'none',                          dataSourceLabel: '手動輸入' },
