@@ -38,6 +38,42 @@ function getGroupRows(block: FormBlock): FormSchemaRow[] {
   return block.rows.slice(startIdx)
 }
 
+function unitLabel(u: OrgUnit): string {
+  return [u.code, u.name].filter(Boolean).join(' ')
+}
+
+// 適用組織範圍勾選樹：勾選節點即涵蓋其底下所有子孫節點的成員
+function OrgScopeTree({ orgUnits, selected, onToggle }: { orgUnits: OrgUnit[]; selected: number[]; onToggle: (id: number) => void }) {
+  const childrenMap = new Map<number | null, OrgUnit[]>()
+  for (const u of orgUnits) {
+    if (!childrenMap.has(u.parent_id)) childrenMap.set(u.parent_id, [])
+    childrenMap.get(u.parent_id)!.push(u)
+  }
+  const selectedSet = new Set(selected)
+
+  function renderNodes(parentId: number | null, depth: number, coveredByAncestor: boolean): React.ReactNode {
+    const nodes = childrenMap.get(parentId) ?? []
+    return nodes.map(u => {
+      const checked = selectedSet.has(u.id)
+      return (
+        <div key={u.id}>
+          <label className="flex cursor-pointer items-center gap-2 py-1 text-sm" style={{ paddingLeft: depth * 20 }}>
+            <input type="checkbox" checked={checked} onChange={() => onToggle(u.id)} />
+            <span className={coveredByAncestor && !checked ? 'text-muted-foreground' : 'text-foreground'}>{unitLabel(u)}</span>
+            {u.unit_type === 'division' && <span className="text-xs text-muted-foreground">處別</span>}
+            {u.unit_type === 'section' && <span className="text-xs text-muted-foreground">課別</span>}
+            {coveredByAncestor && !checked && <span className="text-xs text-muted-foreground">（已由上層涵蓋）</span>}
+          </label>
+          {renderNodes(u.id, depth + 1, coveredByAncestor || checked)}
+        </div>
+      )
+    })
+  }
+
+  if (!orgUnits.length) return <p className="text-sm text-muted-foreground">載入組織架構中...</p>
+  return <div className="rounded-md border border-border p-3">{renderNodes(null, 0, false)}</div>
+}
+
 export default function TemplateManagementTab({ newTrigger }: { newTrigger: number }) {
   const [templates, setTemplates] = useState<FundsAllocationTemplate[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,6 +92,9 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 
   // 範本名稱本身（與表單欄位 fieldId 完全分開，避免跟表單的「項目」等欄位 key 撞名）
   const [templateName, setTemplateName] = useState('')
+  // 適用組織範圍（org_units.id），勾選節點涵蓋其所有子孫
+  const [scopeUnitIds, setScopeUnitIds] = useState<number[]>([])
+  const [scopeModalOpen, setScopeModalOpen] = useState(false)
   const [divisionId, setDivisionId] = useState<number | null>(null)
   const [sectionId, setSectionId] = useState<number | null>(null)
   const [editorValues, setEditorValues] = useState<Record<string, string>>({})
@@ -65,6 +104,10 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 
   useEffect(() => {
     getSharedFundTemplates().then(data => { setTemplates(data); setLoading(false) })
+    // 卡片列表需要顯示適用範圍名稱，組織架構先載起來
+    supabase.from('org_units').select('*').order('sort_order').then(({ data }) => {
+      if (data) setOrgUnits(data as OrgUnit[])
+    })
   }, [])
 
   useEffect(() => {
@@ -142,6 +185,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
   function openNew() {
     loadDataSources()
     setTemplateName('')
+    setScopeUnitIds([])
     setDivisionId(null)
     setSectionId(null)
     setEditorValues({})
@@ -154,6 +198,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
   function openEdit(t: FundsAllocationTemplate) {
     loadDataSources()
     setTemplateName(t.name)
+    setScopeUnitIds(t.org_unit_ids ?? [])
     const v = t.field_values
     setDivisionId(Number(v.apply_division) || null)
     setSectionId(Number(v.apply_section) || null)
@@ -188,6 +233,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
   function cancelEdit() {
     setEditingId(null)
     setErrorMsg(null)
+    setScopeModalOpen(false)
   }
 
   function setEditorField(fieldId: string, value: string) {
@@ -219,13 +265,14 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 
   async function handleSave() {
     if (!templateName.trim()) { setErrorMsg('請輸入範本名稱'); return }
+    if (!scopeUnitIds.length) { setErrorMsg('請至少勾選一個適用組織範圍'); return }
     setSaving(true); setErrorMsg(null)
     const fieldValues = buildFieldValues()
     let result: { error: string | null }
     if (editingId === 'new') {
-      result = await createSharedFundTemplate(templateName.trim(), fieldValues)
+      result = await createSharedFundTemplate(templateName.trim(), fieldValues, scopeUnitIds)
     } else {
-      result = await updateSharedFundTemplate(editingId as number, templateName.trim(), fieldValues)
+      result = await updateSharedFundTemplate(editingId as number, templateName.trim(), fieldValues, scopeUnitIds)
     }
     setSaving(false)
     if (result.error) { setErrorMsg(result.error); return }
@@ -319,7 +366,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        設定共用範本，使用者填寫資金分配申請時可選取範本快速帶入欄位值。範本欄位會跟著「表單設定」的申請表單自動同步。
+        設定共用範本，使用者填寫資金分配申請時可選取範本快速帶入欄位值。範本欄位會跟著「表單設定」的申請表單自動同步。每個範本必須指定適用組織範圍，只有範圍內的成員才會在「選取範本」看到它。
       </p>
 
       {/* 編輯 / 新增表單 */}
@@ -408,14 +455,53 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setScopeModalOpen(true)} disabled={saving}>
+                適用組織範圍{scopeUnitIds.length > 0 ? `（已選 ${scopeUnitIds.length} 個節點）` : ' *（未設定）'}
+              </Button>
+              <Button variant="outline" onClick={cancelEdit} disabled={saving}>取消</Button>
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? '儲存中...' : '儲存範本'}
               </Button>
-              <Button variant="outline" onClick={cancelEdit} disabled={saving}>取消</Button>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* 適用組織範圍 Modal */}
+      {scopeModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={e => { if (e.target === e.currentTarget) setScopeModalOpen(false) }}
+        >
+          <div className="flex max-h-[80vh] w-full max-w-xl flex-col rounded-xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <h3 className="m-0 text-base font-bold text-foreground">適用組織範圍</h3>
+              <button
+                onClick={() => setScopeModalOpen(false)}
+                className="cursor-pointer border-none bg-transparent text-xl leading-none text-muted-foreground"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <p className="mb-3 mt-0 text-xs text-muted-foreground">
+                勾選的節點及其底下所有單位的成員才能使用此範本；勾選上層節點即涵蓋整個分支，不需逐一勾選。
+              </p>
+              <OrgScopeTree
+                orgUnits={orgUnits}
+                selected={scopeUnitIds}
+                onToggle={id => setScopeUnitIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+              />
+            </div>
+            <div className="flex items-center justify-between border-t border-border px-5 py-3">
+              <p className="m-0 text-xs text-muted-foreground">
+                {scopeUnitIds.length > 0 ? `已選 ${scopeUnitIds.length} 個節點` : '尚未勾選任何節點'}
+              </p>
+              <Button onClick={() => setScopeModalOpen(false)}>完成</Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 範本列表 */}
@@ -429,6 +515,8 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
           v.payment_account && `出款帳戶：${v.payment_account}`,
           v.institution && `機構：${v.institution}`,
         ].filter(Boolean).join('　｜　')
+        const unitMap = new Map(orgUnits.map(u => [u.id, u]))
+        const scopeNames = (t.org_unit_ids ?? []).map(id => unitMap.get(id)).filter((u): u is OrgUnit => !!u).map(unitLabel)
 
         return (
           <Card key={t.id}>
@@ -436,6 +524,11 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
               <div>
                 <p className="font-semibold text-foreground">{t.name}</p>
                 {summary && <p className="mt-1 text-xs text-muted-foreground">{summary}</p>}
+                {scopeNames.length > 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">適用範圍：{scopeNames.join('、')}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-destructive">尚未設定適用組織範圍，所有使用者都看不到此範本，請編輯補上</p>
+                )}
               </div>
               <div className="flex shrink-0 gap-2">
                 <Button variant="outline" size="sm" onClick={() => openEdit(t)} disabled={editingId !== null}>

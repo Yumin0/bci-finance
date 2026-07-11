@@ -168,6 +168,8 @@ export type FundsAllocationTemplate = {
   is_shared: boolean
   created_by: number | null
   field_values: Record<string, string>
+  // 共用範本的適用組織節點（org_units.id）；勾選節點本身或其子孫的成員才可見。空陣列＝未設定範圍，僅管理頁可見
+  org_unit_ids: number[] | null
   created_at: string
   updated_at: string | null
 }

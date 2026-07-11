@@ -212,6 +212,15 @@
 
 ## 已完成
 
+**共用範本適用組織範圍**（2026-07-11，Riku）
+分支：`feature/riku-template-scope`
+共用範本建立/編輯時強制指定適用組織範圍：底部按鈕列「適用組織範圍」按鈕（顯示已選節點數）開 Modal 勾選組織樹，任意層級可複選，勾上層節點即涵蓋整個分支（子孫顯示「已由上層涵蓋」）。選取範本 Modal 與網址帶範本編號套用皆只允許範圍涵蓋使用者的範本（依使用者在組織架構的指派節點，往上回溯是否命中所勾節點，`isUserCoveredByUnits`）。舊範本未設定範圍者對一般使用者隱藏，管理頁卡片顯示紅字提醒補設定。資料表新增適用組織節點欄位（SQL 已登記 `docs/prod-pending-sql.md`，正式機部署前需執行）。
+影響範圍確認：
+- [x] /system-settings/form-settings 範本管理 Tab（範圍按鈕 + Modal 勾選樹、卡片顯示適用範圍）
+- [x] /funds-allocation/my-funds 選取範本 Modal（共用範本依範圍過濾，`getVisibleSharedFundTemplates`）
+- [x] /funds-allocation/my-funds/add?templateId=（`getFundTemplateById` 後端檢查範圍防繞過）
+- [x] 資料表：共用範本新增適用組織節點欄位（dev/staging 已執行）
+
 **付款憑單審核管理 Tab 分類（比照資金分配審核管理）**（2026-07-10，Yumin）
 分支：`feature/yumin-payment-review-tabs`
 `/funds-payment/review` 從「待我審核/我的審核紀錄」改為「課、處長審核＋動態群組 Tab＋我的審核紀錄」：群組 Tab 依啟用中付款憑單範本實際使用的審核群組動態產生（範本改用其他群組時 Tab 自動跟著變，不用改程式）；週次篩選（年份＋週次下拉，依 `date` 過濾顯示該週全部狀態，badge 只計仍在此步驟待審筆數）；各 Tab 依出款帳戶分區塊；頁面重構為 server component（`page.tsx`）＋`PaymentReviewClient.tsx`。新增權限 ID `fp-review-div`（課、處長審核 Tab）、`fp-review-group`（群組 Tab），需在帳號管理為各角色勾選才看得到（管理員不受限）。金額彙總（已核准總額/剩餘可分配）與快速/批次審核本次不做。

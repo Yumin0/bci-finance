@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { FundsAllocationTemplate } from '@/lib/types'
 import {
-  getSharedFundTemplates,
+  getVisibleSharedFundTemplates,
   getUserFundTemplates,
   updateUserFundTemplateName,
   deleteUserFundTemplate,
@@ -38,7 +38,7 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     Promise.all([
-      getSharedFundTemplates(),
+      getVisibleSharedFundTemplates(),
       getUserFundTemplates(),
     ]).then(([s, m]) => { setShared(s); setMine(m); setLoading(false) })
   }, [])
@@ -104,7 +104,7 @@ export default function TemplateModal({ onClose }: { onClose: () => void }) {
                 共用範本
               </p>
               {shared.length === 0 && (
-                <p style={{ fontSize: 13, color: 'var(--text-subtle)', marginBottom: 16 }}>尚未建立共用範本</p>
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)', marginBottom: 16 }}>目前沒有適用於你的共用範本</p>
               )}
               {shared.map(t => (
                 <div key={t.id} style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '12px 14px', marginBottom: 8, background: 'var(--bg-page)' }}>

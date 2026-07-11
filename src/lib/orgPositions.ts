@@ -71,6 +71,21 @@ export function sectionOptionsFromCombos(combos: OrgCombo[], divisionId: number 
   return options
 }
 
+// 判斷使用者的任一指派節點是否落在範圍節點內（範圍節點本身或其子孫皆算涵蓋）
+export function isUserCoveredByUnits(userUnitIds: number[], scopeUnitIds: number[], orgUnits: OrgUnit[]): boolean {
+  if (!scopeUnitIds.length || !userUnitIds.length) return false
+  const scope = new Set(scopeUnitIds)
+  const unitMap = new Map(orgUnits.map(u => [u.id, u]))
+  for (const unitId of userUnitIds) {
+    let cur = unitMap.get(unitId)
+    while (cur) {
+      if (scope.has(cur.id)) return true
+      cur = cur.parent_id != null ? unitMap.get(cur.parent_id) : undefined
+    }
+  }
+  return false
+}
+
 // 找不到使用者的組織位置時的備援清單：列出所有標記處別/課別的節點
 export function allDivisionOptions(orgUnits: OrgUnit[]): { value: string; label: string }[] {
   return orgUnits.filter(u => u.unit_type === 'division').map(u => ({ value: String(u.id), label: unitLabel(u) }))

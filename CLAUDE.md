@@ -55,7 +55,7 @@
 - `fee_categories`：費用類別（名稱、sort_order）
 - `fee_category_fields`：各費用類別欄位定義（label、field_type: text|number|dropdown|date、options jsonb）
 - `fee_records`：實際費用項目資料（field_values jsonb 動態存欄位值，key 為 field id）
-- `funds_allocation_templates`：資金分配申請預選範本；`is_shared` 區分共用/個人，`created_by bigint` 關聯 `app_users(id)` 儲存建立者（個人範本隔離），`field_values jsonb` 儲存欄位預設值（apply_division/apply_section 存 org_unit id 字串，其餘存 label 字串）
+- `funds_allocation_templates`：資金分配申請預選範本；`is_shared` 區分共用/個人，`created_by bigint` 關聯 `app_users(id)` 儲存建立者（個人範本隔離），`field_values jsonb` 儲存欄位預設值（apply_division/apply_section 存 org_unit id 字串，其餘存 label 字串）；`org_unit_ids bigint[]`（預設空陣列）為共用範本的適用組織範圍：建立/編輯時強制至少勾一個節點，勾選節點本身或其子孫的成員（依 `org_unit_members.user_id`）才會在「選取範本」看到並可套用（`getVisibleSharedFundTemplates` / `getFundTemplateById` 皆過濾，範圍判斷用 `lib/orgPositions.ts` 的 `isUserCoveredByUnits`）；空陣列＝未設定範圍，僅範本管理頁可見並顯示紅字提醒
 - `application_cycle_config`：申請週期設定（單列），`allowed_weekdays int[]`（0=日～6=六）、`weeks_ahead int`（預設 3）；空陣列代表不限制，僅套用於資金分配申請的申請日期欄位
 - `tax_rate_options`：稅額選項設定，`label` 名稱、`formula_steps jsonb`（步驟陣列，每步含 `op: +/-/*/\/` 與 `value: number`）、`sort_order`；搭配表單欄位 `dataSource: 'tax_rates'` 使用，支援多步驟連乘除計算
 - **Storage Bucket** `issue-images`：問題回報圖片（路徑：`{issueId}/{timestamp}.{ext}`）
@@ -117,6 +117,7 @@ src/
 - **主題**：CSS Variables 定義顏色，偏好存 localStorage（`bci-theme`），有防 hydration 閃爍 script
 - **MOCK_USER_ID**：`'00000000-0000-0000-0000-000000000001'`，待整合真正 Supabase Auth 後替換
 - **部署區域**：兩個 Supabase 專案（dev/staging 與正式）皆位於孟買（ap-south-1），`vercel.json` 將 Vercel 函數區域固定為 `bom1` 與資料庫同機房，勿隨意移除（移除會退回預設美東 iad1，全站每頁回應時間會從 <1 秒惡化到 2~3 秒）
+- **正式機待執行 SQL 追蹤**：正式機 Supabase 為獨立專案，dev/staging 執行過的結構變更不會自動同步。凡是功能需要改資料庫結構，必須把 SQL 登記到 `docs/prod-pending-sql.md` 的「待執行」區；合併到 `main` 部署前先檢查該清單，在正式機執行完後打勾移到「已執行」
 
 ---
 
