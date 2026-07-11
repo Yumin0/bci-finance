@@ -61,6 +61,12 @@
 - **解法**：安裝 shadcn Dialog，建立 `useConfirm` hook，替換 8 個檔案中所有 `confirm()` 呼叫
 - **範圍**：`approval-flows`、`expense-fields`、`role-permissions`、`org-structure`、`payee-settings`、`fee`、`form-settings/_tax-tab`、`funds-allocation/edit`、`report-issue/module-settings`
 
+#### [費用項目（主要）欄位值未存入資料庫（欄位代號誤掛 amount）]
+- **問題**：表單設定中「費用項目（主要）」的欄位代號被設成結構化欄位 `amount`，送出時 `amount` 欄位會被付款明細彙總總額覆寫，主要的選擇完全沒有存進資料庫；編輯頁該欄位還原時顯示金額數字（如「0」「16000」）而不是當初選的項目
+- **實測確認**：2026-07-11 做費用項目連動功能時 Playwright 實測發現（編輯頁主要還原值為「0」）
+- **修法方向**：把該欄位改掛自訂欄位代號（表單設定重新加入欄位、或 SQL 直接改 `form_schemas` jsonb 的 fieldId），改完值會存進 `extra_data`；需同步檢查共用範本（含筑今匯入的 23 個）的 `field_values` 是否有以 `amount` 為 key 存主要值，有的話要一起搬 key
+- **備註**：細項連動已對此防呆——主要值不在選項清單中時退回顯示全部選項，不會鎖死
+
 #### [支出欄位設定 RLS 寫入修復]
 - **問題**：`/system-settings/expense-fields` 新增／刪除選項時出現 RLS 錯誤（`new row violates row-level security policy for table "dropdown_options"`）
 - **原因**：頁面直接用 `supabase`（一般客戶端）執行 INSERT/DELETE，被 Supabase RLS 擋住
@@ -208,6 +214,15 @@
 ---
 
 ## 已完成
+
+**費用項目主要／細項連動篩選**（2026-07-11，Riku）
+分支：`feature/riku-fee-cascade`
+申請單新增/編輯頁：選了「費用項目（主要）」後，「費用項目（細項）」下拉只顯示編號開頭相同的選項（如主要選 1.1，細項只列 1.1 開頭，依選項標籤第一個空白前的編號比對，`lib/feeItems.ts`）；主要未選時細項無選項、placeholder 提示「請先選擇費用項目（主要）」；改選主要時自動清空編號對不上的已選細項（固定欄位與群組明細都清）。連動約定：label 含「費用項目」的費用項目資料欄位（主要＝群組列外第一個、細項＝其餘），label 改名或編號不照規則即自動退回不過濾，費用類型設定新增項目不用改程式。主要值不在選項清單中（既有 amount 欄位代號問題產生的異常值）時退回顯示全部選項防鎖死。
+影響範圍確認（Playwright 實測 11/11 通過，Riku 帳號）：
+- [x] /funds-allocation/my-funds/add（未選主要無選項＋提示、選 1.1/1.2 過濾正確、改主要自動清空）
+- [x] /funds-allocation/my-funds/edit/[id]（草稿還原細項值正確、主要異常值退回全部選項、改主要清空＋重新過濾）
+- [x] 其他 fee_records 下拉（幣別）不受影響（label 不含「費用項目」不觸發連動）
+- [x] 付款憑單頁面不在此次範圍（使用者確認只做申請單）
 
 **資金分配申請類型選擇邏輯調整：改到付款憑單階段才選**（2026-07-11，Riku）
 分支：`feature/riku-payment-category`

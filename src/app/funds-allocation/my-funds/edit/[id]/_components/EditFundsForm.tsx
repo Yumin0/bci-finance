@@ -23,6 +23,7 @@ import { deleteFundsAllocation, updateFundsAllocation } from '@/app/actions/fund
 import { saveUserFundTemplate } from '@/app/actions/fund-templates'
 import { logFieldChanges } from '@/app/actions/edit-logs'
 import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
+import { feeItemCode } from '@/lib/feeItems'
 
 
 function unitLabel(u: OrgUnit) {
@@ -112,6 +113,22 @@ export default function EditFundsForm({
     schema.flatMap(b => getGroupRows(b).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId)))
   )
 
+  // 費用項目主要/細項連動：主要 = 群組列/可重複列以外、label 含「費用項目」的第一個費用項目欄位；
+  // 細項 = 主要以外所有 label 含「費用項目」的費用項目欄位（label 不符約定時不連動，維持顯示全部選項）
+  const mainFeeSlot = allSlots.find(s =>
+    s.dataSource?.startsWith('fee_records:') && s.label.includes('費用項目') &&
+    !groupSlotFieldIds.has(s.fieldId) && !repeatableSlotFieldIds.has(s.fieldId)
+  ) ?? null
+  const detailFeeFieldIds = mainFeeSlot
+    ? allSlots
+        .filter(s => s.dataSource?.startsWith('fee_records:') && s.label.includes('費用項目') && s.fieldId !== mainFeeSlot.fieldId)
+        .map(s => s.fieldId)
+    : []
+  const mainFeeValue = mainFeeSlot ? (fieldValues[mainFeeSlot.fieldId] ?? '') : ''
+  // 主要的值不在選項清單中（舊資料異常）時不過濾，避免細項完全選不到東西
+  const mainFeeValueIsKnown = !!mainFeeSlot && !!mainFeeValue &&
+    (dynamicSelectOptions[mainFeeSlot.dataSource] ?? []).some(o => o.value === mainFeeValue)
+
   const neededSources = new Set(allSlots.map(s => s.dataSource))
 
   const [repeatableValues, setRepeatableValues] = useState<Record<string, Record<string, string>[]>>({})
@@ -147,6 +164,32 @@ export default function EditFundsForm({
       const instances = [...(prev[blockId] ?? [{}])]
       instances[instIdx] = { ...instances[instIdx], [fieldId]: val }
       return { ...prev, [blockId]: instances }
+    })
+  }
+  // 改選費用項目（主要）時，清空編號對不上的費用項目（細項）已選值（固定欄位與群組明細都清）
+  function clearMismatchedDetailFees(newMainVal: string) {
+    if (!detailFeeFieldIds.length) return
+    const code = feeItemCode(newMainVal)
+    const mismatch = (v: string | undefined) => !!v && (!code || feeItemCode(v) !== code)
+    setFieldValues(prev => {
+      const next = { ...prev }
+      for (const fid of detailFeeFieldIds) {
+        if (mismatch(next[fid])) next[fid] = ''
+      }
+      return next
+    })
+    setGroupInstances(prev => {
+      const next: Record<string, Record<string, string>[]> = {}
+      for (const [blockId, instances] of Object.entries(prev)) {
+        next[blockId] = instances.map(inst => {
+          const cleared = { ...inst }
+          for (const fid of detailFeeFieldIds) {
+            if (mismatch(cleared[fid])) cleared[fid] = ''
+          }
+          return cleared
+        })
+      }
+      return next
     })
   }
   function addGroupInstance(blockId: string) {
@@ -605,9 +648,22 @@ export default function EditFundsForm({
       } else if (dataSource.startsWith('fee_records:') || dataSource.startsWith('payee_records:')) {
         options = dynamicSelectOptions[dataSource] ?? []
       }
+      // 費用項目（細項）：依主要選擇的編號過濾；主要未選時不提供選項
+      const isDetailFee = detailFeeFieldIds.includes(fieldId)
+      if (isDetailFee) {
+        if (!mainFeeValue) options = []
+        else if (mainFeeValueIsKnown) options = options.filter(o => feeItemCode(o.label) === feeItemCode(mainFeeValue))
+      }
+      const isMainFee = mainFeeSlot?.fieldId === fieldId
       return (
-        <SearchableSelect value={values[fieldId] ?? ''} onChange={v => onChange(fieldId, v)}
-          options={options} disabled={disabled} required={required} />
+        <SearchableSelect value={values[fieldId] ?? ''}
+          onChange={v => {
+            onChange(fieldId, v)
+            if (isMainFee) clearMismatchedDetailFees(v)
+          }}
+          options={options}
+          placeholder={isDetailFee && !mainFeeValue ? `請先選擇${mainFeeSlot!.label}` : undefined}
+          disabled={disabled} required={required} />
       )
     }
 
