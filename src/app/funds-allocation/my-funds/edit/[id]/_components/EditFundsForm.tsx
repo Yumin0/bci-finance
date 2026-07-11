@@ -20,6 +20,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import { getAttachmentsByAllocationId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
 import { deleteFundsAllocation, updateFundsAllocation } from '@/app/actions/funds-allocation'
+import { saveUserFundTemplate } from '@/app/actions/fund-templates'
 import { logFieldChanges } from '@/app/actions/edit-logs'
 import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
 
@@ -65,6 +66,12 @@ export default function EditFundsForm({
   const [error, setError] = useState<string | null>(null)
   const [changeLogOpen, setChangeLogOpen] = useState(false)
 
+  // 另存為我的範本（任何狀態的申請單皆可，僅申請人本人）
+  const [showSaveAs, setShowSaveAs] = useState(false)
+  const [saveAsName, setSaveAsName] = useState('')
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [templateSaved, setTemplateSaved] = useState(false)
+
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
   const [memberUnitIds, setMemberUnitIds] = useState<number[]>([])
   const [memberRoleMap, setMemberRoleMap] = useState<Record<number, string[]>>({})
@@ -86,6 +93,7 @@ export default function EditFundsForm({
 
   const isDraft = record.status === FUNDS_STATUS.DRAFT
   const canEdit = isDraft || isCurrentReviewer || (record.status === FUNDS_STATUS.PENDING && record.current_step === 1)
+  const isApplicant = userId != null && String(record.created_by) === String(userId)
 
   const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
     b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
@@ -989,6 +997,38 @@ export default function EditFundsForm({
     return changes
   }
 
+  // 與 AddFundsForm 的範本格式一致：欄位代號為 key、處別/課別存組織節點 id、
+  // 可重複列與群組明細以 JSON 字串儲存；申請日期與單號不帶入範本
+  function buildTemplateFieldValues(): Record<string, string> {
+    const values: Record<string, string> = { ...fieldValues }
+    delete values.serial_number
+    delete values.date
+    if (divisionId) values.apply_division = String(divisionId)
+    if (sectionId) values.apply_section = String(sectionId)
+    for (const row of allRows.filter(r => r.repeatable)) {
+      const instances = repeatableValues[row.id] ?? []
+      if (instances.length) values[`__repeatable_${row.id}`] = JSON.stringify(instances)
+    }
+    for (const block of schema) {
+      const groupRows = getGroupRows(block)
+      if (!groupRows.length) continue
+      const instances = groupInstances[block.id] ?? []
+      if (instances.length) values[`__group_${block.id}`] = JSON.stringify(instances)
+    }
+    return values
+  }
+
+  async function handleSaveAsTemplate() {
+    if (!saveAsName.trim()) return
+    setSavingTemplate(true); setError(null)
+    const { error: saveError } = await saveUserFundTemplate(saveAsName.trim(), buildTemplateFieldValues())
+    setSavingTemplate(false)
+    if (saveError) { setError(saveError); return }
+    setShowSaveAs(false)
+    setSaveAsName('')
+    setTemplateSaved(true)
+  }
+
   async function persistAttachmentChanges() {
     await Promise.all(deletedAttachmentIds.map(id => deleteAttachmentRecord(id)))
     if (newAttachments.length) {
@@ -1194,6 +1234,35 @@ export default function EditFundsForm({
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, marginBottom: 28, alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* 申請人本人可另存範本（含自己兼任審核人的情況）；審核頁情境（嵌入或由審核頁進入）不顯示 */}
+            {isApplicant && !fromReview && !hideApprovalPanel && (
+              showSaveAs ? (
+                <>
+                  <input
+                    value={saveAsName}
+                    onChange={e => setSaveAsName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSaveAsTemplate() } }}
+                    placeholder="輸入範本名稱"
+                    style={{ padding: '6px 10px', border: '1px solid var(--border-color)', borderRadius: 6, fontSize: 13, width: 160,
+                      background: 'var(--bg-card)', color: 'var(--text-body)' }}
+                    autoFocus
+                  />
+                  <Button type="button" variant="outline" onClick={handleSaveAsTemplate} disabled={savingTemplate || !saveAsName.trim()}>
+                    {savingTemplate ? '儲存中...' : '確認'}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => { setShowSaveAs(false); setSaveAsName('') }}>取消</Button>
+                </>
+              ) : (
+                <Button type="button" variant="outline"
+                  onClick={() => { setShowSaveAs(true); setTemplateSaved(false) }}
+                  disabled={savingDraft || submitting}>
+                  另存為我的範本
+                </Button>
+              )
+            )}
+            {templateSaved && !showSaveAs && (
+              <span style={{ fontSize: 13, color: '#16a34a' }}>✓ 已儲存為我的範本</span>
+            )}
             {isDraft && (
               <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
                 {savingDraft ? '儲存中...' : '儲存草稿'}
