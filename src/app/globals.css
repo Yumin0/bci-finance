@@ -169,3 +169,14 @@ body {
     @apply font-sans;
   }
 }
+
+/* 數字欄位隱藏上下箭頭：金額以打字輸入為主，避免點到箭頭誤調數值 */
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

@@ -10,6 +10,7 @@ import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtil
 import { deriveUserOrgCombos, allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { feeItemCode } from '@/lib/feeItems'
+import { validateFeePositive } from '@/lib/feeValidation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -1005,6 +1006,12 @@ export default function AddFundsForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (editTemplate) { handleUpdateTemplate(); return }
+    const feeError = validateFeePositive(schema, fieldValues, repeatableValues, groupInstances)
+    if (feeError) {
+      setError(feeError)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     setSubmitting(true); setError(null)
     const serialNumber = await genSerialNumber(fieldValues['date'] || undefined)
     const { data, error: insertError } = await createFundsAllocation({ ...buildPayload('pending'), serial_number: serialNumber })

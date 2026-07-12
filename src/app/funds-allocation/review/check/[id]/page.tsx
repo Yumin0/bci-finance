@@ -288,6 +288,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
                     type="number"
                     value={approvedAmount}
                     onChange={e => setApprovedAmount(e.target.value)}
+                    onWheel={e => e.currentTarget.blur()}
                     min={0}
                     placeholder="核准金額"
                     style={{

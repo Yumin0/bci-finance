@@ -7,6 +7,7 @@ import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, DropdownOption, OrgUnit, FormBlock, FormSchemaRow, FormSlot, TaxRateOption, ApprovalRecord } from '@/lib/types'
 import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtils'
 import { allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
+import { validateFeePositive } from '@/lib/feeValidation'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
 import { formatDateTime } from '@/lib/dateUtils'
@@ -1143,6 +1144,12 @@ export default function EditFundsForm({
 
   async function handleSubmitFromDraft(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    const feeError = validateFeePositive(schema, fieldValues, repeatableValues, groupInstances)
+    if (feeError) {
+      setError(feeError)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     setSubmitting(true); setError(null)
     const { error: updateError } = await updateFundsAllocation(record.id, {
       ...buildUpdates(), status: 'pending', flow_template_id: flowTemplateId, current_step: 1,
@@ -1154,6 +1161,13 @@ export default function EditFundsForm({
 
   async function handleSaveChanges(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    // 已送出的單子（審核人或申請人修改）也不允許把費用改成 0 或負數
+    const feeError = validateFeePositive(schema, fieldValues, repeatableValues, groupInstances)
+    if (feeError) {
+      setError(feeError)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     setSubmitting(true); setError(null)
     const updates = buildUpdates()
     const changes = computeChangeLogs(updates)

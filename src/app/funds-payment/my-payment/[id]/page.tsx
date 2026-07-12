@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsPayment, ApprovalRecord, FormBlock, FormSchemaRow, FormSlot, DropdownOption, FundAttachment, TaxRateOption } from '@/lib/types'
 import { applyTaxFormula, computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
+import { validateFeePositive } from '@/lib/feeValidation'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { PAYMENT_STATUS } from '@/lib/constants'
 import { submitMyPayment, updateDraftPayment } from '@/app/actions/payment'
@@ -784,6 +785,9 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
   async function handleSubmit() {
     if (!record) return
+    // 付款憑單表單沒有可重複列，repeatableValues 傳空物件
+    const feeError = validateFeePositive(schema, fieldValues, {}, groupInstances)
+    if (feeError) { setError(feeError); return }
     setSubmitting(true)
     setError(null)
     const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue())
