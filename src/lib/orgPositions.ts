@@ -86,9 +86,31 @@ export function isUserCoveredByUnits(userUnitIds: number[], scopeUnitIds: number
   return false
 }
 
+// 依組織樹深度優先展開（同層依 sort_order），使下拉選項順序與組織架構頁一致
+function unitsInTreeOrder(orgUnits: OrgUnit[]): OrgUnit[] {
+  const childrenMap = new Map<number | null, OrgUnit[]>()
+  const ids = new Set(orgUnits.map(u => u.id))
+  for (const u of orgUnits) {
+    // 父節點不在清單中（資料異常）時視為樹根，避免整個分支消失
+    const key = u.parent_id != null && ids.has(u.parent_id) ? u.parent_id : null
+    if (!childrenMap.has(key)) childrenMap.set(key, [])
+    childrenMap.get(key)!.push(u)
+  }
+  const result: OrgUnit[] = []
+  const visit = (parentKey: number | null) => {
+    const kids = (childrenMap.get(parentKey) ?? []).sort((a, b) => a.sort_order - b.sort_order)
+    for (const k of kids) {
+      result.push(k)
+      visit(k.id)
+    }
+  }
+  visit(null)
+  return result
+}
+
 // 完整清單：列出所有標記處別/課別的節點（申請單處別/課別下拉開放自由選擇）
 export function allDivisionOptions(orgUnits: OrgUnit[]): { value: string; label: string }[] {
-  return orgUnits.filter(u => u.unit_type === 'division').map(u => ({ value: String(u.id), label: unitLabel(u) }))
+  return unitsInTreeOrder(orgUnits).filter(u => u.unit_type === 'division').map(u => ({ value: String(u.id), label: unitLabel(u) }))
 }
 
 // 課別歸屬的處 = 從該節點往上最近的處別祖先（與 deriveComboForUnit 一致），支援深層節點（處→中間節點→課）
@@ -104,7 +126,7 @@ function nearestDivisionId(unit: OrgUnit, unitMap: Map<number, OrgUnit>): number
 export function allSectionOptions(orgUnits: OrgUnit[], divisionId: number | null): { value: string; label: string }[] {
   if (divisionId == null) return []
   const unitMap = new Map(orgUnits.map(u => [u.id, u]))
-  return orgUnits
+  return unitsInTreeOrder(orgUnits)
     .filter(u => u.unit_type === 'section' && nearestDivisionId(u, unitMap) === divisionId)
     .map(u => ({ value: String(u.id), label: unitLabel(u) }))
 }
