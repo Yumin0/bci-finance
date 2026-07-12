@@ -215,6 +215,18 @@
 
 ## 已完成
 
+**表單欄位預設值機制**（2026-07-13，Yumin）
+分支：`feature/yumin-form-default-values`
+FormSlot 型別新增 `defaultValue`（文字/選項預設值）與 `dateDefaultMode`（'fixed' | 'nearest_cycle'，僅 date 類型）；表單設定頁欄位設定面板新增「預設值」設定（date 類型可選固定日期或自動選最近可用日期，其餘類型為文字輸入，輸入選項的顯示文字即可設為預設選中）；資金分配申請新增頁（AddFundsForm）讀取套用，僅在全新表單（未選範本/草稿）時生效，避免蓋掉範本既有資料。首次套用：申請日期預設最近可用週次日期、機構預設 BIZ、幣別預設台幣。另外新增「申請處別」依使用者組織架構身分自動帶入（依組織樹順序取第一個所屬處別，課別/職務不自動帶入，維持使用者自行選擇；此為 AddFundsForm 內寫死邏輯，非表單設定頁可調整項目）；「職務」下拉選項文字改為「組織單位 + 職稱」（如「第7課 收入課 課長」），改讀 `org_unit_members.role_type_id` 對照 `role_types.name`，無職稱的舊資料維持只顯示單位名稱。
+影響範圍確認：
+- [x] `src/lib/types.ts`（FormSlot 型別新增欄位，三種表單類型共用資料結構）
+- [x] `src/app/system-settings/form-settings/_client.tsx`（右側欄位設定面板新增「預設值」設定，資金分配申請單/付款憑單/暫付款沖銷憑單三個 Tab 都會看到這個設定選項）
+- [x] `src/lib/dateUtils.ts`（新增 `computeNearestAllowedDate` 最近可用日期計算函式）
+- [x] `src/lib/orgPositions.ts`（`unitsInTreeOrder`、`nearestDivisionId` 改為 export 供 AddFundsForm 共用）
+- [x] `src/app/funds-allocation/my-funds/add/_components/AddFundsForm.tsx`（讀取 defaultValue 套用＋申請處別/職務標籤邏輯，Playwright 驗證：申請日期/機構/幣別/申請處別皆正確帶入，職務下拉正確顯示「單位+職稱」且選取後仍正確連動處別/課別，且既有範本載入不受影響）
+- 備註：EditFundsForm（編輯頁）與付款憑單/暫付款沖銷憑單建立頁本次不同步調整，僅資金分配申請新增頁生效
+- 備註：付款憑單／暫付款沖銷憑單建立頁本次不接上讀取邏輯（機制先建立，之後有需求再串接）
+
 **審核管理 Tab 依流程進度顯示＋群組已核准總額修正**（2026-07-12，Riku）
 分支：`feature/riku-review-flow`
 審核管理各 Tab 改為「單子已走到該 Tab 對應步驟」才顯示：待審核看目前步驟、已核准（含已付款）視為走完全部步驟、被退回的看審核紀錄實際走到過的最大步驟（退回後目前步驟會清空）、草稿一律不顯示；還在課長/處長階段的單不再提前出現在諮詢議會/主管議會/財務長 Tab，處長也不會提前看到課長階段的單，審過的單照舊停留在對應 Tab。群組 Tab 標頭「已核准總額」改為只加總「該群組步驟實際按過核准」的審核紀錄核准金額（到達但尚未核准不列入、被退回視為釋回），並依所選週次（申請日期）過濾，不再全週次累計（`actions/fund-budget.ts` 的 `getGroupApprovedTotals`）。

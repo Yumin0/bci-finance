@@ -721,6 +721,41 @@ export default function FormSettingsClient({
                 </div>
               )}
 
+              {/* 預設值：新增申請單時自動帶入 */}
+              {selectedSlot.type !== 'attachment' && selectedSlot.type !== 'readonly' && (
+                <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
+                  <p style={{ ...panelLabel, marginBottom: 6 }}>預設值</p>
+                  {selectedSlot.type === 'date' ? (
+                    <>
+                      <select
+                        value={selectedSlot.dateDefaultMode ?? ''}
+                        onChange={e => {
+                          const mode = (e.target.value || undefined) as 'fixed' | 'nearest_cycle' | undefined
+                          updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
+                            dateDefaultMode: mode,
+                            defaultValue: mode === 'fixed' ? (selectedSlot.defaultValue ?? '') : undefined,
+                          })
+                        }}
+                        style={{ ...panelInput, marginBottom: selectedSlot.dateDefaultMode === 'fixed' ? 8 : 0, cursor: 'pointer' }}>
+                        <option value="">不設定</option>
+                        <option value="nearest_cycle">自動選最近可用日期（依申請週期設定）</option>
+                        <option value="fixed">固定日期</option>
+                      </select>
+                      {selectedSlot.dateDefaultMode === 'fixed' && (
+                        <input type="date" value={selectedSlot.defaultValue ?? ''}
+                          onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, { defaultValue: e.target.value })}
+                          style={panelInput} />
+                      )}
+                    </>
+                  ) : (
+                    <input value={selectedSlot.defaultValue ?? ''}
+                      onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, { defaultValue: e.target.value || undefined })}
+                      placeholder={selectedSlot.type === 'select' || selectedSlot.type === 'radio' ? '輸入預設選中的選項文字' : '留空表示不設定預設值'}
+                      style={panelInput} />
+                  )}
+                </div>
+              )}
+
               {/* taxConfig：稅額計算設定（只在 tax_rates 資料來源時顯示） */}
               {selectedSlot.dataSource === 'tax_rates' && (
                 <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>

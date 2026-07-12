@@ -7,7 +7,7 @@ import { MOCK_USER_ID } from '@/lib/constants'
 import { createFundsAllocation, generateSerialNumber as genSerialNumber } from '@/app/actions/funds-allocation'
 import { DropdownOption, OrgUnit, FormBlock, FormSchemaRow, FormSlot, TaxRateOption } from '@/lib/types'
 import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtils'
-import { deriveUserOrgCombos, allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
+import { deriveUserOrgCombos, allDivisionOptions, allSectionOptions, unitsInTreeOrder, nearestDivisionId } from '@/lib/orgPositions'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { feeItemCode } from '@/lib/feeItems'
 import { validateFeePositive } from '@/lib/feeValidation'
@@ -20,6 +20,7 @@ import { saveAttachments } from '@/app/actions/attachments'
 import { saveUserFundTemplate, updateUserFundTemplate, deleteUserFundTemplate } from '@/app/actions/fund-templates'
 import DateCyclePicker from '@/app/_components/DateCyclePicker'
 import { ApplicationCycleConfig } from '@/app/actions/application-cycle'
+import { computeNearestAllowedDate } from '@/lib/dateUtils'
 
 
 function unitLabel(u: OrgUnit) {
@@ -59,6 +60,9 @@ export default function AddFundsForm({
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [memberUnitIds, setMemberUnitIds] = useState<number[]>([])
   const [memberRoleMap, setMemberRoleMap] = useState<Record<number, string[]>>({})
+  // 使用者自己在各組織節點上的職稱（org_unit_id -> role_type_id），與職稱名稱對照表
+  const [memberRoleTypeIdMap, setMemberRoleTypeIdMap] = useState<Record<number, number | null>>({})
+  const [roleTypeNames, setRoleTypeNames] = useState<Record<number, string>>({})
   // 有「已綁定帳號負責人」的組織節點 id 集合；null = 尚未載入完成（載入前不顯示提醒）
   const [leaderUnitIds, setLeaderUnitIds] = useState<Set<number> | null>(null)
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
@@ -270,18 +274,31 @@ export default function AddFundsForm({
     async function load() {
       const fetches: Promise<void>[] = []
 
+      let loadedOrgUnits: OrgUnit[] = []
+      let loadedMemberships: { org_unit_id: number; role_type_id: number | null }[] = []
+      let loadedRoleTypeNames: Record<number, string> = {}
+
       const loadOrgUnits = async () => {
         const r = await supabase.from('org_units').select('*').order('sort_order')
-        if (r.data) setOrgUnits(r.data as OrgUnit[])
+        if (r.data) { loadedOrgUnits = r.data as OrgUnit[]; setOrgUnits(loadedOrgUnits) }
       }
       const loadMyMemberships = async () => {
         if (!userId) return
         const r = await supabase
           .from('org_unit_members')
-          .select('org_unit_id')
+          .select('org_unit_id, role_type_id')
           .eq('user_id', userId)
         if (r.data) {
-          setMemberUnitIds((r.data as { org_unit_id: number }[]).map(m => m.org_unit_id))
+          loadedMemberships = r.data as { org_unit_id: number; role_type_id: number | null }[]
+          setMemberUnitIds(loadedMemberships.map(m => m.org_unit_id))
+          setMemberRoleTypeIdMap(Object.fromEntries(loadedMemberships.map(m => [m.org_unit_id, m.role_type_id])))
+        }
+      }
+      const loadRoleTypes = async () => {
+        const r = await supabase.from('role_types').select('id, name')
+        if (r.data) {
+          loadedRoleTypeNames = Object.fromEntries((r.data as { id: number; name: string }[]).map(rt => [rt.id, rt.name]))
+          setRoleTypeNames(loadedRoleTypeNames)
         }
       }
       const loadUnitLeaders = async () => {
@@ -305,7 +322,7 @@ export default function AddFundsForm({
         }
       }
       if (neededSources.has('org_units:division') || neededSources.has('org_units:section') || neededSources.has('org_unit_roles')) {
-        fetches.push(loadOrgUnits(), loadMyMemberships(), loadUnitLeaders())
+        fetches.push(loadOrgUnits(), loadMyMemberships(), loadUnitLeaders(), loadRoleTypes())
       }
 
       const dropdownFields: string[] = []
@@ -348,6 +365,53 @@ export default function AddFundsForm({
       allSlots.filter(s => s.dataSource === 'today_date').forEach(s => {
         setField(s.fieldId, today())
       })
+
+      // 套用表單設定的欄位預設值（僅全新表單，範本/草稿已有值時不覆蓋）
+      if (!initialValues) {
+        for (const s of allSlots) {
+          if (repeatableSlotFieldIds.has(s.fieldId) || groupSlotFieldIds.has(s.fieldId)) continue
+          if (s.type === 'date') {
+            if (s.dateDefaultMode === 'nearest_cycle' && cycleConfig?.allowed_weekdays.length) {
+              const nearest = computeNearestAllowedDate(cycleConfig.allowed_weekdays)
+              if (nearest) setField(s.fieldId, nearest)
+            } else if (s.dateDefaultMode === 'fixed' && s.defaultValue) {
+              setField(s.fieldId, s.defaultValue)
+            }
+          } else if (s.defaultValue) {
+            setField(s.fieldId, s.defaultValue)
+          }
+        }
+        for (const row of allRows.filter(r => r.repeatable)) {
+          const defaults: Record<string, string> = {}
+          for (const slot of row.slots) {
+            if (slot?.defaultValue) defaults[slot.fieldId] = slot.defaultValue
+          }
+          if (Object.keys(defaults).length) {
+            setRepeatableValues(prev => ({ ...prev, [row.id]: [defaults] }))
+          }
+        }
+        for (const block of schema) {
+          const groupRows = getGroupRows(block)
+          if (!groupRows.length) continue
+          const defaults: Record<string, string> = {}
+          for (const slot of groupRows.flatMap(r => r.slots)) {
+            if (slot?.defaultValue) defaults[slot.fieldId] = slot.defaultValue
+          }
+          if (Object.keys(defaults).length) {
+            setGroupInstances(prev => ({ ...prev, [block.id]: [defaults] }))
+          }
+        }
+
+        // 申請處別：依組織樹順序，自動選使用者所屬的第一個處別（課別／職務不自動帶入，由使用者自行選擇）
+        if (loadedMemberships.length && loadedOrgUnits.length) {
+          const memberIds = loadedMemberships.map(m => m.org_unit_id)
+          const unitMap = new Map(loadedOrgUnits.map(u => [u.id, u]))
+          for (const u of unitsInTreeOrder(loadedOrgUnits).filter(u => memberIds.includes(u.id))) {
+            const divId = nearestDivisionId(u, unitMap)
+            if (divId != null) { setDivisionId(divId); break }
+          }
+        }
+      }
     }
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -567,12 +631,17 @@ export default function AddFundsForm({
         const memberUnits = memberUnitIds
           .map(id => orgUnits.find(u => u.id === id))
           .filter((u): u is OrgUnit => u != null)
+        const roleLabelFor = (u: OrgUnit) => {
+          const roleTypeId = memberRoleTypeIdMap[u.id]
+          const roleName = roleTypeId ? roleTypeNames[roleTypeId] : null
+          return roleName ? `${unitLabel(u)} ${roleName}` : unitLabel(u)
+        }
         return (
           <SearchableSelect
             value={fieldValues.apply_role ?? ''}
             onChange={v => {
               setField('apply_role', v)
-              const unit = memberUnits.find(u => unitLabel(u) === v)
+              const unit = memberUnits.find(u => roleLabelFor(u) === v)
               if (unit) {
                 const combos = deriveUserOrgCombos([unit.id], orgUnits)
                 if (combos.length > 0) {
@@ -581,7 +650,7 @@ export default function AddFundsForm({
                 }
               }
             }}
-            options={memberUnits.map(u => ({ value: unitLabel(u), label: unitLabel(u) }))}
+            options={memberUnits.map(u => ({ value: roleLabelFor(u), label: roleLabelFor(u) }))}
             required={required}
           />
         )

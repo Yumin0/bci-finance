@@ -87,7 +87,7 @@ export function isUserCoveredByUnits(userUnitIds: number[], scopeUnitIds: number
 }
 
 // 依組織樹深度優先展開（同層依 sort_order），使下拉選項順序與組織架構頁一致
-function unitsInTreeOrder(orgUnits: OrgUnit[]): OrgUnit[] {
+export function unitsInTreeOrder(orgUnits: OrgUnit[]): OrgUnit[] {
   const childrenMap = new Map<number | null, OrgUnit[]>()
   const ids = new Set(orgUnits.map(u => u.id))
   for (const u of orgUnits) {
@@ -114,7 +114,7 @@ export function allDivisionOptions(orgUnits: OrgUnit[]): { value: string; label:
 }
 
 // 課別歸屬的處 = 從該節點往上最近的處別祖先（與 deriveComboForUnit 一致），支援深層節點（處→中間節點→課）
-function nearestDivisionId(unit: OrgUnit, unitMap: Map<number, OrgUnit>): number | null {
+export function nearestDivisionId(unit: OrgUnit, unitMap: Map<number, OrgUnit>): number | null {
   let cur: OrgUnit | undefined = unit
   while (cur) {
     if (cur.unit_type === 'division') return cur.id

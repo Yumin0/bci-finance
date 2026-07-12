@@ -221,6 +221,8 @@ export type FormSlot = {
   staticOptions?: string[]
   showWhen?: { fieldId: string; values: string[] }
   taxConfig?: { baseFieldId: string; totalFieldId: string; taxAmountFieldId?: string }
+  defaultValue?: string
+  dateDefaultMode?: 'fixed' | 'nearest_cycle'
 } | null
 
 export type FormSchemaRow = {

@@ -21,3 +21,24 @@ export function formatDateTime(iso: string | null | undefined): string {
     minute: '2-digit',
   })
 }
+
+// 依申請週期設定（允許的星期幾）算出今天或之後最近一個可選日期
+export function computeNearestAllowedDate(allowedWeekdays: number[]): string {
+  if (!allowedWeekdays.length) return ''
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  let nearest: Date | null = null
+  for (const wd of allowedWeekdays) {
+    const daysUntil = (wd - today.getDay() + 7) % 7
+    const candidate = new Date(today)
+    candidate.setDate(candidate.getDate() + daysUntil)
+    if (!nearest || candidate < nearest) nearest = candidate
+  }
+  if (!nearest) return ''
+
+  const y = nearest.getFullYear()
+  const m = String(nearest.getMonth() + 1).padStart(2, '0')
+  const d = String(nearest.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}

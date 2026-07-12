@@ -48,7 +48,7 @@
 - `dropdown_options`：下拉選項（institution / payment_account 欄位）
 - `dev_tracker`：問題回報（type: bug/feature/improvement/performance）
 - `fund_attachments`：資金申請/付款憑單附件（`funds_allocation_id`、`funds_payment_id`、`slot_label`、`storage_path`、`file_type`）；對應 Storage Bucket `fund-attachments`（Private）；上傳走 `/api/upload-attachment`，預覽走 `/api/attachment?path=...`（驗證登入後代理回傳，不暴露公開 URL）
-- `form_schema_rows` / `form_slots`：動態表單配置；`form_schema_rows.rowGroupStart boolean`（前端 schema 欄位，儲存於 Supabase `form_schemas` jsonb）標記「從此列起以下整組可重複新增」，搭配 AddFundsForm / EditFundsForm 的 `groupInstances` state 與 `__group_{blockId}` extra_data key 實作整組重複功能；付款憑單表單（`payment_voucher`）的付款明細區塊亦使用同一機制（建立頁 / 草稿編輯頁支援編輯，FundsPaymentDetail 以表格唯讀顯示）
+- `form_schema_rows` / `form_slots`：動態表單配置；`form_schema_rows.rowGroupStart boolean`（前端 schema 欄位，儲存於 Supabase `form_schemas` jsonb）標記「從此列起以下整組可重複新增」，搭配 AddFundsForm / EditFundsForm 的 `groupInstances` state 與 `__group_{blockId}` extra_data key 實作整組重複功能；付款憑單表單（`payment_voucher`）的付款明細區塊亦使用同一機制（建立頁 / 草稿編輯頁支援編輯，FundsPaymentDetail 以表格唯讀顯示）；`form_slots.defaultValue`（文字/選項預設值）與 `dateDefaultMode`（'fixed' | 'nearest_cycle'，僅 date 類型）：表單設定頁欄位設定面板可為任一欄位（除 readonly/attachment）設定新增申請單時自動帶入的預設值，date 類型可選「固定日期」或「自動選最近可用日期（依申請週期設定）」；目前僅 AddFundsForm（資金分配申請新增頁）讀取套用（僅全新表單生效，選了範本/草稿已有值時不覆蓋），付款憑單/暫付款沖銷憑單建立頁尚未串接。另外資金分配申請新增頁「申請處別」會依使用者組織架構身分自動帶入（`lib/orgPositions.ts` 的 `unitsInTreeOrder` 依組織樹順序取使用者第一個所屬處別，`nearestDivisionId` 往上找最近處別祖先；課別/職務不自動帶入，此為程式寫死邏輯，非表單設定頁可調整項目）；「職務」下拉選項文字改為「組織單位 + 職稱」（讀 `org_unit_members.role_type_id` 對照 `role_types.name`，無職稱則僅顯示單位名稱）
 - `payee_categories`：付款對象類別（名稱、sort_order）
 - `payee_category_fields`：各類別欄位定義（label、field_type: text|number|dropdown|date、options jsonb）
 - `payee_records`：實際付款對象資料（field_values jsonb 動態存欄位值，key 為 field id）
