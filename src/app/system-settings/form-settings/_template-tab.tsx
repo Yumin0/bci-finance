@@ -18,7 +18,7 @@ import {
   deleteSharedFundTemplate,
 } from '@/app/actions/fund-templates'
 
-type RoleRow = { id: number; org_unit_id: number; display_name: string | null; role_types: { name: string } }
+type MemberRoleRow = { org_unit_id: number; role_type_id: number | null; role_types: { name: string } | null }
 
 // dataSource 屬於系統自動帶入或需要即時上下文的欄位，範本不需要（也無法）預先設定
 const SKIP_DATA_SOURCES = new Set([
@@ -84,7 +84,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 
   const [schema, setSchema] = useState<FormBlock[]>([])
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
-  const [orgUnitRoles, setOrgUnitRoles] = useState<RoleRow[]>([])
+  const [memberRoles, setMemberRoles] = useState<MemberRoleRow[]>([])
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
@@ -134,8 +134,8 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
     )
     fetches.push(
       (async () => {
-        const { data } = await supabase.from('org_unit_roles').select('id, org_unit_id, display_name, role_types(name)').order('sort_order')
-        if (data) setOrgUnitRoles(data as unknown as RoleRow[])
+        const { data } = await supabase.from('org_unit_members').select('org_unit_id, role_type_id, role_types(name)').order('sort_order')
+        if (data) setMemberRoles(data as unknown as MemberRoleRow[])
       })()
     )
     const dropdownFields = ['institution', 'payment_account'].filter(f => neededSources.has(`dropdown_options:${f}`))
@@ -290,9 +290,14 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 
   const divisions = allDivisionOptions(orgUnits)
   const sections = allSectionOptions(orgUnits, divisionId)
-  const roleOptions = orgUnitRoles
-    .filter(r => r.org_unit_id === sectionId)
-    .map(r => r.display_name ?? `${r.role_types.name}`)
+  const sectionUnit = orgUnits.find(u => u.id === sectionId)
+  const roleOptions = sectionUnit
+    ? [...new Set(
+        memberRoles
+          .filter(r => r.org_unit_id === sectionId)
+          .map(r => r.role_types?.name ? `${unitLabel(sectionUnit)} ${r.role_types.name}` : unitLabel(sectionUnit))
+      )]
+    : []
 
   function renderSlotInput(slot: NonNullable<FormSlot>, value: string, onChange: (v: string) => void) {
     const { fieldId, type, dataSource, staticOptions } = slot

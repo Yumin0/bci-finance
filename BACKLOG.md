@@ -225,6 +225,7 @@ FormSlot 型別新增 `defaultValue`（文字/選項預設值）與 `dateDefault
 - [x] `src/lib/orgPositions.ts`（`unitsInTreeOrder`、`nearestDivisionId` 改為 export 供 AddFundsForm 共用）
 - [x] `src/app/funds-allocation/my-funds/add/_components/AddFundsForm.tsx`（讀取 defaultValue 套用＋申請處別/職務標籤邏輯，Playwright 驗證：申請日期/機構/幣別/申請處別皆正確帶入，職務下拉正確顯示「單位+職稱」且選取後仍正確連動處別/課別，且既有範本載入不受影響）
 - 備註：EditFundsForm（編輯頁）與付款憑單/暫付款沖銷憑單建立頁本次不同步調整，僅資金分配申請新增頁生效
+- 附帶修復（測試時發現的獨立舊問題）：表單設定「範本管理」頁的「職務」欄位選不到任何選項（顯示「無符合選項」），原因是資料來源 `org_unit_roles` 這張表自 2026-06-18「審核流程 Phase 2」移除「＋新增職位」按鈕後就完全沒有資料寫入、一直是空表；改為讀取 `org_unit_members`（實際指派負責人）＋ `role_types` 對照，標籤格式與 AddFundsForm 統一為「單位＋職稱」；`_template-tab.tsx`
 - 備註：付款憑單／暫付款沖銷憑單建立頁本次不接上讀取邏輯（機制先建立，之後有需求再串接）
 
 **審核管理 Tab 依流程進度顯示＋群組已核准總額修正**（2026-07-12，Riku）
