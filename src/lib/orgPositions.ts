@@ -86,12 +86,25 @@ export function isUserCoveredByUnits(userUnitIds: number[], scopeUnitIds: number
   return false
 }
 
-// 找不到使用者的組織位置時的備援清單：列出所有標記處別/課別的節點
+// 完整清單：列出所有標記處別/課別的節點（申請單處別/課別下拉開放自由選擇）
 export function allDivisionOptions(orgUnits: OrgUnit[]): { value: string; label: string }[] {
   return orgUnits.filter(u => u.unit_type === 'division').map(u => ({ value: String(u.id), label: unitLabel(u) }))
 }
 
+// 課別歸屬的處 = 從該節點往上最近的處別祖先（與 deriveComboForUnit 一致），支援深層節點（處→中間節點→課）
+function nearestDivisionId(unit: OrgUnit, unitMap: Map<number, OrgUnit>): number | null {
+  let cur: OrgUnit | undefined = unit
+  while (cur) {
+    if (cur.unit_type === 'division') return cur.id
+    cur = cur.parent_id != null ? unitMap.get(cur.parent_id) : undefined
+  }
+  return null
+}
+
 export function allSectionOptions(orgUnits: OrgUnit[], divisionId: number | null): { value: string; label: string }[] {
   if (divisionId == null) return []
-  return orgUnits.filter(u => u.unit_type === 'section' && u.parent_id === divisionId).map(u => ({ value: String(u.id), label: unitLabel(u) }))
+  const unitMap = new Map(orgUnits.map(u => [u.id, u]))
+  return orgUnits
+    .filter(u => u.unit_type === 'section' && nearestDivisionId(u, unitMap) === divisionId)
+    .map(u => ({ value: String(u.id), label: unitLabel(u) }))
 }

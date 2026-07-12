@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, DropdownOption, OrgUnit, FormBlock, FormSchemaRow, FormSlot, TaxRateOption, ApprovalRecord } from '@/lib/types'
 import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtils'
-import { deriveUserOrgCombos, divisionOptionsFromCombos, sectionOptionsFromCombos, allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
+import { allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
 import { formatDateTime } from '@/lib/dateUtils'
@@ -74,8 +74,9 @@ export default function EditFundsForm({
   const [templateSaved, setTemplateSaved] = useState(false)
 
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
-  const [memberUnitIds, setMemberUnitIds] = useState<number[]>([])
   const [memberRoleMap, setMemberRoleMap] = useState<Record<number, string[]>>({})
+  // 有「已綁定帳號負責人」的組織節點 id 集合；null = 尚未載入完成（載入前不顯示提醒）
+  const [leaderUnitIds, setLeaderUnitIds] = useState<Set<number> | null>(null)
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
 
@@ -274,7 +275,6 @@ export default function EditFundsForm({
           .eq('user_id', userId)
         if (r.data) {
           const rows = r.data as unknown as { org_unit_id: number; role_types: { name: string } | null }[]
-          setMemberUnitIds(rows.map(m => m.org_unit_id))
           const roleMap: Record<number, string[]> = {}
           for (const m of rows) {
             const name = m.role_types?.name
@@ -284,6 +284,15 @@ export default function EditFundsForm({
             }
           }
           setMemberRoleMap(roleMap)
+        }
+      }
+      const loadUnitLeaders = async () => {
+        const r = await supabase
+          .from('org_unit_members')
+          .select('org_unit_id')
+          .not('user_id', 'is', null)
+        if (r.data) {
+          setLeaderUnitIds(new Set((r.data as { org_unit_id: number }[]).map(m => m.org_unit_id)))
         }
       }
       const loadDropdowns = async (fields: string[]) => {
@@ -298,7 +307,7 @@ export default function EditFundsForm({
         }
       }
       if (neededSources.has('org_units:division') || neededSources.has('org_units:section') || neededSources.has('org_unit_roles')) {
-        fetches.push(loadOrgUnits(), loadMyMemberships())
+        fetches.push(loadOrgUnits(), loadMyMemberships(), loadUnitLeaders())
       }
       const dropdownFields: string[] = []
       if (neededSources.has('dropdown_options:institution')) dropdownFields.push('institution')
@@ -408,13 +417,13 @@ export default function EditFundsForm({
   }, [record.id])
 
   const unitMap = new Map(orgUnits.map(u => [u.id, u]))
-  const userCombos = deriveUserOrgCombos(memberUnitIds, orgUnits)
-  const divisions = userCombos.length > 0 ? divisionOptionsFromCombos(userCombos) : allDivisionOptions(orgUnits)
+  // 處別/課別開放全部選項，不限縮於使用者所屬組合；既有單子選的節點若不在清單中（如節點標記異動）仍補進選項避免顯示空白
+  const divisions = allDivisionOptions(orgUnits)
   if (divisionId != null && !divisions.some(d => d.value === String(divisionId))) {
     const u = unitMap.get(divisionId)
     if (u) divisions.push({ value: String(u.id), label: unitLabel(u) })
   }
-  const sections = userCombos.length > 0 ? sectionOptionsFromCombos(userCombos, divisionId) : allSectionOptions(orgUnits, divisionId)
+  const sections = allSectionOptions(orgUnits, divisionId)
   if (sectionId != null && !sections.some(s => s.value === String(sectionId))) {
     const u = unitMap.get(sectionId)
     if (u) sections.push({ value: String(u.id), label: unitLabel(u) })
@@ -550,6 +559,16 @@ export default function EditFundsForm({
     }
   }, [repeatableValues, taxSelectorStr, taxFeeStr, taxRateOptions])
 
+  // 所選處/課沒有已綁定帳號的負責人時的提醒文字（審核步驟可能找不到審核人）
+  function renderNoLeaderHint(unitId: number | null, kindLabel: string) {
+    if (unitId == null || leaderUnitIds === null || leaderUnitIds.has(unitId)) return null
+    return (
+      <p className="mt-1.5 text-xs text-amber-600">
+        此{kindLabel}尚未設定負責人，送出後的審核步驟可能無人可簽核，請先聯絡管理員於組織架構中設定負責人
+      </p>
+    )
+  }
+
   function renderFieldFor(
     slot: NonNullable<FormSlot>,
     values: Record<string, string>,
@@ -568,35 +587,41 @@ export default function EditFundsForm({
       }
       if (fieldId === 'apply_division') {
         return (
-          <SearchableSelect
-            value={String(divisionId ?? '')}
-            onChange={v => {
-              const newDivId = Number(v) || null
-              setDivisionId(newDivId)
-              setSectionId(null)
-              const divRoles = newDivId ? (memberRoleMap[newDivId] ?? []) : []
-              setField('apply_role', divRoles.length === 1 ? divRoles[0] : '')
-            }}
-            options={divisions}
-            disabled={disabled} required={required}
-          />
+          <div className="w-full">
+            <SearchableSelect
+              value={String(divisionId ?? '')}
+              onChange={v => {
+                const newDivId = Number(v) || null
+                setDivisionId(newDivId)
+                setSectionId(null)
+                const divRoles = newDivId ? (memberRoleMap[newDivId] ?? []) : []
+                setField('apply_role', divRoles.length === 1 ? divRoles[0] : '')
+              }}
+              options={divisions}
+              disabled={disabled} required={required}
+            />
+            {renderNoLeaderHint(divisionId, '處別')}
+          </div>
         )
       }
       if (fieldId === 'apply_section') {
         return (
-          <SearchableSelect
-            value={String(sectionId ?? '')}
-            onChange={v => {
-              const newSecId = Number(v) || null
-              setSectionId(newSecId)
-              const secRoles = newSecId ? (memberRoleMap[newSecId] ?? []) : []
-              const divRoles = divisionId ? (memberRoleMap[divisionId] ?? []) : []
-              const roles = secRoles.length > 0 ? secRoles : divRoles
-              setField('apply_role', roles.length === 1 ? roles[0] : '')
-            }}
-            options={sections}
-            disabled={disabled || !divisionId} required={required}
-          />
+          <div className="w-full">
+            <SearchableSelect
+              value={String(sectionId ?? '')}
+              onChange={v => {
+                const newSecId = Number(v) || null
+                setSectionId(newSecId)
+                const secRoles = newSecId ? (memberRoleMap[newSecId] ?? []) : []
+                const divRoles = divisionId ? (memberRoleMap[divisionId] ?? []) : []
+                const roles = secRoles.length > 0 ? secRoles : divRoles
+                setField('apply_role', roles.length === 1 ? roles[0] : '')
+              }}
+              options={sections}
+              disabled={disabled || !divisionId} required={required}
+            />
+            {renderNoLeaderHint(sectionId, '課別')}
+          </div>
         )
       }
       if (fieldId === 'apply_role') {
