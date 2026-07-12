@@ -7,7 +7,7 @@ import {
   getApprovalHistoryForReviewer,
 } from '@/app/actions/approval-flow'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
-import { getWeeklyBudgetSummary, getGroupReachedTotals } from '@/app/actions/fund-budget'
+import { getWeeklyBudgetSummary, getGroupApprovedTotals } from '@/app/actions/fund-budget'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import {
   getCurrentWeekStart,
@@ -128,7 +128,7 @@ export default async function ReviewPage({
     ),
     ...GROUP_TABS.map(tab => {
       const gid = tabGroupIds[tab]
-      return gid ? getGroupReachedTotals(selectedWeekStart, gid) : Promise.resolve({} as Record<string, number>)
+      return gid ? getGroupApprovedTotals(selectedWeekStart, selectedWeekEnd, gid) : Promise.resolve({} as Record<string, number>)
     }),
   ])
 

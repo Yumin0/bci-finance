@@ -580,7 +580,46 @@ export async function getPendingAllocationsByApprovalGroup(groupId: number) {
   })
 }
 
-type AllRaw = PendingRaw & { status: string }
+type AllRaw = PendingRaw & { id: number; status: string }
+
+// 單子是否已走到指定步驟：待審核看目前步驟、已核准（付款憑單含已付款）視為走完全部步驟、
+// 被退回的看審核紀錄實際走到過的最大步驟（退回後 current_step 會被清空）；草稿一律未到達
+function hasReachedStep(status: string, currentStep: number | null, stepNumber: number, maxRecordedStep: number): boolean {
+  if (status === 'approved' || status === 'paid') return true
+  if (status === 'pending') return (currentStep ?? 0) >= stepNumber
+  if (status === 'rejected') return maxRecordedStep >= stepNumber
+  return false
+}
+
+// 查詢多張單子各自在審核紀錄中出現過的最大步驟編號（退回單判斷「曾走到哪一步」用）
+async function getMaxRecordedSteps(
+  column: 'funds_allocation_id' | 'funds_payment_id',
+  ids: number[]
+): Promise<Map<number, number>> {
+  if (ids.length === 0) return new Map()
+  const { data } = await supabase
+    .from('approval_records')
+    .select(`${column}, step_number`)
+    .in(column, ids)
+  const map = new Map<number, number>()
+  for (const r of (data ?? []) as unknown as Array<Record<string, number>>) {
+    const id = r[column]
+    if (r.step_number > (map.get(id) ?? 0)) map.set(id, r.step_number)
+  }
+  return map
+}
+
+// 從候選單中過濾出「已走到審核人對應步驟」的單子（myStep 為該審核人/群組在範本中最早的步驟編號）
+async function filterReached<T extends { id: number; status: string; current_step: number | null }>(
+  column: 'funds_allocation_id' | 'funds_payment_id',
+  candidates: Array<{ row: T; myStep: number }>
+): Promise<T[]> {
+  const rejectedIds = candidates.filter(c => c.row.status === 'rejected').map(c => c.row.id)
+  const maxSteps = await getMaxRecordedSteps(column, rejectedIds)
+  return candidates
+    .filter(c => hasReachedStep(c.row.status, c.row.current_step, c.myStep, maxSteps.get(c.row.id) ?? 0))
+    .map(c => c.row)
+}
 
 export async function getAllocationsForOrgRoleByWeek(userId: number, weekStart: string, weekEnd: string) {
   const reviewerInfo = await getReviewerInfo(userId)
@@ -591,16 +630,20 @@ export async function getAllocationsForOrgRoleByWeek(userId: number, weekStart: 
     .lte('date', weekEnd)
     .order('date', { ascending: false })
 
-  const filtered = ((data ?? []) as unknown as AllRaw[]).filter(r => {
+  const candidates = ((data ?? []) as unknown as AllRaw[]).flatMap(r => {
     const steps = r.approval_flow_templates?.approval_flow_steps ?? []
-    return steps.some(s =>
+    const matching = steps.filter(s =>
       s.reviewer_type === 'org_role' &&
       stepMatchesReviewer(s, reviewerInfo, {
         applyDivisionId: r.apply_division_id,
         applySectionId: r.apply_section_id,
       })
     )
+    if (matching.length === 0) return []
+    return [{ row: r, myStep: Math.min(...matching.map(s => s.step_number)) }]
   })
+
+  const filtered = await filterReached('funds_allocation_id', candidates)
 
   const emailMap = await resolvePendingNames(filtered)
   return filtered.map(r => {
@@ -636,10 +679,14 @@ export async function getAllocationsForApprovalGroupByWeek(groupId: number, week
     .lte('date', weekEnd)
     .order('date', { ascending: false })
 
-  const filtered = ((data ?? []) as unknown as AllRaw[]).filter(r => {
+  const candidates = ((data ?? []) as unknown as AllRaw[]).flatMap(r => {
     const steps = r.approval_flow_templates?.approval_flow_steps ?? []
-    return steps.some(s => s.reviewer_type === 'approval_group' && s.approval_group_id === groupId)
+    const matching = steps.filter(s => s.reviewer_type === 'approval_group' && s.approval_group_id === groupId)
+    if (matching.length === 0) return []
+    return [{ row: r, myStep: Math.min(...matching.map(s => s.step_number)) }]
   })
+
+  const filtered = await filterReached('funds_allocation_id', candidates)
 
   const emailMap = await resolvePendingNames(filtered)
   return filtered.map(r => {
@@ -734,6 +781,7 @@ export async function getAllocationOrgContext(
 type AllocOrgRef = { apply_division_id: number | null; apply_section_id: number | null } | null
 
 type PaymentWeekRaw = {
+  id: number
   status: string
   current_step: number | null
   created_by: string
@@ -770,16 +818,20 @@ export async function getPaymentsForOrgRoleByWeek(userId: number, weekStart: str
     .lte('date', weekEnd)
     .order('date', { ascending: false })
 
-  const filtered = ((data ?? []) as unknown as PaymentWeekRaw[]).filter(r => {
+  const candidates = ((data ?? []) as unknown as PaymentWeekRaw[]).flatMap(r => {
     const steps = r.approval_flow_templates?.approval_flow_steps ?? []
-    return steps.some(s =>
+    const matching = steps.filter(s =>
       s.reviewer_type === 'org_role' &&
       stepMatchesReviewer(s, reviewerInfo, {
         applyDivisionId: r.funds_allocation?.apply_division_id,
         applySectionId: r.funds_allocation?.apply_section_id,
       })
     )
+    if (matching.length === 0) return []
+    return [{ row: r, myStep: Math.min(...matching.map(s => s.step_number)) }]
   })
+
+  const filtered = await filterReached('funds_payment_id', candidates)
 
   const emailMap = await resolvePendingNames(filtered as unknown as PendingRaw[])
   return filtered.map(r => {
@@ -814,10 +866,14 @@ export async function getPaymentsForApprovalGroupByWeek(groupId: number, weekSta
     .lte('date', weekEnd)
     .order('date', { ascending: false })
 
-  const filtered = ((data ?? []) as unknown as PaymentWeekRaw[]).filter(r => {
+  const candidates = ((data ?? []) as unknown as PaymentWeekRaw[]).flatMap(r => {
     const steps = r.approval_flow_templates?.approval_flow_steps ?? []
-    return steps.some(s => s.reviewer_type === 'approval_group' && s.approval_group_id === groupId)
+    const matching = steps.filter(s => s.reviewer_type === 'approval_group' && s.approval_group_id === groupId)
+    if (matching.length === 0) return []
+    return [{ row: r, myStep: Math.min(...matching.map(s => s.step_number)) }]
   })
+
+  const filtered = await filterReached('funds_payment_id', candidates)
 
   const emailMap = await resolvePendingNames(filtered as unknown as PendingRaw[])
   return filtered.map(r => {

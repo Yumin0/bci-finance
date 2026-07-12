@@ -27,44 +27,52 @@ export async function getWeeklyBudgetSummary(weekStart: string): Promise<{
 
 /**
  * 計算指定審核群組的「已核准總額」：
- * 只計算申請單的當前步驟已到達該群組步驟（或更後面）、且審核人已填核准金額的加總；
- * 尚無核准金額的申請不列入（視為 0），不退回申請金額。
+ * 只加總「該群組步驟實際按過核准」的審核紀錄裡填的核准金額，
+ * 單子到達該步驟但群組尚未核准的不列入；並依所選週次（申請日期）過濾。
+ * 被退回的單不列入（資金視為釋回）。
  */
-export async function getGroupReachedTotals(
-  _weekStart: string,
+export async function getGroupApprovedTotals(
+  weekStart: string,
+  weekEnd: string,
   groupId: number
 ): Promise<Record<string, number>> {
-  // 不限週別：審核管理顯示的是所有待審核申請，已核准總額也應涵蓋全部已到達該階段的申請
   const { data: allocations } = await supabase
     .from('funds_allocation')
     .select(`
-      amount, approved_amount, payment_account, status, current_step,
+      payment_account, status,
       approval_flow_templates(
         approval_flow_steps(step_number, approval_group_id)
-      )
+      ),
+      approval_records(step_number, decision, approved_amount, reviewed_at)
     `)
+    .gte('date', weekStart)
+    .lte('date', weekEnd)
     .in('status', ['pending', 'approved'])
 
   const totals: Record<string, number> = {}
   for (const a of (allocations ?? []) as unknown as Array<{
-    amount: number
-    approved_amount: number | null
     payment_account: string | null
     status: string
-    current_step: number | null
     approval_flow_templates: { approval_flow_steps: Array<{ step_number: number; approval_group_id: number | null }> } | null
+    approval_records: Array<{ step_number: number; decision: string; approved_amount: number | null; reviewed_at: string | null }> | null
   }>) {
     const steps = a.approval_flow_templates?.approval_flow_steps ?? []
-    const groupStep = steps.find(s => s.approval_group_id === groupId)
-    if (!groupStep) continue
+    // 同範本若多個步驟用同一群組，取最後面且已核准的那步（後面的核准金額承接並取代前面的）
+    const groupStepNumbers = steps
+      .filter(s => s.approval_group_id === groupId)
+      .map(s => s.step_number)
+      .sort((x, y) => y - x)
+    if (groupStepNumbers.length === 0) continue
 
-    const reached =
-      a.status === 'approved' ||
-      (a.current_step !== null && a.current_step >= groupStep.step_number)
-
-    if (reached) {
-      const key = a.payment_account ?? '（未指定帳戶）'
-      totals[key] = (totals[key] ?? 0) + (a.approved_amount ?? 0)
+    for (const stepNumber of groupStepNumbers) {
+      const record = (a.approval_records ?? [])
+        .filter(r => r.step_number === stepNumber && r.decision === 'approved')
+        .sort((x, y) => (y.reviewed_at ?? '').localeCompare(x.reviewed_at ?? ''))[0]
+      if (record) {
+        const key = a.payment_account ?? '（未指定帳戶）'
+        totals[key] = (totals[key] ?? 0) + (record.approved_amount ?? 0)
+        break
+      }
     }
   }
   return totals
