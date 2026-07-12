@@ -27,7 +27,8 @@ export async function getWeeklyBudgetSummary(weekStart: string): Promise<{
 
 /**
  * 計算指定審核群組的「已核准總額」：
- * 只計算申請單的當前步驟已到達該群組步驟（或更後面）的金額加總。
+ * 只計算申請單的當前步驟已到達該群組步驟（或更後面）、且審核人已填核准金額的加總；
+ * 尚無核准金額的申請不列入（視為 0），不退回申請金額。
  */
 export async function getGroupReachedTotals(
   _weekStart: string,
@@ -63,7 +64,7 @@ export async function getGroupReachedTotals(
 
     if (reached) {
       const key = a.payment_account ?? '（未指定帳戶）'
-      totals[key] = (totals[key] ?? 0) + (a.approved_amount ?? a.amount ?? 0)
+      totals[key] = (totals[key] ?? 0) + (a.approved_amount ?? 0)
     }
   }
   return totals

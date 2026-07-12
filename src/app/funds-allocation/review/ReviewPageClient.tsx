@@ -255,6 +255,7 @@ function AccountGroupedList({
         comment: '',
         reviewerId: String(userId),
         totalSteps: item.total_steps ?? 1,
+        approvedAmount: item.approved_amount ?? item.amount ?? null,
       })
       onActionCompleted()
     } catch {
@@ -301,6 +302,7 @@ function AccountGroupedList({
         comment: '',
         reviewerId: String(userId),
         totalSteps: item.total_steps ?? 1,
+        approvedAmount: item.approved_amount ?? item.amount ?? null,
       })))
       setSelectedIds(prev => {
         const next = new Set(prev)

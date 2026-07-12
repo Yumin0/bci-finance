@@ -114,7 +114,8 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         }
       }
 
-      setApprovedAmount(String(allocation.amount ?? ''))
+      // 預填核准金額：優先承接上一步審核人核准的最新金額，第一步才用申請金額
+      setApprovedAmount(String(allocation.approved_amount ?? allocation.amount ?? ''))
       getAttachmentsByAllocationId(numId).then(setAttachments)
       setLoading(false)
     }
