@@ -132,10 +132,17 @@ export async function generateSerialNumber(applyDate?: string): Promise<string> 
   const dateStr = applyDate
     ? applyDate.replace(/-/g, '')
     : new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }).replace(/-/g, '')
-  const { count } = await supabase
+  // 取當天最大單號尾碼 +1；用筆數 +1 會在有單被刪除（跳號）時撞號
+  const { data: latest } = await supabase
     .from('funds_allocation')
-    .select('id', { count: 'exact', head: true })
+    .select('serial_number')
     .like('serial_number', `${dateStr}%`)
-  const seq = ((count ?? 0) + 1).toString().padStart(3, '0')
+    .order('serial_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const lastSeq = latest?.serial_number
+    ? parseInt(latest.serial_number.slice(dateStr.length), 10) || 0
+    : 0
+  const seq = (lastSeq + 1).toString().padStart(3, '0')
   return `${dateStr}${seq}`
 }
