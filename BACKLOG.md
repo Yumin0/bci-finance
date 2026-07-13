@@ -215,6 +215,24 @@
 
 ## 已完成
 
+**資金分配剩餘金額與付款憑單核心邏輯**（2026-07-13，Yumin）
+分支：`feature/yumin-remaining-amount`
+對齊舊系統（bci-financial.com）完整邏輯：資金分配單核准後可在不同時間點分批建立多張付款憑單各自扣款，剩餘金額（＝核准金額−所有相關憑單佔用金額，即時計算不落地）在列表與付款憑單頁即時顯示，剩餘金額歸零時（財務確認付款）資金分配單自動轉為新增的 `paid`「已付款」狀態；同張分配單建立多張憑單時金額加總不可超過核准金額（前後端皆擋）。釐清過程見 `docs/core-logic/`（業務邏輯總結與缺口比對，皆與 Yumin 確認）。共用計算純函式 `lib/fundsAllocationRemaining.ts`，查詢/結案 server action 在 `actions/fund-budget.ts`（`getAllocationRemainingInfo`、`recalcAllocationCloseStatus`）。
+影響範圍確認：
+- [x] `funds_payment` 新增 `approved_amount` 欄位；審核頁可填/改核准金額（承接上一步，上限＝剩餘＋本張佔用）
+- [x] 建立/草稿編輯付款憑單存檔改採用實填總額（`createPayment`/`updateDraftPayment` 加 `amount` 參數），「總額」欄位開放手動輸入（`manualTotalKeys` 旗標，改過就不再被費用/稅額自動覆寫）
+- [x] 建立/儲存付款憑單時同分配單憑單金額加總防呆（`checkAmountWithinRemaining`，排除自己）
+- [x] `funds_allocation` 新增 `FUNDS_STATUS.PAID`，`confirmPayment` 觸發 `recalcAllocationCloseStatus` 歸零轉入
+- [x] 全站判斷 `status === 'approved'` 逐一檢查（`fund-budget.ts` 週預算 `.in()` 加 paid、三列表 stepName/剩餘顯示、EditFundsForm/review 文案、ExportCsvButton 篩選+標籤、`status-label-config` 加 paid 標籤列）
+- [x] 「建立付款憑單」「審核付款憑單」「草稿編輯頁」補上「已核准資金分配申請單」對照卡片（核准金額／剩餘／本次填寫即時試算）
+- [x] 首頁 / my-funds / all 三列表「剩餘金額」即時計算顯示（server 端 join `funds_payment` 算好傳入）
+- [x] 狀態標籤設定頁資金分配模組自動出現「已付款」可設定列（讀 `DEFAULT_STATUS_LABEL_CONFIG`）
+- [x] 付款憑單付款明細數字欄改回舊系統「未稅金額／稅額／總額」（移除手續費、新增純手動填的總額、三欄用全新 fieldId 與資金分配脫鉤、建立時金額欄不從申請單帶入、`amount`＝各組總額加總、`feeValidation` 改檢查總額>0；只改付款憑單）：dev/staging 已用 service role 改 `form_schemas` block_pay_2，正式機表單設定步驟登記在 `docs/prod-pending-sql.md`。改動檔：`add/[id]/page.tsx`、`[id]/page.tsx`、`FundsPaymentDetail.tsx`、`lib/feeValidation.ts`
+- [x] 頂部「已核准資金分配申請單」對照卡片擴充成舊系統完整母單摘要列（單號/處別/課別/日期/申請人/職稱/幣別/機構/出款帳戶/費用項目/項目＋核准/剩餘金額，落差3）：新增共用元件 `_components/AllocationSummaryCard.tsx`，`getAllocationRemainingInfo` 回傳型別擴充為 `AllocationRemainingInfo`（含母單 `summary`），建立/草稿/審核三頁改用同一元件，Playwright 截圖確認 13 欄齊全排版正常
+- [x] 修正既有 bug：審核管理群組 Tab 的「審核」按鈕沒檢查群組成員（列表顯示可審、進審核頁卻被 `checkCanReviewStep` 擋）。`getPaymentsForApprovalGroupByWeek`／`getAllocationsForApprovalGroupByWeek` 加傳 `userId`，`is_pending_here` 併入群組成員判斷；非成員顯示「查閱」、badge 不計入。付款憑單＋資金分配（諮詢議會/主管議會/財務長）兩模組都修。Playwright 實測：非成員 Yumin 看到「查閱」、群組成員王亞瑜看到「審核」+badge1
+實測（Playwright，2026-07-13）：建 2 張憑單 2000+1000＝核准 3000 → 超額第 3 張被擋（剩餘 NT$1,000 錯誤）→ 逐張確認付款 → 分配單自動轉「已付款」、剩餘 0；部分付款情境（10000 核准、2 付 1 待）分配單維持「已核准」、剩餘正確 4000；審核頁對照卡片＋核准金額輸入框（承接 1000、上限 6000 超額被擋）皆正確。付款明細改版實測：分配單 #42（核准 5750）建憑單填 2 組總額 2298+566、未稅/稅額留 0 → 送出未被「必須大於 0」擋、`amount` 存入 2864、彙總顯示「未稅金額 0／稅額 0／總額 2,864」、剩餘 2886，測試資料已清除。
+備註：需在正式機執行兩段 SQL（見 `docs/prod-pending-sql.md`）——`funds_payment` 加 `approved_amount` 欄位、放寬 `funds_allocation_status_check` 約束允許 `paid`（此約束未曾記錄在專案 migration，實測時才發現是當初直接在 Supabase Dashboard 手動加的，dev/staging 已補跑）。
+
 **付款憑單「受款人」資料來源合併付款對象類別**（2026-07-13，Yumin）
 分支：`feature/yumin-payee-merge-source`
 表單設定「資料來源」下拉新增「全部付款對象（合併）」選項（`payee_records:all`，`actions/form-schema.ts` 的 `getFormDataSources()` 動態附加，只要 `payee_categories` 有資料就會出現），選這個欄位會合併目前所有付款對象類別（不寫死類別數量，未來新增類別自動一起併入）供搜尋/選取。付款憑單表單「受款人」欄位已改選此選項，實測搜尋同時涵蓋國內廠商（賀伯特行政管理有限公司）與職員（謝靜弦），選取廠商後正確自動帶入對應欄位值。
@@ -224,7 +242,7 @@
 - [x] `funds-payment/my-payment/[id]/page.tsx`（草稿編輯頁：`payee_records:all` 特例，autoFillLabels 與 fetch 迴圈皆處理）
 - [x] `funds-payment/my-payment/page.tsx`、`/all`、`/review`（僅用 `.find()` 找欄位標籤，`payee_records:` 前綴不受影響，無需改動）
 - [x] 資金分配申請單、暫付款沖銷憑單、範本管理頁本次未使用此欄位，不受影響
-備註：目前僅套用於付款憑單表單的「受款人」欄位（使用者本次需求範圍）；dev/staging 表單設定已直接透過畫面操作存檔套用，正式機部署後需在正式站表單設定同步把「受款人」資料來源改選同一個選項。
+備註：目前僅套用於付款憑單表單的「受款人」欄位（使用者本次需求範圍）；dev/staging 與正式機表單設定皆已透過畫面操作存檔套用（Yumin 2026-07-13 確認正式機已完成設定）。
 
 **表單欄位預設值機制**（2026-07-13，Yumin）
 分支：`feature/yumin-form-default-values`

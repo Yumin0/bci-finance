@@ -10,6 +10,8 @@ import { validateFeePositive } from '@/lib/feeValidation'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { PAYMENT_STATUS } from '@/lib/constants'
 import { submitMyPayment, updateDraftPayment } from '@/app/actions/payment'
+import { getAllocationRemainingInfo, type AllocationRemainingInfo } from '@/app/actions/fund-budget'
+import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
@@ -137,6 +139,9 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
   // 群組重複資料（key = blockId）：從已存的 __group_ 資料載入，可增刪修改
   const [groupInstances, setGroupInstances] = useState<Record<string, Record<string, string>[]>>({})
+  // 使用者手動改過「總額」欄位的鍵集合（不再被費用/稅額變動自動覆寫）
+  const [manualTotalKeys, setManualTotalKeys] = useState<Set<string>>(new Set())
+  const [remainingInfo, setRemainingInfo] = useState<AllocationRemainingInfo | null>(null)
 
   function addGroupInstance(blockId: string) {
     setGroupInstances(prev => ({ ...prev, [blockId]: [...(prev[blockId] ?? [{}]), {}] }))
@@ -198,6 +203,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           allocExtra = allocData.extra_data as Record<string, string>
           setAllocExtraData(allocExtra)
         }
+        setRemainingInfo(await getAllocationRemainingInfo(rec.funds_allocation_id, rec.id))
       }
 
       if (rec.status === PAYMENT_STATUS.DRAFT) {
@@ -470,7 +476,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
   const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
   // 群組區塊的彙總顯示（key = blockId）：加總所有組
-  const groupBlockSummary: Record<string, { taxBase: number; handling: number; taxAmount: number; total: number }> = {}
+  // 付款憑單「總額」為純手動填寫、不自動加總，彙總的總額＝各組「總額」欄位加總
+  const groupBlockSummary: Record<string, { taxBase: number; taxAmount: number; total: number }> = {}
   for (const block of schema) {
     const groupRows = getGroupRows(block)
     if (groupRows.length > 0) {
@@ -479,20 +486,14 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       const baseFieldId = taxSelectSlot?.taxConfig?.baseFieldId ?? ''
       const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
       const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
-      const handlingSlots = groupSlots.filter(s =>
-        s.type === 'number' &&
-        s.fieldId !== baseFieldId &&
-        (!taxAmtFieldId || s.fieldId !== taxAmtFieldId) &&
-        (!totalFieldId || s.fieldId !== totalFieldId)
-      )
       const instances = groupInstances[block.id] ?? [{}]
-      let totalBase = 0, totalHandling = 0, totalTax = 0
-      for (const inst of instances) {
+      let totalBase = 0, totalTax = 0, totalAmount = 0
+      instances.forEach((inst) => {
         totalBase += parseFloat(inst[baseFieldId] ?? '0') || 0
-        totalHandling += handlingSlots.reduce((acc, s) => acc + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0)
         totalTax += taxAmtFieldId ? (parseFloat(inst[taxAmtFieldId] ?? '0') || 0) : 0
-      }
-      groupBlockSummary[block.id] = { taxBase: totalBase, handling: totalHandling, taxAmount: totalTax, total: totalBase + totalHandling + totalTax }
+        totalAmount += totalFieldId ? (parseFloat(inst[totalFieldId] ?? '0') || 0) : 0
+      })
+      groupBlockSummary[block.id] = { taxBase: totalBase, taxAmount: totalTax, total: totalAmount }
       continue
     }
     const info = computeBlockTax(block, fieldValues, taxRateOptions)
@@ -500,8 +501,10 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   }
   const computedTotals: Record<string, string> = {}
   const computedTotalHints: Record<string, string> = {}
+  const editableTotalFieldIds = new Set<string>()
   for (const [blockId, info] of Object.entries(blockTaxMap)) {
     if (!info) continue
+    editableTotalFieldIds.add(info.totalFieldId)
     computedTotals[info.totalFieldId] = String(Math.floor(info.total))
     if (info.taxAmountFieldId) computedTotals[info.taxAmountFieldId] = String(Math.floor(info.taxAmount))
     const blk = schema.find(b => b.id === blockId)
@@ -513,6 +516,15 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       if (sumParts.length > 0) computedTotalHints[info.totalFieldId] = `（${[...sumParts, '稅額'].join('＋')}）`
     }
   }
+
+  // 這張憑單的總金額 = 所有區塊（群組彙總 或 單一稅務區塊）的總額加總
+  const grandTotal = schema.reduce((sum, block) => {
+    const groupSummary = groupBlockSummary[block.id]
+    if (groupSummary) return sum + groupSummary.total
+    const info = blockTaxMap[block.id]
+    if (info) return sum + info.total
+    return sum
+  }, 0)
 
   function renderDraftField(slot: NonNullable<FormSlot>) {
     const { fieldId, type, dataSource, staticOptions } = slot
@@ -577,6 +589,20 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     }
 
     if (computedTotals[fieldId] !== undefined) {
+      if (editableTotalFieldIds.has(fieldId)) {
+        const manualKey = `root:${fieldId}`
+        const isManual = manualTotalKeys.has(manualKey)
+        return (
+          <Input
+            type="number"
+            value={isManual ? (fieldValues[fieldId] ?? '') : computedTotals[fieldId]}
+            onChange={e => {
+              setManualTotalKeys(prev => new Set(prev).add(manualKey))
+              setField(fieldId, e.target.value)
+            }}
+          />
+        )
+      }
       return <Input value={computedTotals[fieldId]} readOnly className={readonlyCls} />
     }
 
@@ -695,14 +721,6 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         {instances.map((instValues, instIdx) => {
           const setInstField = (fid: string, val: string) => setInstFieldWithAutoTax(instIdx, fid, val)
 
-          const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
-          const taxAmountFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
-          const storedTax = taxAmountFieldId ? (parseFloat(instValues[taxAmountFieldId] ?? '0') || 0) : 0
-          const otherNums = taxSelectSlot?.taxConfig
-            ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmountFieldId)
-            : []
-          const computedTotal = otherNums.reduce((sum, s) => sum + (parseFloat(instValues[s.fieldId] ?? '0') || 0), 0) + storedTax
-
           return (
             <div key={instIdx} style={{
               position: 'relative',
@@ -714,14 +732,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                 <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
                   {row.slots.map((slot, slotIdx) => {
                     if (!slot) return <div key={slotIdx} />
-                    if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
-                      return (
-                        <div key={slotIdx}>
-                          <label style={labelStyle}>{slot.label}</label>
-                          <Input value={String(computedTotal)} readOnly className={readonlyCls} />
-                        </div>
-                      )
-                    }
+                    // 未稅金額/稅額/總額 皆為一般數字欄：稅額於選稅或改未稅金額時自動帶入，總額純手動填寫、不自動加總
                     return (
                       <div key={slotIdx}>
                         <label style={labelStyle}>{slot.label}</label>
@@ -766,29 +777,15 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
     }
     // 群組重複資料：以 label 為 key 存成 JSON（與申請單格式一致）
+    // 各欄位（含總額）直接存使用者填寫值：總額為純手動填寫、不自動加總
     for (const block of schema) {
       const groupRows = getGroupRows(block)
       if (groupRows.length === 0) continue
       const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
       const instances = groupInstances[block.id] ?? [{}]
-      const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
-      const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
-      const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
-      const otherNums = taxSelectSlot?.taxConfig
-        ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmtFieldId)
-        : []
       const labeled = instances.map(inst => {
-        const storedTax = taxAmtFieldId ? (parseFloat(inst[taxAmtFieldId] ?? '0') || 0) : 0
-        const numsSum = otherNums.reduce((sum, s) => sum + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0)
-        const total = numsSum + storedTax
         const obj: Record<string, string> = {}
-        for (const slot of groupSlots) {
-          if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
-            obj[slot.label] = String(total)
-          } else {
-            obj[slot.label] = inst[slot.fieldId] ?? ''
-          }
-        }
+        for (const slot of groupSlots) obj[slot.label] = inst[slot.fieldId] ?? ''
         return obj
       })
       extraData[`__group_${block.id}`] = JSON.stringify(labeled)
@@ -817,9 +814,13 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
   async function handleSave() {
     if (!record) return
+    if (remainingInfo && grandTotal > remainingInfo.remaining) {
+      setError(`金額超過剩餘可用額度（剩餘 NT$${remainingInfo.remaining.toLocaleString()}）`)
+      return
+    }
     setSaving(true)
     setError(null)
-    const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue())
+    const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue(), grandTotal)
     if (saveError) { setError(saveError); setSaving(false); return }
     await persistPaymentAttachments(record.id)
     setSaving(false)
@@ -830,9 +831,13 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     // 付款憑單表單沒有可重複列，repeatableValues 傳空物件
     const feeError = validateFeePositive(schema, fieldValues, {}, groupInstances)
     if (feeError) { setError(feeError); return }
+    if (remainingInfo && grandTotal > remainingInfo.remaining) {
+      setError(`金額超過剩餘可用額度（剩餘 NT$${remainingInfo.remaining.toLocaleString()}）`)
+      return
+    }
     setSubmitting(true)
     setError(null)
-    const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue())
+    const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue(), grandTotal)
     if (saveError) { setError(saveError); setSubmitting(false); return }
     await persistPaymentAttachments(record.id)
     const { error: submitError } = await submitMyPayment(record.id)
@@ -881,6 +886,14 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           </Link>
         </div>
 
+        {remainingInfo && (
+          <AllocationSummaryCard
+            info={remainingInfo}
+            remainingLabel="剩餘（不含本張）"
+            submitPreview={isDraft ? grandTotal : undefined}
+          />
+        )}
+
         {/* 草稿：內嵌可編輯表單 */}
         {isDraft ? (
           <div style={{ marginBottom: 32 }}>
@@ -901,8 +914,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                       <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
                       {groupSummary ? (
                         <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
-                          <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxBase)}</strong></span>
-                          <span style={{ color: 'var(--text-muted)' }}>手續費 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.handling)}</strong></span>
+                          <span style={{ color: 'var(--text-muted)' }}>未稅金額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxBase)}</strong></span>
                           <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxAmount)}</strong></span>
                           <span style={{ color: 'var(--text-muted)' }}>總額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.total)}</strong></span>
                         </div>

@@ -8,7 +8,10 @@ import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approv
 import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getAttachmentsByAllocationId, getAttachmentsByPaymentId } from '@/app/actions/attachments'
+import { getAllocationRemainingInfo, type AllocationRemainingInfo } from '@/app/actions/fund-budget'
+import { getPaymentOccupiedAmount } from '@/lib/fundsAllocationRemaining'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
+import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
 import AttachmentUpload from '@/app/_components/AttachmentUpload'
 import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/dateUtils'
@@ -42,10 +45,12 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
   const [loading, setLoading] = useState(true)
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
+  const [approvedAmount, setApprovedAmount] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [allocationAttachments, setAllocationAttachments] = useState<FundAttachment[]>([])
   const [paymentAttachments, setPaymentAttachments] = useState<FundAttachment[]>([])
+  const [remainingInfo, setRemainingInfo] = useState<AllocationRemainingInfo | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -81,23 +86,27 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         setRecord({ ...payment, approval_flow_templates: null })
       }
 
-      if (session.userId && payment.status === 'pending' && payment.current_step !== null) {
-        const stepDef = steps.find(s => s.step_number === payment.current_step)
-        if (stepDef) {
-          // 課長/處長（org_role）步驟需要申請單的處別/課別才能解析審核人
-          let applyDivisionId: number | null = null
-          let applySectionId: number | null = null
-          if (payment.funds_allocation_id) {
-            const { data: alloc } = await supabase
-              .from('funds_allocation')
-              .select('apply_division_id, apply_section_id')
-              .eq('id', payment.funds_allocation_id)
-              .single()
-            applyDivisionId = alloc?.apply_division_id ?? null
-            applySectionId = alloc?.apply_section_id ?? null
+      // 預填核准金額：優先承接上一步審核人核准的最新金額，沒有審過就用建立時填的金額
+      setApprovedAmount(String(payment.approved_amount ?? payment.amount ?? ''))
+
+      if (payment.funds_allocation_id) {
+        const [{ data: alloc }, remaining] = await Promise.all([
+          supabase.from('funds_allocation').select('apply_division_id, apply_section_id, approved_amount').eq('id', payment.funds_allocation_id).single(),
+          getAllocationRemainingInfo(payment.funds_allocation_id, payment.id),
+        ])
+        setRemainingInfo(remaining)
+
+        if (session.userId && payment.status === 'pending' && payment.current_step !== null) {
+          const stepDef = steps.find(s => s.step_number === payment.current_step)
+          if (stepDef) {
+            // 課長/處長（org_role）步驟需要申請單的處別/課別才能解析審核人
+            const canReview = await checkCanReviewStep({
+              userId: session.userId, stepDef,
+              applyDivisionId: alloc?.apply_division_id ?? null,
+              applySectionId: alloc?.apply_section_id ?? null,
+            })
+            setCanReviewStep(canReview)
           }
-          const canReview = await checkCanReviewStep({ userId: session.userId, stepDef, applyDivisionId, applySectionId })
-          setCanReviewStep(canReview)
         }
       }
 
@@ -119,10 +128,21 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
   const currentStep = record?.current_step ?? null
   const canReview = record?.status === 'pending' && currentStep !== null && canReviewStep
 
+  // 這張憑單目前佔用的金額（審核中用建立時填的金額）——核准金額上限 = 剩餘（已排除本張）+ 本張目前佔用
+  const ownOccupied = record ? getPaymentOccupiedAmount(record) : 0
+  const approvedAmountCap = remainingInfo ? remainingInfo.remaining + ownOccupied : null
+
   async function handleSubmit() {
     if (!record || !decision || !currentStep) return
     const stepDef = steps.find(s => s.step_number === currentStep)
     if (!stepDef) return
+    if (decision === 'approved') {
+      const amt = approvedAmount === '' ? null : Number(approvedAmount)
+      if (amt != null && approvedAmountCap != null && amt > approvedAmountCap) {
+        setError(`核准金額超過剩餘可用額度（上限 NT$${approvedAmountCap.toLocaleString()}）`)
+        return
+      }
+    }
     setSubmitting(true)
     setError(null)
     try {
@@ -134,6 +154,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         comment,
         reviewerId: String(userId ?? ''),
         totalSteps: steps.length,
+        approvedAmount: decision === 'approved' && approvedAmount !== '' ? Number(approvedAmount) : null,
       })
       router.push('/funds-payment/review')
     } catch (e: unknown) {
@@ -155,6 +176,14 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
       </div>
 
       {error && <p style={{ color: '#dc2626', marginBottom: 12 }}>{error}</p>}
+
+      {remainingInfo && (
+        <AllocationSummaryCard
+          info={remainingInfo}
+          remainingLabel="剩餘（不含本張）"
+          extraAmounts={[['本張憑單金額', ownOccupied.toLocaleString()]]}
+        />
+      )}
 
       <FundsPaymentDetail record={record} schema={schema} />
 
@@ -203,6 +232,9 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
                 {isDone && (
                   <span style={{ fontSize: 13, color: past.decision === 'approved' ? '#16a34a' : '#dc2626', fontWeight: 500 }}>
                     {past.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
+                    {past.decision === 'approved' && past.approved_amount != null && (
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>核准金額：{past.approved_amount.toLocaleString()} 元</span>
+                    )}
                     {past.reviewed_at && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>{formatDateTime(past.reviewed_at)}</span>}
                     {past.comment && <span style={{ display: 'block', color: 'var(--text-muted)', fontWeight: 400, fontSize: 12, marginTop: 2 }}>{past.comment}</span>}
                   </span>
@@ -220,11 +252,22 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
                       </label>
                     ))}
                   </div>
-                  <textarea
-                    placeholder="評論（選填）" rows={3} value={comment}
-                    onChange={e => setComment(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--btn-border)', fontSize: 14, resize: 'vertical', boxSizing: 'border-box', background: 'var(--bg-page)' }}
-                  />
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <textarea
+                      placeholder="評論（選填）" rows={3} value={comment}
+                      onChange={e => setComment(e.target.value)}
+                      style={{ flex: 1, minWidth: 160, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--btn-border)', fontSize: 14, resize: 'vertical', boxSizing: 'border-box', background: 'var(--bg-page)' }}
+                    />
+                    <input
+                      type="number"
+                      value={approvedAmount}
+                      onChange={e => setApprovedAmount(e.target.value)}
+                      onWheel={e => e.currentTarget.blur()}
+                      min={0}
+                      placeholder="核准金額"
+                      style={{ width: 130, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--btn-border)', fontSize: 14, background: 'var(--bg-page)', color: 'var(--text-body)', flexShrink: 0 }}
+                    />
+                  </div>
                   <div style={{ marginTop: 12 }}>
                     <Button onClick={handleSubmit} disabled={!decision || submitting}
                       className={decision && !submitting ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : ''}>

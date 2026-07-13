@@ -1440,6 +1440,9 @@ export default function EditFundsForm({
           {record.status === 'approved' && (
             <p style={{ marginTop: 12, color: '#16a34a', fontWeight: 600, fontSize: 14 }}>✓ 此申請已全數核准</p>
           )}
+          {record.status === 'paid' && (
+            <p style={{ marginTop: 12, color: '#16a34a', fontWeight: 600, fontSize: 14 }}>✓ 此申請已全數核准，額度已用完（已付款）</p>
+          )}
           {record.status === 'rejected' && (
             <p style={{ marginTop: 12, color: '#dc2626', fontWeight: 600, fontSize: 14 }}>✗ 此申請已被拒絕</p>
           )}

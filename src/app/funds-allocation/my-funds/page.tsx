@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session'
 import { FundsAllocation } from '@/lib/types'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { resolveApplicantNames } from '@/lib/resolveApplicantNames'
+import { calcRemainingAmount, type PaymentForRemaining } from '@/lib/fundsAllocationRemaining'
 import MyFundsTableView from './_components/MyFundsTableView'
 
 export default async function MyFundsPage() {
@@ -16,7 +17,8 @@ export default async function MyFundsPage() {
           name,
           approval_flow_steps(step_name, step_number)
         ),
-        approval_records!funds_allocation_id(step_name, decision)
+        approval_records!funds_allocation_id(step_name, decision),
+        funds_payment(status, amount, approved_amount)
       `)
       .eq('created_by', String(session?.userId ?? ''))
       .order('created_at', { ascending: false }),
@@ -29,8 +31,12 @@ export default async function MyFundsPage() {
       approval_flow_steps: Array<{ step_name: string; step_number: number }>
     } | null
     approval_records: Array<{ step_name: string; decision: string }>
+    funds_payment: PaymentForRemaining[]
   })[]) ?? []
-  const records = await resolveApplicantNames(rawRecords)
+  const records = (await resolveApplicantNames(rawRecords)).map(r => ({
+    ...r,
+    remainingAmount: calcRemainingAmount(r.approved_amount, r.funds_payment ?? []),
+  }))
 
   return (
     <>
