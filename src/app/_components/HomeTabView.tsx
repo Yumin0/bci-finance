@@ -11,6 +11,11 @@ import PageHeader from '@/app/_components/PageHeader'
 import ColumnPicker from '@/app/_components/ColumnPicker'
 import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
 import { FUNDS_ALLOCATION_COLUMNS } from '@/lib/fundsAllocationColumns'
+import {
+  PaymentListCells,
+  PAYMENT_LIST_COLUMNS_AFTER_STATUS,
+  type PaymentAttachmentMap,
+} from '@/app/funds-payment/_components/PaymentListCells'
 import type { StatusLabelConfig } from '@/lib/status-label-config'
 
 const LS_KEY = 'bci-funds-home-columns-v2'
@@ -35,11 +40,15 @@ export default function HomeTabView({
   paymentRecords,
   voucherRecords,
   labelConfig,
+  payeeLabel,
+  attachmentsMap,
 }: {
   fundsRecords: FundsAllocationRow[]
   paymentRecords: WithStep<FundsPayment>[]
   voucherRecords: WithStep<TempVoucherRow>[]
   labelConfig: StatusLabelConfig
+  payeeLabel: string | null
+  attachmentsMap: PaymentAttachmentMap
 }) {
   const [tab, setTab] = useState<Tab>('funds')
   const { visibleCols, toggleCol } = useColumnVisibility(LS_KEY, FUNDS_ALLOCATION_COLUMNS.map(c => c.key))
@@ -124,29 +133,22 @@ export default function HomeTabView({
           <Table>
             <TableHeader>
               <TableRow>
-                {['狀態', '費用項目', '項目', '付款方式', '金額', ''].map((col, i) => (
-                  <TableHead key={i}>{col}</TableHead>
+                <TableHead>狀態</TableHead>
+                {PAYMENT_LIST_COLUMNS_AFTER_STATUS.map((col) => (
+                  <TableHead key={col}>{col}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {paymentRecords.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">尚無付款憑單</TableCell>
+                  <TableCell colSpan={1 + PAYMENT_LIST_COLUMNS_AFTER_STATUS.length} className="py-6 text-center text-muted-foreground">尚無付款憑單</TableCell>
                 </TableRow>
               )}
               {paymentRecords.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell><StatusBadge module="payment_voucher" status={r.status} stepName={r.stepName} labelConfig={labelConfig} /></TableCell>
-                  <TableCell>{r.expense_item ?? '-'}</TableCell>
-                  <TableCell>{r.name}</TableCell>
-                  <TableCell>{r.payment_method ?? '-'}</TableCell>
-                  <TableCell>{r.amount}</TableCell>
-                  <TableCell>
-                    <Link href={`/funds-payment/my-payment/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                      檢視
-                    </Link>
-                  </TableCell>
+                  <PaymentListCells r={r} payeeLabel={payeeLabel} attachments={attachmentsMap[r.id] ?? []} />
                 </TableRow>
               ))}
             </TableBody>

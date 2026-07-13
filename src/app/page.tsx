@@ -1,7 +1,9 @@
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
-import { FundsAllocation, FundsPayment } from '@/lib/types'
+import { getFormSchemas } from '@/app/actions/form-schema'
+import { getAttachmentsByPaymentIds } from '@/app/actions/attachments'
+import { FundsAllocation, FundsPayment, FormSlot } from '@/lib/types'
 import { resolveApplicantNames } from '@/lib/resolveApplicantNames'
 import { calcRemainingAmount, type PaymentForRemaining } from '@/lib/fundsAllocationRemaining'
 import HomeTabView from './_components/HomeTabView'
@@ -35,10 +37,16 @@ function computeStepName(r: StepJoin): string | null {
 }
 
 export default async function Home() {
-  const [session, labelConfig] = await Promise.all([
+  const [session, labelConfig, schemas] = await Promise.all([
     getSession(),
     getStatusLabelConfig(),
+    getFormSchemas(),
   ])
+
+  const payeeLabel = schemas.payment_voucher
+    .flatMap(b => b.rows.flatMap(r => r.slots))
+    .find((s): s is NonNullable<FormSlot> => s !== null && s.dataSource?.startsWith('payee_records:') === true)
+    ?.label ?? null
 
   const [fundsResult, paymentResult, voucherResult] = await Promise.all([
     supabase
@@ -77,12 +85,18 @@ export default async function Home() {
   ])
   const voucherRecords = addStep(voucherResult.data)
 
+  const attachmentsMap = await getAttachmentsByPaymentIds(
+    (paymentRecords as FundsPayment[]).map(r => r.id)
+  )
+
   return (
     <HomeTabView
       fundsRecords={fundsRecords}
       paymentRecords={paymentRecords}
       voucherRecords={voucherRecords}
       labelConfig={labelConfig}
+      payeeLabel={payeeLabel}
+      attachmentsMap={attachmentsMap}
     />
   )
 }

@@ -215,6 +215,16 @@
 
 ## 已完成
 
+**付款憑單一般列表欄位對齊筑今（舊系統）＋核心邏輯文件**（2026-07-14，Yumin）
+分支：`feature/yumin-remaining-amount`
+三個「一般列表」的付款憑單欄位改為對齊筑今（bci-financial.com）的 9 欄：狀態｜採購單號｜費用項目｜項目｜付款對象｜付款方式｜核准金額｜實際付款金額｜發票憑證，拿掉舊的「檢視／查閱」按鈕（採購單號本身即連結）。核准金額未核准顯「-」；實際付款金額只有「已付款」顯示（＝核准金額）否則「-」；發票憑證列出該憑單附件、顯示使用者上傳原始檔名、一檔一行、可點預覽。新增共用元件 `funds-payment/_components/PaymentListCells.tsx`（狀態後 8 欄，三頁共用避免不一致）與批次撈附件 `getAttachmentsByPaymentIds`。另新增核心邏輯文件於 `docs/core-logic/`：《筑今系統邏輯_列表欄位（參考基準）》與《BC資金分配系統核心邏輯》（白話、非技術人員可讀，記錄兩張列表欄位邏輯、單號規則、核准金額承接、剩餘金額、實際付款金額認列，皆與 Yumin 確認）。
+影響範圍確認（付款憑單一般列表）：
+- [x] /funds-payment/my-payment（我的付款憑單）
+- [x] /funds-payment/all（全部付款紀錄）
+- [x] / 首頁「我的申請紀錄 → 付款憑單申請單」分頁（HomeTabView）
+- [x] 審核管理頁／財務付款憑單管理頁：**本次不動**（筑今這兩類頁另有「付款分類／付款執行」欄與帳戶分頁批次操作，列為第二批，見 BC 核心邏輯文件第六節）
+實測（Yumin，localhost:3000，2026-07-14）：三頁欄位順序正確、發票憑證原始檔名一行一個可點開、實際付款金額僅已付款筆顯示數字。
+
 **資金分配剩餘金額與付款憑單核心邏輯**（2026-07-13，Yumin）
 分支：`feature/yumin-remaining-amount`
 對齊舊系統（bci-financial.com）完整邏輯：資金分配單核准後可在不同時間點分批建立多張付款憑單各自扣款，剩餘金額（＝核准金額−所有相關憑單佔用金額，即時計算不落地）在列表與付款憑單頁即時顯示，剩餘金額歸零時（財務確認付款）資金分配單自動轉為新增的 `paid`「已付款」狀態；同張分配單建立多張憑單時金額加總不可超過核准金額（前後端皆擋）。釐清過程見 `docs/core-logic/`（業務邏輯總結與缺口比對，皆與 Yumin 確認）。共用計算純函式 `lib/fundsAllocationRemaining.ts`，查詢/結案 server action 在 `actions/fund-budget.ts`（`getAllocationRemainingInfo`、`recalcAllocationCloseStatus`）。
