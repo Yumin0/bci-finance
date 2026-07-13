@@ -120,6 +120,8 @@ export type DropdownOption = {
   label: string
   sort_order: number
   created_at: string
+  // 出款帳戶可見範圍：勾選的組織節點（含子孫）成員才看得到；空陣列/null＝全公司可見
+  visible_org_unit_ids: number[] | null
 }
 
 export type Block =

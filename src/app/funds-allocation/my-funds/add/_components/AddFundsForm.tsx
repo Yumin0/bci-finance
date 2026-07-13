@@ -7,7 +7,7 @@ import { MOCK_USER_ID } from '@/lib/constants'
 import { createFundsAllocation, generateSerialNumber as genSerialNumber } from '@/app/actions/funds-allocation'
 import { DropdownOption, OrgUnit, FormBlock, FormSchemaRow, FormSlot, TaxRateOption } from '@/lib/types'
 import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtils'
-import { deriveUserOrgCombos, allDivisionOptions, allSectionOptions, unitsInTreeOrder, nearestDivisionId } from '@/lib/orgPositions'
+import { deriveUserOrgCombos, allDivisionOptions, allSectionOptions, unitsInTreeOrder, nearestDivisionId, isAccountVisibleToUser } from '@/lib/orgPositions'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { feeItemCode } from '@/lib/feeItems'
 import { validateFeePositive } from '@/lib/feeValidation'
@@ -695,7 +695,12 @@ export default function AddFundsForm({
         options = (staticOptions ?? []).map(o => ({ value: o, label: o }))
       } else if (dataSource.startsWith('dropdown_options:')) {
         const field = dataSource.replace('dropdown_options:', '')
-        options = (dropdownOptions[field] ?? []).map(o => ({ value: o.label, label: o.label }))
+        // 出款帳戶依可見範圍過濾：只留全公司可見或登入者所屬節點被涵蓋的帳戶（保留目前已選值避免遺失）
+        options = (dropdownOptions[field] ?? [])
+          .filter(o => field !== 'payment_account'
+            || o.label === fieldValues.payment_account
+            || isAccountVisibleToUser(o.visible_org_unit_ids, memberUnitIds, orgUnits))
+          .map(o => ({ value: o.label, label: o.label }))
       } else if (dataSource.startsWith('fee_records:') || dataSource.startsWith('payee_records:')) {
         options = dynamicSelectOptions[dataSource] ?? []
       }

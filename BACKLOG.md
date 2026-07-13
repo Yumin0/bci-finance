@@ -7,6 +7,17 @@
 
 ## 進行中
 
+**出款帳戶可見範圍 + 編輯／防重複／排序**（Riku）
+分支：`feature/riku-payment-account-visibility`
+開始：2026-07-13
+說明：出款帳戶可設定「可見範圍」（組織節點，勾選節點含子孫成員才會在申請單下拉看到；空＝全公司可見）；並加就地改名、新增/改名防重複（去空白不分大小寫）、右上角拖曳排序。
+影響範圍確認（出款帳戶下拉過濾為橫切關注點）：
+- [x] /funds-allocation/my-funds/add（申請單新增，下拉過濾）
+- [x] /funds-allocation/my-funds/edit/[id]（申請單編輯，下拉過濾）
+- [x] /funds-payment 建立/草稿編輯（出款帳戶為唯讀繼承，不需過濾，已確認）
+- [x] /system-settings/expense-fields（可見範圍/編輯/防重複/排序 UI）
+- [x] 待執行 SQL 登記 docs/prod-pending-sql.md
+
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04

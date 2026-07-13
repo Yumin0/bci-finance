@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { FUNDS_STATUS, MOCK_USER_ID } from '@/lib/constants'
 import { FundsAllocation, DropdownOption, OrgUnit, FormBlock, FormSchemaRow, FormSlot, TaxRateOption, ApprovalRecord } from '@/lib/types'
 import { computeBlockTax, formatTaxNumber, applyTaxFormula } from '@/lib/taxUtils'
-import { allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
+import { allDivisionOptions, allSectionOptions, isAccountVisibleToUser } from '@/lib/orgPositions'
 import { validateFeePositive } from '@/lib/feeValidation'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
@@ -76,6 +76,7 @@ export default function EditFundsForm({
 
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
   const [memberRoleMap, setMemberRoleMap] = useState<Record<number, string[]>>({})
+  const [memberUnitIds, setMemberUnitIds] = useState<number[]>([])
   // 有「已綁定帳號負責人」的組織節點 id 集合；null = 尚未載入完成（載入前不顯示提醒）
   const [leaderUnitIds, setLeaderUnitIds] = useState<Set<number> | null>(null)
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
@@ -276,6 +277,7 @@ export default function EditFundsForm({
           .eq('user_id', userId)
         if (r.data) {
           const rows = r.data as unknown as { org_unit_id: number; role_types: { name: string } | null }[]
+          setMemberUnitIds(rows.map(m => m.org_unit_id))
           const roleMap: Record<number, string[]> = {}
           for (const m of rows) {
             const name = m.role_types?.name
@@ -670,7 +672,13 @@ export default function EditFundsForm({
       let options: { value: string; label: string }[] = []
       if (dataSource === 'static') options = (staticOptions ?? []).map(o => ({ value: o, label: o }))
       else if (dataSource.startsWith('dropdown_options:')) {
-        options = (dropdownOptions[dataSource.replace('dropdown_options:', '')] ?? []).map(o => ({ value: o.label, label: o.label }))
+        const field = dataSource.replace('dropdown_options:', '')
+        // 出款帳戶依可見範圍過濾：只留全公司可見或登入者所屬節點被涵蓋的帳戶（保留目前已選值避免遺失）
+        options = (dropdownOptions[field] ?? [])
+          .filter(o => field !== 'payment_account'
+            || o.label === fieldValues.payment_account
+            || isAccountVisibleToUser(o.visible_org_unit_ids, memberUnitIds, orgUnits))
+          .map(o => ({ value: o.label, label: o.label }))
       } else if (dataSource.startsWith('fee_records:') || dataSource.startsWith('payee_records:')) {
         options = dynamicSelectOptions[dataSource] ?? []
       }

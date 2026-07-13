@@ -8,7 +8,16 @@
 
 ## ⏳ 待執行
 
-（目前沒有）
+### 出款帳戶可見範圍（feature/riku-payment-account-visibility）
+
+- [ ] 尚未在正式機執行
+
+用途：出款帳戶（`dropdown_options`）加上「可見範圍組織節點清單」欄位。勾選的節點（含子孫）成員才會在申請單/付款憑單的出款帳戶下拉看到該帳戶；空陣列＝全公司可見。未執行前正式機的支出欄位設定頁讀寫出款帳戶會失敗。
+
+```sql
+alter table dropdown_options
+  add column if not exists visible_org_unit_ids bigint[] not null default '{}';
+```
 
 ---
 

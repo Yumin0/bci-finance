@@ -86,6 +86,17 @@ export function isUserCoveredByUnits(userUnitIds: number[], scopeUnitIds: number
   return false
 }
 
+// 出款帳戶可見性：空範圍＝全公司可見；有範圍時，登入者所屬節點被涵蓋才看得到
+export function isAccountVisibleToUser(
+  scopeUnitIds: number[] | null | undefined,
+  userUnitIds: number[],
+  orgUnits: OrgUnit[],
+): boolean {
+  const scope = scopeUnitIds ?? []
+  if (!scope.length) return true
+  return isUserCoveredByUnits(userUnitIds, scope, orgUnits)
+}
+
 // 依組織樹深度優先展開（同層依 sort_order），使下拉選項順序與組織架構頁一致
 export function unitsInTreeOrder(orgUnits: OrgUnit[]): OrgUnit[] {
   const childrenMap = new Map<number | null, OrgUnit[]>()
