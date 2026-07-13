@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -11,6 +9,11 @@ import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import PageHeader from '@/app/_components/PageHeader'
 import WeekFilterBar, { useWeekFilter } from '@/app/_components/WeekFilterBar'
+import {
+  PaymentListCells,
+  PAYMENT_LIST_COLUMNS_AFTER_STATUS,
+  type PaymentAttachmentMap,
+} from '@/app/funds-payment/_components/PaymentListCells'
 
 type PaymentRow = FundsPayment & {
   approval_flow_templates: {
@@ -47,10 +50,12 @@ export default function MyPaymentTableView({
   records,
   labelConfig,
   payeeLabel,
+  attachmentsMap,
 }: {
   records: PaymentRow[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
+  attachmentsMap: PaymentAttachmentMap
 }) {
   const [query, setQuery] = useState('')
   const weekFilter = useWeekFilter()
@@ -80,15 +85,16 @@ export default function MyPaymentTableView({
         <Table>
           <TableHeader>
             <TableRow>
-              {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => (
-                <TableHead key={i}>{col}</TableHead>
+              <TableHead>狀態</TableHead>
+              {PAYMENT_LIST_COLUMNS_AFTER_STATUS.map((col) => (
+                <TableHead key={col}>{col}</TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
+                <TableCell colSpan={1 + PAYMENT_LIST_COLUMNS_AFTER_STATUS.length} className="py-6 text-center text-muted-foreground">
                   {query ? '找不到符合的紀錄' : weekFilter.isFiltering ? '此週次尚無付款憑單，可切換「全部週次」查看' : '尚無付款憑單'}
                 </TableCell>
               </TableRow>
@@ -98,20 +104,7 @@ export default function MyPaymentTableView({
                 <TableCell>
                   <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
                 </TableCell>
-                <TableCell>
-                  <Link href={`/funds-payment/my-payment/${r.id}`} className="text-sm text-primary underline underline-offset-4">
-                    {r.status === 'draft' ? '繼續編輯' : (r.purchase_order_number ?? '-')}
-                  </Link>
-                </TableCell>
-                <TableCell>{r.name}</TableCell>
-                <TableCell>{r.payment_method ?? '-'}</TableCell>
-                <TableCell>{payeeLabel ? (r.extra_data?.[payeeLabel] ?? '-') : '-'}</TableCell>
-                <TableCell>{r.amount}</TableCell>
-                <TableCell>
-                  <Link href={`/funds-payment/my-payment/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                    檢視
-                  </Link>
-                </TableCell>
+                <PaymentListCells r={r} payeeLabel={payeeLabel} attachments={attachmentsMap[r.id] ?? []} />
               </TableRow>
             ))}
           </TableBody>
