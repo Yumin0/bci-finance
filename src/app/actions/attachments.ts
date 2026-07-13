@@ -28,6 +28,26 @@ export async function getAttachmentsByPaymentId(paymentId: number): Promise<Fund
   return (data as Omit<FundAttachment, 'url'>[]).map(withPublicUrl)
 }
 
+// 一次撈多張付款憑單的附件，回傳「付款憑單 id → 附件陣列」對照表（列表頁用）
+export async function getAttachmentsByPaymentIds(
+  paymentIds: number[]
+): Promise<Record<number, FundAttachment[]>> {
+  if (paymentIds.length === 0) return {}
+  const { data, error } = await supabase
+    .from('fund_attachments')
+    .select('*')
+    .in('funds_payment_id', paymentIds)
+    .order('created_at')
+  if (error || !data) return {}
+  const map: Record<number, FundAttachment[]> = {}
+  for (const row of data as Omit<FundAttachment, 'url'>[]) {
+    const withUrl = withPublicUrl(row)
+    if (withUrl.funds_payment_id == null) continue
+    ;(map[withUrl.funds_payment_id] ??= []).push(withUrl)
+  }
+  return map
+}
+
 export async function saveAttachments(
   allocationId: number | null,
   paymentId: number | null,

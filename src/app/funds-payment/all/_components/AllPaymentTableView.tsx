@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -10,6 +8,11 @@ import { FundsPayment } from '@/lib/types'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import PageHeader from '@/app/_components/PageHeader'
+import {
+  PaymentListCells,
+  PAYMENT_LIST_COLUMNS_AFTER_STATUS,
+  type PaymentAttachmentMap,
+} from '@/app/funds-payment/_components/PaymentListCells'
 import ExportCsvButton from './ExportCsvButton'
 
 type PaymentRow = FundsPayment & {
@@ -48,11 +51,13 @@ export default function AllPaymentTableView({
   labelConfig,
   canExport,
   payeeLabel,
+  attachmentsMap,
 }: {
   records: PaymentRow[]
   labelConfig: StatusLabelConfig
   canExport: boolean
   payeeLabel: string | null
+  attachmentsMap: PaymentAttachmentMap
 }) {
   const [query, setQuery] = useState('')
 
@@ -85,15 +90,16 @@ export default function AllPaymentTableView({
         <Table>
           <TableHeader>
             <TableRow>
-              {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => (
-                <TableHead key={i}>{col}</TableHead>
+              <TableHead>狀態</TableHead>
+              {PAYMENT_LIST_COLUMNS_AFTER_STATUS.map((col) => (
+                <TableHead key={col}>{col}</TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
+                <TableCell colSpan={1 + PAYMENT_LIST_COLUMNS_AFTER_STATUS.length} className="py-6 text-center text-muted-foreground">
                   {query ? '找不到符合的紀錄' : '目前無付款紀錄'}
                 </TableCell>
               </TableRow>
@@ -103,20 +109,7 @@ export default function AllPaymentTableView({
                 <TableCell>
                   <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
                 </TableCell>
-                <TableCell>
-                  <Link href={`/funds-payment/my-payment/${r.id}`} className="text-sm text-primary underline underline-offset-4">
-                    {r.status === 'draft' ? '繼續編輯' : (r.purchase_order_number ?? '-')}
-                  </Link>
-                </TableCell>
-                <TableCell>{r.name}</TableCell>
-                <TableCell>{r.payment_method ?? '-'}</TableCell>
-                <TableCell>{payeeLabel ? (r.extra_data?.[payeeLabel] ?? '-') : '-'}</TableCell>
-                <TableCell>{r.amount.toLocaleString()}</TableCell>
-                <TableCell>
-                  <Link href={`/funds-payment/my-payment/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                    查閱
-                  </Link>
-                </TableCell>
+                <PaymentListCells r={r} payeeLabel={payeeLabel} attachments={attachmentsMap[r.id] ?? []} />
               </TableRow>
             ))}
           </TableBody>
