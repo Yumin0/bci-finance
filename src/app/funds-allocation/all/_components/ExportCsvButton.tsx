@@ -17,6 +17,9 @@ function resolveStepLabel(row: FundsAllocationExportRow, labelConfig: StatusLabe
     )
     return formatStatusLabel(modConfig['approved'], lastStep?.step_name ?? null)
   }
+  if (row.status === 'paid') {
+    return formatStatusLabel(modConfig['paid'], null)
+  }
   if (row.status === 'rejected') {
     return formatStatusLabel(modConfig['rejected'], null)
   }
@@ -157,6 +160,7 @@ export default function ExportCsvButton({ labelConfig }: { labelConfig: StatusLa
                   <option value="all">全部</option>
                   <option value="pending">{fa['pending']?.label ?? '新單'}</option>
                   <option value="approved">{fa['approved']?.label ?? '已核准'}</option>
+                  <option value="paid">{fa['paid']?.label ?? '已付款'}</option>
                   <option value="rejected">{fa['rejected']?.label ?? '未核准'}</option>
                 </select>
               </div>

@@ -5,6 +5,7 @@ export type FundsPayment = {
   funds_allocation_id: number
   name: string
   amount: number
+  approved_amount: number | null
   date: string
   institution: string | null
   payment_account: string | null

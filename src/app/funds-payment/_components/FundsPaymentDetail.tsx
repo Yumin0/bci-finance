@@ -99,7 +99,8 @@ export default function FundsPaymentDetail({ record, schema }: { record: FundsPa
     )
   }
 
-  function computeGroupSummary(block: FormBlock): { taxBase: number; handling: number; taxAmount: number; total: number } | null {
+  // 付款憑單「總額」為純手動填寫、不自動加總，彙總總額＝各組「總額」欄位加總
+  function computeGroupSummary(block: FormBlock): { taxBase: number; taxAmount: number; total: number } | null {
     const groupRows = getGroupRows(block)
     if (!groupRows.length) return null
 
@@ -113,21 +114,16 @@ export default function FundsPaymentDetail({ record, schema }: { record: FundsPa
     const { baseFieldId, taxAmountFieldId, totalFieldId } = taxSelectSlot.taxConfig
     const baseSlot = groupSlots.find(s => s.fieldId === baseFieldId)
     const taxAmtSlot = groupSlots.find(s => s.fieldId === taxAmountFieldId)
-    const handlingSlots = groupSlots.filter(s =>
-      s.type === 'number' &&
-      s.fieldId !== baseFieldId &&
-      (!taxAmountFieldId || s.fieldId !== taxAmountFieldId) &&
-      s.fieldId !== totalFieldId
-    )
+    const totalSlot = groupSlots.find(s => s.fieldId === totalFieldId)
 
-    let totalBase = 0, totalHandling = 0, totalTax = 0
+    let totalBase = 0, totalTax = 0, totalAmount = 0
     for (const inst of instances) {
       totalBase += baseSlot ? (parseFloat(inst[baseSlot.label] ?? '0') || 0) : 0
-      totalHandling += handlingSlots.reduce((acc, s) => acc + (parseFloat(inst[s.label] ?? '0') || 0), 0)
       totalTax += taxAmtSlot ? (parseFloat(inst[taxAmtSlot.label] ?? '0') || 0) : 0
+      totalAmount += totalSlot ? (parseFloat(inst[totalSlot.label] ?? '0') || 0) : 0
     }
 
-    return { taxBase: totalBase, handling: totalHandling, taxAmount: totalTax, total: totalBase + totalHandling + totalTax }
+    return { taxBase: totalBase, taxAmount: totalTax, total: totalAmount }
   }
 
   return (
@@ -157,8 +153,7 @@ export default function FundsPaymentDetail({ record, schema }: { record: FundsPa
                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
                 {groupSummary && (
                   <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxBase)}</strong></span>
-                    <span style={{ color: 'var(--text-muted)' }}>手續費 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.handling)}</strong></span>
+                    <span style={{ color: 'var(--text-muted)' }}>未稅金額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxBase)}</strong></span>
                     <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxAmount)}</strong></span>
                     <span style={{ color: 'var(--text-muted)' }}>總額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.total)}</strong></span>
                   </div>

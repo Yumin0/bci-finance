@@ -123,7 +123,7 @@ export default async function ReviewPage({
       activeTabs.map(tab =>
         tab === 'div'
           ? getAllocationsForOrgRoleByWeek(uid, selectedWeekStart, selectedWeekEnd)
-          : getAllocationsForApprovalGroupByWeek(tabGroupIds[tab]!, selectedWeekStart, selectedWeekEnd)
+          : getAllocationsForApprovalGroupByWeek(uid, tabGroupIds[tab]!, selectedWeekStart, selectedWeekEnd)
       )
     ),
     ...GROUP_TABS.map(tab => {
