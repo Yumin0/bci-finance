@@ -80,6 +80,8 @@ export default function ExpenseFieldsPage() {
 
   const [newInstitution, setNewInstitution] = useState('')
   const [newAccount, setNewAccount] = useState('')
+  // 出款帳戶新增/改名的就地錯誤訊息（顯示在區塊內，避免使用者看不到頁首的錯誤）
+  const [accountError, setAccountError] = useState<string | null>(null)
 
   // 出款帳戶就地改名
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -129,11 +131,11 @@ export default function ExpenseFieldsPage() {
   async function handleAddAccount() {
     const label = newAccount.trim()
     if (!label) return
-    setError(null)
-    if (isDuplicate('payment_account', label)) { setError(`已有相同的出款帳戶名稱「${label}」，請勿重複新增。`); return }
+    setAccountError(null)
+    if (isDuplicate('payment_account', label)) { setAccountError(`已有相同的出款帳戶名稱「${label}」，請勿重複新增。`); return }
     const maxOrder = accounts.reduce((max, o) => Math.max(max, o.sort_order), -1)
     const { error: e } = await supabase.from('dropdown_options').insert({ field: 'payment_account', label, sort_order: maxOrder + 1 })
-    if (e) { setError(e.message); return }
+    if (e) { setAccountError(e.message); return }
     setNewAccount('')
     await loadAll()
   }
@@ -141,16 +143,16 @@ export default function ExpenseFieldsPage() {
   function startEdit(opt: DropdownOption) {
     setEditingId(opt.id)
     setEditingLabel(opt.label)
-    setError(null)
+    setAccountError(null)
   }
 
   async function saveEdit(id: number) {
     const label = editingLabel.trim()
-    if (!label) { setError('名稱不可空白。'); return }
-    if (isDuplicate('payment_account', label, id)) { setError(`已有相同的出款帳戶名稱「${label}」，請換個名稱。`); return }
-    setError(null)
+    if (!label) { setAccountError('名稱不可空白。'); return }
+    if (isDuplicate('payment_account', label, id)) { setAccountError(`已有相同的出款帳戶名稱「${label}」，請換個名稱。`); return }
+    setAccountError(null)
     const { error: e } = await supabase.from('dropdown_options').update({ label }).eq('id', id)
-    if (e) { setError(e.message); return }
+    if (e) { setAccountError(e.message); return }
     setEditingId(null)
     setEditingLabel('')
     await loadAll()
@@ -271,16 +273,19 @@ export default function ExpenseFieldsPage() {
                   <TableRow key={item.id}>
                     <TableCell>
                       {editingId === item.id ? (
-                        <Input
-                          value={editingLabel}
-                          autoFocus
-                          onChange={e => setEditingLabel(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') { e.preventDefault(); saveEdit(item.id) }
-                            if (e.key === 'Escape') { setEditingId(null); setEditingLabel('') }
-                          }}
-                          className="max-w-xs"
-                        />
+                        <div className="flex flex-col gap-1">
+                          <Input
+                            value={editingLabel}
+                            autoFocus
+                            onChange={e => { setEditingLabel(e.target.value); if (accountError) setAccountError(null) }}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') { e.preventDefault(); saveEdit(item.id) }
+                              if (e.key === 'Escape') { setEditingId(null); setEditingLabel(''); setAccountError(null) }
+                            }}
+                            className="max-w-xs"
+                          />
+                          {accountError && <p className="text-sm text-destructive">{accountError}</p>}
+                        </div>
                       ) : item.label}
                     </TableCell>
                     <TableCell>
@@ -311,15 +316,18 @@ export default function ExpenseFieldsPage() {
                 ))}
               </TableBody>
             </Table>
-            <div className="flex gap-2">
-              <Input
-                value={newAccount}
-                onChange={e => setNewAccount(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddAccount() } }}
-                placeholder="新增出款帳戶選項"
-                className="max-w-xs"
-              />
-              <Button onClick={handleAddAccount}>新增</Button>
+            <div className="flex flex-col gap-1">
+              <div className="flex gap-2">
+                <Input
+                  value={newAccount}
+                  onChange={e => { setNewAccount(e.target.value); if (accountError) setAccountError(null) }}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddAccount() } }}
+                  placeholder="新增出款帳戶選項"
+                  className="max-w-xs"
+                />
+                <Button onClick={handleAddAccount}>新增</Button>
+              </div>
+              {editingId === null && accountError && <p className="text-sm text-destructive">{accountError}</p>}
             </div>
           </CardContent>
         </Card>
