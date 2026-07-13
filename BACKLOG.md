@@ -215,6 +215,17 @@
 
 ## 已完成
 
+**付款憑單「受款人」資料來源合併付款對象類別**（2026-07-13，Yumin）
+分支：`feature/yumin-payee-merge-source`
+表單設定「資料來源」下拉新增「全部付款對象（合併）」選項（`payee_records:all`，`actions/form-schema.ts` 的 `getFormDataSources()` 動態附加，只要 `payee_categories` 有資料就會出現），選這個欄位會合併目前所有付款對象類別（不寫死類別數量，未來新增類別自動一起併入）供搜尋/選取。付款憑單表單「受款人」欄位已改選此選項，實測搜尋同時涵蓋國內廠商（賀伯特行政管理有限公司）與職員（謝靜弦），選取廠商後正確自動帶入對應欄位值。
+影響範圍確認：
+- [x] `actions/form-schema.ts`（`getFormDataSources()` 新增合併選項）
+- [x] `funds-payment/my-payment/add/[id]/page.tsx`（建立頁：`payee_records:all` 特例抓取全部類別欄位+資料並合併，Playwright 實測搜尋/選取/自動帶入）
+- [x] `funds-payment/my-payment/[id]/page.tsx`（草稿編輯頁：`payee_records:all` 特例，autoFillLabels 與 fetch 迴圈皆處理）
+- [x] `funds-payment/my-payment/page.tsx`、`/all`、`/review`（僅用 `.find()` 找欄位標籤，`payee_records:` 前綴不受影響，無需改動）
+- [x] 資金分配申請單、暫付款沖銷憑單、範本管理頁本次未使用此欄位，不受影響
+備註：目前僅套用於付款憑單表單的「受款人」欄位（使用者本次需求範圍）；dev/staging 表單設定已直接透過畫面操作存檔套用，正式機部署後需在正式站表單設定同步把「受款人」資料來源改選同一個選項。
+
 **表單欄位預設值機制**（2026-07-13，Yumin）
 分支：`feature/yumin-form-default-values`
 FormSlot 型別新增 `defaultValue`（文字/選項預設值）與 `dateDefaultMode`（'fixed' | 'nearest_cycle'，僅 date 類型）；表單設定頁欄位設定面板新增「預設值」設定（date 類型可選固定日期或自動選最近可用日期，其餘類型為文字輸入，輸入選項的顯示文字即可設為預設選中）；資金分配申請新增頁（AddFundsForm）讀取套用，僅在全新表單（未選範本/草稿）時生效，避免蓋掉範本既有資料。首次套用：申請日期預設最近可用週次日期、機構預設 BIZ、幣別預設台幣。另外新增「申請處別」依使用者組織架構身分自動帶入（依組織樹順序取第一個所屬處別，課別/職務不自動帶入，維持使用者自行選擇；此為 AddFundsForm 內寫死邏輯，非表單設定頁可調整項目）；「職務」下拉選項文字改為「組織單位 + 職稱」（如「第7課 收入課 課長」），改讀 `org_unit_members.role_type_id` 對照 `role_types.name`，無職稱的舊資料維持只顯示單位名稱。

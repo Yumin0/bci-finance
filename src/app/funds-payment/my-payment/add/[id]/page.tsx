@@ -223,7 +223,43 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       }
 
       for (const src of neededSources) {
-        if (src.startsWith('fee_records:') || src.startsWith('payee_records:')) {
+        if (src === 'payee_records:all') {
+          fetches.push(
+            (async () => {
+              const { data: cats } = await supabase.from('payee_categories').select('id').order('sort_order')
+              const options: { value: string; label: string }[] = []
+              const fullRecords: Array<{ label: string; searchKey: string; fieldValuesByLabel: Record<string, string> }> = []
+              const autoFillLabels = new Set<string>()
+              for (const cat of (cats ?? [])) {
+                const [fieldsRes, recordsRes] = await Promise.all([
+                  supabase.from('payee_category_fields').select('id, label, sort_order').eq('category_id', cat.id).order('sort_order'),
+                  supabase.from('payee_records').select('field_values').eq('category_id', cat.id).order('sort_order'),
+                ])
+                const fields = (fieldsRes.data ?? []) as { id: number; label: string }[]
+                const fieldIds = fields.map(f => String(f.id))
+                for (const r of recordsRes.data ?? []) {
+                  const fv = r.field_values as Record<string, string>
+                  const vals = fieldIds.map(fId => fv[fId]).filter(Boolean)
+                  const searchKey = vals.join(' ')
+                  const label = fv[fieldIds[0]] ?? vals[0] ?? ''
+                  if (!label) continue
+                  options.push({ value: label, label })
+                  const fieldValuesByLabel: Record<string, string> = {}
+                  for (const f of fields) {
+                    const v = fv[String(f.id)]
+                    if (v) fieldValuesByLabel[f.label] = v
+                  }
+                  fullRecords.push({ label, searchKey, fieldValuesByLabel })
+                }
+                fields.slice(1).forEach(f => autoFillLabels.add(f.label))
+              }
+              options.sort((a, b) => parseFloat(a.label) - parseFloat(b.label))
+              setDynamicSelectOptions(prev => ({ ...prev, [src]: options }))
+              setPayeeFullRecords(prev => ({ ...prev, [src]: fullRecords }))
+              if (autoFillLabels.size) setPayeeAutoFillLabels(prev => new Set([...prev, ...autoFillLabels]))
+            })()
+          )
+        } else if (src.startsWith('fee_records:') || src.startsWith('payee_records:')) {
           fetches.push(
             (async () => {
               const isPayee = src.startsWith('payee_records:')

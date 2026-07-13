@@ -50,6 +50,10 @@ export async function getFormDataSources(): Promise<FormDataSourceDef[]> {
       dynamicSources.push({ id: idCounter++, label: `${cat.name}（付款對象設定）`, source_key: `payee_records:${cat.id}`, applicable_types: ['select'], is_static_options: false, sort_order: orderCounter })
       orderCounter += 10
     }
+    if ((payeeResult.data ?? []).length > 0) {
+      dynamicSources.push({ id: idCounter++, label: '全部付款對象（合併）', source_key: 'payee_records:all', applicable_types: ['select'], is_static_options: false, sort_order: orderCounter })
+      orderCounter += 10
+    }
     // 確保 tax_rates 永遠存在（不依賴 form_data_sources 資料表）
     const allSources = [...baseSources, ...dynamicSources]
     const hasTaxRates = allSources.some(s => s.source_key === 'tax_rates')
