@@ -2,16 +2,19 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { FundsPayment, ApprovalRecord } from '@/lib/types'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { buttonVariants } from '@/components/ui/button'
 import PageHeader from '@/app/_components/PageHeader'
 import { YearDropdown, WeekDropdown } from '@/app/_components/WeekPicker'
+import {
+  PaymentListCells,
+  PAYMENT_LIST_COLUMNS_AFTER_STATUS,
+  type PaymentAttachmentMap,
+} from '@/app/funds-payment/_components/PaymentListCells'
 
 export type TabDef = { key: string; label: string }
 
@@ -22,7 +25,7 @@ export type PaymentItem = FundsPayment & {
 }
 
 export type HistoryItem = ApprovalRecord & {
-  funds_payment: Pick<FundsPayment, 'id' | 'name' | 'amount' | 'status' | 'purchase_order_number' | 'payment_method' | 'extra_data'> | null
+  funds_payment: Pick<FundsPayment, 'id' | 'name' | 'amount' | 'status' | 'purchase_order_number' | 'payment_method' | 'extra_data' | 'expense_item' | 'approved_amount'> | null
 }
 
 const buildPaymentSearch = (payeeLabel: string | null): Array<(r: PaymentItem) => string | null | undefined> => [
@@ -46,6 +49,7 @@ type Props = {
   paymentAccounts: string[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
+  attachmentsMap: PaymentAttachmentMap
   selectedYear: number
   selectedWeekStart: string
 }
@@ -57,6 +61,7 @@ export default function PaymentReviewClient({
   paymentAccounts,
   labelConfig,
   payeeLabel,
+  attachmentsMap,
   selectedYear,
   selectedWeekStart,
 }: Props) {
@@ -138,13 +143,14 @@ export default function PaymentReviewClient({
       </div>
 
       {activeTab === 'history' ? (
-        <HistoryList items={filterHistory(historyItems)} labelConfig={labelConfig} payeeLabel={payeeLabel} />
+        <HistoryList items={filterHistory(historyItems)} labelConfig={labelConfig} payeeLabel={payeeLabel} attachmentsMap={attachmentsMap} />
       ) : (
         <AccountGroupedList
           items={filterItems(tabItems[activeTab] ?? [])}
           paymentAccounts={paymentAccounts}
           labelConfig={labelConfig}
           payeeLabel={payeeLabel}
+          attachmentsMap={attachmentsMap}
         />
       )}
     </div>
@@ -156,11 +162,13 @@ function AccountGroupedList({
   paymentAccounts,
   labelConfig,
   payeeLabel,
+  attachmentsMap,
 }: {
   items: PaymentItem[]
   paymentAccounts: string[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
+  attachmentsMap: PaymentAttachmentMap
 }) {
   if (items.length === 0) return <p className="text-sm text-muted-foreground">本週沒有相關憑單</p>
 
@@ -186,8 +194,9 @@ function AccountGroupedList({
           <Table>
             <TableHeader>
               <TableRow>
-                {['狀態', '採購單號', '申請人', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => (
-                  <TableHead key={i}>{col}</TableHead>
+                <TableHead>狀態</TableHead>
+                {PAYMENT_LIST_COLUMNS_AFTER_STATUS.map((col) => (
+                  <TableHead key={col}>{col}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
@@ -197,22 +206,12 @@ function AccountGroupedList({
                   <TableCell>
                     <StatusBadge module="payment_voucher" status={r.status} stepName={r.step_name} labelConfig={labelConfig} />
                   </TableCell>
-                  <TableCell>
-                    <Link href={`/funds-payment/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">
-                      {r.purchase_order_number ?? '-'}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{r.applicant ?? '-'}</TableCell>
-                  <TableCell>{r.name}</TableCell>
-                  <TableCell>{r.payment_method ?? '-'}</TableCell>
-                  <TableCell>{payeeLabel ? (r.extra_data?.[payeeLabel] ?? '-') : '-'}</TableCell>
-                  <TableCell>{r.amount.toLocaleString()}</TableCell>
-                  <TableCell>
-                    {r.is_pending_here === true
-                      ? <Link href={`/funds-payment/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link>
-                      : <Link href={`/funds-payment/review/check/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>查閱</Link>
-                    }
-                  </TableCell>
+                  <PaymentListCells
+                    r={r}
+                    payeeLabel={payeeLabel}
+                    attachments={attachmentsMap[r.id] ?? []}
+                    hrefBase="/funds-payment/review/check"
+                  />
                 </TableRow>
               ))}
             </TableBody>
@@ -223,36 +222,40 @@ function AccountGroupedList({
   )
 }
 
-function HistoryList({ items, labelConfig, payeeLabel }: { items: HistoryItem[]; labelConfig: StatusLabelConfig; payeeLabel: string | null }) {
+function HistoryList({ items, labelConfig, payeeLabel, attachmentsMap }: { items: HistoryItem[]; labelConfig: StatusLabelConfig; payeeLabel: string | null; attachmentsMap: PaymentAttachmentMap }) {
   if (items.length === 0) return <p className="text-sm text-muted-foreground">尚無審核紀錄</p>
   return (
     <Card className="overflow-hidden p-0">
       <Table>
         <TableHeader>
           <TableRow>
-            {['狀態', '採購單號', '項目', '付款方式', '付款對象', '金額', ''].map((col, i) => <TableHead key={i}>{col}</TableHead>)}
+            <TableHead>狀態</TableHead>
+            {PAYMENT_LIST_COLUMNS_AFTER_STATUS.map((col) => (
+              <TableHead key={col}>{col}</TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map(r => (
-            <TableRow key={r.id}>
-              <TableCell>
-                <StatusBadge module="payment_voucher" status={r.funds_payment?.status ?? (r.decision === 'approved' ? 'approved' : 'rejected')} stepName={r.step_name} labelConfig={labelConfig} />
-              </TableCell>
-              <TableCell>
-                {r.funds_payment_id
-                  ? <Link href={`/funds-payment/review/check/${r.funds_payment_id}`} className="text-sm text-primary underline underline-offset-4">{r.funds_payment?.purchase_order_number ?? '-'}</Link>
-                  : (r.funds_payment?.purchase_order_number ?? '-')}
-              </TableCell>
-              <TableCell>{r.funds_payment?.name ?? '-'}</TableCell>
-              <TableCell>{r.funds_payment?.payment_method ?? '-'}</TableCell>
-              <TableCell>{payeeLabel ? (r.funds_payment?.extra_data?.[payeeLabel] ?? '-') : '-'}</TableCell>
-              <TableCell>{r.funds_payment?.amount?.toLocaleString() ?? '-'}</TableCell>
-              <TableCell>
-                {r.funds_payment_id && <Link href={`/funds-payment/review/check/${r.funds_payment_id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>查閱</Link>}
-              </TableCell>
-            </TableRow>
-          ))}
+          {items.map(r => {
+            const fp = r.funds_payment
+            return (
+              <TableRow key={r.id}>
+                <TableCell>
+                  <StatusBadge module="payment_voucher" status={fp?.status ?? (r.decision === 'approved' ? 'approved' : 'rejected')} stepName={r.step_name} labelConfig={labelConfig} />
+                </TableCell>
+                {fp ? (
+                  <PaymentListCells
+                    r={fp}
+                    payeeLabel={payeeLabel}
+                    attachments={attachmentsMap[fp.id] ?? []}
+                    hrefBase="/funds-payment/review/check"
+                  />
+                ) : (
+                  PAYMENT_LIST_COLUMNS_AFTER_STATUS.map((col) => <TableCell key={col}>-</TableCell>)
+                )}
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </Card>
