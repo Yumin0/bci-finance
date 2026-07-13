@@ -18,14 +18,23 @@ export const PAYMENT_LIST_COLUMNS_AFTER_STATUS = [
 export type PaymentListAttachment = { file_name: string; url?: string }
 export type PaymentAttachmentMap = Record<number, PaymentListAttachment[]>
 
+// 本元件實際用到的付款憑單欄位（讓完整 FundsPayment 與歷史紀錄的精簡憑單資料都能傳入）
+export type PaymentListRow = Pick<
+  FundsPayment,
+  'id' | 'status' | 'purchase_order_number' | 'expense_item' | 'name' | 'extra_data' | 'payment_method' | 'approved_amount' | 'amount'
+>
+
 export function PaymentListCells({
   r,
   payeeLabel,
   attachments,
+  hrefBase = '/funds-payment/my-payment',
 }: {
-  r: FundsPayment
+  r: PaymentListRow
   payeeLabel: string | null
   attachments: PaymentListAttachment[]
+  // 採購單號連結目標；一般列表指向明細頁，審核管理頁指向審核頁（/funds-payment/review/check）
+  hrefBase?: string
 }) {
   const approved = r.approved_amount
   // 實際付款金額：只有「已付款」才顯示（＝核准金額），其餘顯示「-」
@@ -35,7 +44,7 @@ export function PaymentListCells({
     <>
       <TableCell>
         <Link
-          href={`/funds-payment/my-payment/${r.id}`}
+          href={`${hrefBase}/${r.id}`}
           className="text-sm text-primary underline underline-offset-4"
         >
           {r.status === 'draft' ? '繼續編輯' : (r.purchase_order_number ?? '-')}

@@ -8,6 +8,7 @@ import {
 } from '@/app/actions/approval-flow'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { getFormSchemas } from '@/app/actions/form-schema'
+import { getAttachmentsByPaymentIds } from '@/app/actions/attachments'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { FormSlot } from '@/lib/types'
 import {
@@ -38,7 +39,7 @@ const getCachedStatusLabelConfig = unstable_cache(
 async function getPaymentHistoryForReviewer(userId: number): Promise<HistoryItem[]> {
   const { data } = await supabase
     .from('approval_records')
-    .select(`*, funds_payment:funds_payment_id(id, name, amount, status, purchase_order_number, payment_method, extra_data)`)
+    .select(`*, funds_payment:funds_payment_id(id, name, amount, status, purchase_order_number, payment_method, extra_data, expense_item, approved_amount)`)
     .eq('reviewer_id', String(userId))
     .not('decision', 'is', null)
     .not('funds_payment_id', 'is', null)
@@ -125,6 +126,13 @@ export default async function PaymentReviewPage({
     activeTabs.map((tab, i) => [tab.key, tabItemResults[i] as unknown as PaymentItem[]])
   ) as Record<string, PaymentItem[]>
 
+  // 所有審核 Tab 與「我的審核紀錄」皆已對齊 9 欄，需要「發票憑證」附件
+  const attachmentPaymentIds = Array.from(new Set([
+    ...Object.values(tabItems).flatMap(items => items.map(r => r.id)),
+    ...historyItems.map(h => h.funds_payment?.id).filter((id): id is number => id != null),
+  ]))
+  const attachmentsMap = await getAttachmentsByPaymentIds(attachmentPaymentIds)
+
   return (
     <PaymentReviewClient
       visibleTabs={visibleTabs}
@@ -133,6 +141,7 @@ export default async function PaymentReviewPage({
       paymentAccounts={paymentAccounts}
       labelConfig={labelConfig}
       payeeLabel={payeeLabel}
+      attachmentsMap={attachmentsMap}
       selectedYear={validYear}
       selectedWeekStart={selectedWeekStart}
     />
