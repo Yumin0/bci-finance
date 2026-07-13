@@ -28,6 +28,7 @@ type TempVoucherRow = {
 }
 
 type WithStep<T> = T & { stepName: string | null }
+type FundsAllocationRow = WithStep<FundsAllocation> & { remainingAmount: number }
 
 export default function HomeTabView({
   fundsRecords,
@@ -35,7 +36,7 @@ export default function HomeTabView({
   voucherRecords,
   labelConfig,
 }: {
-  fundsRecords: WithStep<FundsAllocation>[]
+  fundsRecords: FundsAllocationRow[]
   paymentRecords: WithStep<FundsPayment>[]
   voucherRecords: WithStep<TempVoucherRow>[]
   labelConfig: StatusLabelConfig
@@ -106,7 +107,7 @@ export default function HomeTabView({
                   {visibleCols.has('role') && <TableCell>{r.apply_role ?? '-'}</TableCell>}
                   {visibleCols.has('requestedAmount') && <TableCell>{r.amount.toLocaleString()}</TableCell>}
                   {visibleCols.has('approvedAmount') && <TableCell>{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>}
-                  {visibleCols.has('remainingAmount') && <TableCell>-</TableCell>}
+                  {visibleCols.has('remainingAmount') && <TableCell>{r.approved_amount != null ? r.remainingAmount.toLocaleString() : '-'}</TableCell>}
                   {visibleCols.has('account') && <TableCell>{r.payment_account ?? '-'}</TableCell>}
                   {visibleCols.has('expense') && <TableCell>{r.expense_item ?? '-'}</TableCell>}
                   {visibleCols.has('name') && <TableCell>{r.name}</TableCell>}

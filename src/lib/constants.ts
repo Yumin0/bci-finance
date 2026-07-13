@@ -6,6 +6,7 @@ export const FUNDS_STATUS = {
   PENDING:  'pending',
   APPROVED: 'approved',
   REJECTED: 'rejected',
+  PAID:     'paid',
 } as const
 
 export type FundsStatus = typeof FUNDS_STATUS[keyof typeof FUNDS_STATUS]

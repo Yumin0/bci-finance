@@ -117,7 +117,7 @@ export default async function PaymentReviewPage({
     activeTabs.map(tab =>
       tab.key === 'div'
         ? getPaymentsForOrgRoleByWeek(uid, selectedWeekStart, selectedWeekEnd)
-        : getPaymentsForApprovalGroupByWeek(Number(tab.key.replace('group-', '')), selectedWeekStart, selectedWeekEnd)
+        : getPaymentsForApprovalGroupByWeek(uid, Number(tab.key.replace('group-', '')), selectedWeekStart, selectedWeekEnd)
     )
   )
 

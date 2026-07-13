@@ -45,6 +45,7 @@ export const DEFAULT_STATUS_LABEL_CONFIG: StatusLabelConfig = {
     pending:  { label: '新單',   color: '#166534', showStep: true  },
     approved: { label: '已核准', color: '#1d4ed8', showStep: true  },
     rejected: { label: '未核准', color: '#be123c', showStep: true  },
+    paid:     { label: '已付款', color: '#166534', showStep: false },
   },
   payment_voucher: {
     draft:    { label: '草稿',   color: '#4b5563', showStep: false },

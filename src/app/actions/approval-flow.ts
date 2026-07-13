@@ -223,8 +223,10 @@ export async function submitApprovalDecision(params: {
   }
 
   if (fundsPaymentId) {
+    const paymentUpdatePayload: Record<string, unknown> = { status: newStatus, current_step: newCurrentStep, updated_at: new Date().toISOString() }
+    if (decision === 'approved' && approvedAmount != null) paymentUpdatePayload.approved_amount = approvedAmount
     const { error } = await supabase.from('funds_payment')
-      .update({ status: newStatus, current_step: newCurrentStep, updated_at: new Date().toISOString() })
+      .update(paymentUpdatePayload)
       .eq('id', fundsPaymentId)
     if (error) throw new Error(error.message)
   }
@@ -671,7 +673,13 @@ export async function getAllocationsForOrgRoleByWeek(userId: number, weekStart: 
   })
 }
 
-export async function getAllocationsForApprovalGroupByWeek(groupId: number, weekStart: string, weekEnd: string) {
+export async function getAllocationsForApprovalGroupByWeek(userId: number | null | undefined, groupId: number, weekStart: string, weekEnd: string) {
+  // 群組 Tab 的「審核」按鈕只給實際群組成員：非成員（僅有 Tab 檢視權限）看到的是「查閱」，
+  // 與審核頁 checkCanReviewStep（同樣要求群組成員）一致，避免列表顯示可審、進去卻不能審。
+  const { data: groupMembers } = await supabase
+    .from('approval_group_members').select('user_id').eq('group_id', groupId)
+  const isGroupMember = userId != null && (groupMembers ?? []).some(m => Number(m.user_id) === Number(userId))
+
   const { data } = await supabase
     .from('funds_allocation')
     .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT}))`)
@@ -692,7 +700,7 @@ export async function getAllocationsForApprovalGroupByWeek(groupId: number, week
   return filtered.map(r => {
     const steps = r.approval_flow_templates?.approval_flow_steps ?? []
     const matchingStep = steps.find(s => s.reviewer_type === 'approval_group' && s.approval_group_id === groupId)
-    const isPendingHere = r.status === 'pending' && r.current_step === matchingStep?.step_number
+    const isPendingHere = isGroupMember && r.status === 'pending' && r.current_step === matchingStep?.step_number
     const currentStepDef = steps.find(s => s.step_number === r.current_step)
     const id = parseInt(r.created_by, 10)
     const email = !isNaN(id) ? emailMap.get(id) : undefined
@@ -858,7 +866,13 @@ export async function getPaymentsForOrgRoleByWeek(userId: number, weekStart: str
   })
 }
 
-export async function getPaymentsForApprovalGroupByWeek(groupId: number, weekStart: string, weekEnd: string) {
+export async function getPaymentsForApprovalGroupByWeek(userId: number | null | undefined, groupId: number, weekStart: string, weekEnd: string) {
+  // 群組 Tab 的「審核」按鈕只給實際群組成員：非成員（僅有 Tab 檢視權限）看到的是「查閱」，
+  // 與審核頁 checkCanReviewStep（同樣要求群組成員）一致，避免列表顯示可審、進去卻不能審。
+  const { data: groupMembers } = await supabase
+    .from('approval_group_members').select('user_id').eq('group_id', groupId)
+  const isGroupMember = userId != null && (groupMembers ?? []).some(m => Number(m.user_id) === Number(userId))
+
   const { data } = await supabase
     .from('funds_payment')
     .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT})), funds_allocation:funds_allocation_id(apply_division_id, apply_section_id)`)
@@ -880,7 +894,7 @@ export async function getPaymentsForApprovalGroupByWeek(groupId: number, weekSta
     const steps = r.approval_flow_templates?.approval_flow_steps ?? []
     const currentStepDef = steps.find(s => s.step_number === r.current_step)
     // 直接判斷「目前步驟」是否屬於此群組（同範本可能有多個步驟用同一群組，不能只找第一個符合的）
-    const isPendingHere = r.status === 'pending' &&
+    const isPendingHere = isGroupMember && r.status === 'pending' &&
       currentStepDef?.reviewer_type === 'approval_group' &&
       currentStepDef.approval_group_id === groupId
     const id = parseInt(r.created_by, 10)
