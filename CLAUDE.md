@@ -117,6 +117,7 @@ src/
 
 - **權限三層**：SystemRole（功能菜單）→ UserPosition（組織職位）→ SidebarConfig（動態側邊欄）
 - **動態表單**：三層結構 FormBlock → FormSchemaRow → FormSlot，支援多區塊卡片排版；資料來源 12+ 種，可在 Supabase 管理不需部署；付款對象設定（`payee_categories`）每個類別會各自產生一個資料來源選項（`payee_records:<類別id>`），另外動態附加「全部付款對象（合併）」選項（`payee_records:all`，`actions/form-schema.ts` 的 `getFormDataSources()`），選這個欄位會合併目前所有付款對象類別（不限特定幾類，未來新增類別自動一起併入）的資料供搜尋/選取，付款憑單「受款人」欄位已改用此選項（`funds-payment/my-payment/add/[id]` 與 `[id]` 兩個頁面的 fetch 邏輯需各自處理 `payee_records:all` 特例，`.find()` 找欄位標籤的地方因為仍是 `payee_records:` 前綴不受影響）
+- **改欄位 fieldId 必連帶檢查 showWhen**：任何時候改動表單欄位的 `fieldId`（在表單設定頁改代號、或用 SQL/script 改 `form_schemas`），都必須同步檢查**同一 form_type 內有沒有別的欄位用 `showWhen.fieldId` 綁著舊代號**——條件顯示存的是「觸發欄位的 fieldId」，觸發欄位改代號後，被綁的欄位條件會永遠不成立、直接不顯示（畫面上沒有錯誤，只是欄位消失，極難察覺）。實例：2026-07-14 付款方式代號 `note` → `payment_method`，漏改 11 個條件欄位的 `showWhen.fieldId`，導致付款憑單選付款方式後受款銀行代碼／分行／帳戶等不再出現，2026-07-15 才修（見 `docs/prod-pending-sql.md`）。改前用 script/SQL 掃一次 `slot.showWhen.fieldId === 舊代號` 即可確認範圍
 - **主題**：CSS Variables 定義顏色，偏好存 localStorage（`bci-theme`），有防 hydration 閃爍 script
 - **MOCK_USER_ID**：`'00000000-0000-0000-0000-000000000001'`，待整合真正 Supabase Auth 後替換
 - **部署區域**：兩個 Supabase 專案（dev/staging 與正式）皆位於孟買（ap-south-1），`vercel.json` 將 Vercel 函數區域固定為 `bom1` 與資料庫同機房，勿隨意移除（移除會退回預設美東 iad1，全站每頁回應時間會從 <1 秒惡化到 2~3 秒）
