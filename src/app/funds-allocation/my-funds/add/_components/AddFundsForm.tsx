@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 import { saveAttachments } from '@/app/actions/attachments'
 import { saveUserFundTemplate, updateUserFundTemplate, deleteUserFundTemplate } from '@/app/actions/fund-templates'
 import DateCyclePicker from '@/app/_components/DateCyclePicker'
@@ -1077,8 +1078,7 @@ export default function AddFundsForm({
     if (editTemplate) { handleUpdateTemplate(); return }
     const feeError = validateFeePositive(schema, fieldValues, repeatableValues, groupInstances)
     if (feeError) {
-      setError(feeError)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      setError(feeError) // 以中央彈窗顯示，不需再捲動頁面
       return
     }
     setSubmitting(true); setError(null)
@@ -1094,11 +1094,12 @@ export default function AddFundsForm({
       <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 32 }}>
         {editTemplate ? `編輯範本：${editTemplate.name}` : '新增資金分配申請單'}
       </h1>
-      {error && (
-        <p style={errorStyle}>
-          送出失敗：{getChineseHint(error) ?? error}
-        </p>
-      )}
+      {/* 送出被擋（費用檢查等）改用全站共用中央彈窗：送出按鈕在長表單底部，頁頂紅字看不到 */}
+      <ErrorDialog
+        message={error ? (getChineseHint(error) ?? error) : null}
+        title="無法送出"
+        onClose={() => setError(null)}
+      />
 
       <form onSubmit={handleSubmit}>
         {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
@@ -1277,4 +1278,3 @@ function getChineseHint(error: string): string | null {
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--text-body)', marginBottom: 10 }
-const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 12 }

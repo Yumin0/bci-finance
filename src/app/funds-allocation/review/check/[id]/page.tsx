@@ -15,6 +15,7 @@ import { getAttachmentsByAllocationId } from '@/app/actions/attachments'
 import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/dateUtils'
 import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 
 type StepDef = {
   id: number
@@ -138,7 +139,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
     setSubmitting(true)
     setError(null)
     try {
-      await submitApprovalDecision({
+      const result = await submitApprovalDecision({
         fundsAllocationId: record.id,
         stepNumber: currentStep,
         stepName: stepDef.step_name,
@@ -148,6 +149,12 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         totalSteps: steps.length,
         approvedAmount: decision === 'approved' && approvedAmount !== '' ? Number(approvedAmount) : null,
       })
+      // 存檔驗證擋下（核准金額 0/上調/低於已佔用等）：以中央彈窗顯示
+      if (result?.error) {
+        setError(result.error)
+        setSubmitting(false)
+        return
+      }
       router.push('/funds-allocation/review')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '送出失敗')
@@ -178,7 +185,8 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         </button>
       </div>
 
-      {error && <p style={{ color: '#dc2626', marginBottom: 12 }}>{error}</p>}
+      {/* 審核送出被擋（核准金額驗證等）改用全站共用中央彈窗，多行點名式訊息完整顯示 */}
+      <ErrorDialog message={error} title="無法送出審核結果" onClose={() => setError(null)} />
 
       {/* 表單區：審核人看可編輯版，其他人看唯讀版 */}
       {canReview ? (

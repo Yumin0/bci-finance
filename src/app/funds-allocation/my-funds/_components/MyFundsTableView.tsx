@@ -135,9 +135,9 @@ export default function MyFundsTableView({
                 {visibleCols.has('section') && <TableCell>{r.apply_section ?? '-'}</TableCell>}
                 {visibleCols.has('applicant') && <TableCell>{r.applicant ?? '-'}</TableCell>}
                 {visibleCols.has('role') && <TableCell>{r.apply_role ?? '-'}</TableCell>}
-                {visibleCols.has('requestedAmount') && <TableCell>{r.amount.toLocaleString()}</TableCell>}
-                {visibleCols.has('approvedAmount') && <TableCell>{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>}
-                {visibleCols.has('remainingAmount') && <TableCell>{r.approved_amount != null ? r.remainingAmount.toLocaleString() : '-'}</TableCell>}
+                {visibleCols.has('requestedAmount') && <TableCell className="whitespace-nowrap">{r.amount.toLocaleString()}</TableCell>}
+                {visibleCols.has('approvedAmount') && <TableCell className="whitespace-nowrap">{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>}
+                {visibleCols.has('remainingAmount') && <TableCell className="whitespace-nowrap">{r.approved_amount != null ? r.remainingAmount.toLocaleString() : '-'}</TableCell>}
                 {visibleCols.has('account') && <TableCell>{r.payment_account ?? '-'}</TableCell>}
                 {visibleCols.has('expense') && <TableCell>{r.expense_item ?? '-'}</TableCell>}
                 {visibleCols.has('name') && <TableCell>{r.name}</TableCell>}
