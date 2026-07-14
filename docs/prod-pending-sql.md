@@ -48,7 +48,7 @@ WHERE payment_method IS NULL
 ALTER TABLE approval_records ADD COLUMN IF NOT EXISTS payment_category text;
 ```
 
-**選項資料（非 SQL）**：付款分類的選項存 `dropdown_options`（`field='payment_category'`），由財務到正式站「系統設定 → 支出欄位設定 → 付款分類」自行新增（例：整批匯、單獨匯、匯款、銀付、現金、薪轉、帳戶間互轉）。
+**選項資料**：✅ 已於 2026-07-14 以 SQL 在正式機建立六個選項（整批匯、單獨匯、匯款、銀付、現金、薪轉，已用唯讀查詢驗證）；之後增減改名由財務到正式站「系統設定 → 支出欄位設定 → 付款分類」操作即可（筑今另有「帳戶間互轉」，需要時財務自行加）。
 
 ### 暫付款沖銷憑單多組明細（feature/yumin-tempvoucher-groups）
 
