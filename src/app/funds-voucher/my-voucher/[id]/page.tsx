@@ -18,6 +18,7 @@ import { formatDateTime } from '@/lib/dateUtils'
 type TempVoucher = {
   id: number
   funds_payment_id: number
+  serial_number: string | null
   date: string | null
   apply_division: string | null
   apply_section: string | null
@@ -29,6 +30,7 @@ type TempVoucher = {
   current_step: number | null
   flow_template_id: number | null
   created_at: string
+  funds_payment: { purchase_order_number: string | null } | null
   approval_flow_templates: {
     name: string
     approval_flow_steps: Array<{ step_name: string; step_number: number }>
@@ -39,7 +41,9 @@ type TempVoucher = {
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
 const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
 
-function getFieldValue(fieldId: string, record: TempVoucher): string {
+function getFieldValue(slot: NonNullable<FormSlot>, record: TempVoucher): string {
+  // 採購單號＝母付款憑單的採購單號（表單欄位是自訂欄位，用欄位名稱對應）
+  if (slot.label === '採購單號') return record.funds_payment?.purchase_order_number ?? '-'
   const map: Record<string, unknown> = {
     date: record.date,
     apply_division: record.apply_division,
@@ -49,13 +53,13 @@ function getFieldValue(fieldId: string, record: TempVoucher): string {
     amount: record.amount,
     note: record.note,
   }
-  const val = map[fieldId]
+  const val = map[slot.fieldId]
   if (val == null || val === '') return '-'
   return String(val)
 }
 
 function renderSlot(slot: NonNullable<FormSlot>, record: TempVoucher) {
-  const value = getFieldValue(slot.fieldId, record)
+  const value = getFieldValue(slot, record)
   if (slot.type === 'textarea') {
     return <Textarea value={value} readOnly rows={4} className={readonlyCls} />
   }
@@ -81,7 +85,7 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
       const [{ data, error: fetchError }, histRes, config, schemas] = await Promise.all([
         supabase
           .from('temp_vouchers')
-          .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number)), approval_records!temp_voucher_id(step_name, decision)`)
+          .select(`*, funds_payment:funds_payment_id(purchase_order_number), approval_flow_templates(name, approval_flow_steps(step_name, step_number)), approval_records!temp_voucher_id(step_name, decision)`)
           .eq('id', numId)
           .single(),
         supabase
@@ -147,7 +151,9 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Link href="/funds-voucher/my-voucher" className={buttonVariants({ variant: 'outline' })}>← 返回列表</Link>
-        <h1 style={{ fontSize: 20, fontWeight: 700 }}>暫付款沖銷憑單</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>
+          暫付款沖銷憑單{record!.serial_number ? ` ${record!.serial_number}` : ''}
+        </h1>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
@@ -155,7 +161,7 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
         <StatusBadge module="temp_voucher" status={record!.status} stepName={getStepName()} labelConfig={labelConfig} />
         <span>　關聯付款憑單</span>
         <Link href={`/funds-payment/my-payment/${record!.funds_payment_id}`} style={{ color: '#2563eb' }}>
-          #{record!.funds_payment_id}
+          {record!.funds_payment?.purchase_order_number ?? `#${record!.funds_payment_id}`}
         </Link>
       </div>
 

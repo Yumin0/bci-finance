@@ -20,10 +20,12 @@ import PageHeader from '@/app/_components/PageHeader'
 const PENDING_SEARCH: Array<(r: TempVoucherRow) => string | null | undefined> = [
   (r) => r.apply_section,
   (r) => r.applicant,
+  (r) => r.serial_number,
 ]
 const HISTORY_SEARCH: Array<(r: HistoryItem) => string | null | undefined> = [
   (r) => r.temp_voucher?.apply_section,
   (r) => r.temp_voucher?.applicant,
+  (r) => r.temp_voucher?.serial_number,
 ]
 
 type Tab = 'pending' | 'history'
@@ -31,6 +33,7 @@ type Tab = 'pending' | 'history'
 type TempVoucherRow = {
   id: number
   funds_payment_id: number
+  serial_number: string | null
   date: string | null
   applicant: string | null
   apply_section: string | null
@@ -44,7 +47,7 @@ type TempVoucherRow = {
 }
 
 type HistoryItem = ApprovalRecord & {
-  temp_voucher: Pick<TempVoucherRow, 'id' | 'applicant' | 'apply_section' | 'amount' | 'status'> | null
+  temp_voucher: Pick<TempVoucherRow, 'id' | 'serial_number' | 'applicant' | 'apply_section' | 'amount' | 'status'> | null
 }
 
 export default function VoucherReviewPage() {
@@ -73,7 +76,7 @@ export default function VoucherReviewPage() {
         getPendingVouchersForReviewer(userId),
         supabase
           .from('approval_records')
-          .select(`*, temp_voucher:temp_voucher_id(id, applicant, apply_section, amount, status)`)
+          .select(`*, temp_voucher:temp_voucher_id(id, serial_number, applicant, apply_section, amount, status)`)
           .eq('reviewer_id', String(userId))
           .not('decision', 'is', null)
           .not('temp_voucher_id', 'is', null)
@@ -150,13 +153,18 @@ function PendingList({ items, labelConfig }: { items: TempVoucherRow[]; labelCon
       <Table>
         <TableHeader>
           <TableRow>
-            {['狀態', '申請課別', '申請人', '暫付金額', ''].map((col, i) => <TableHead key={i}>{col}</TableHead>)}
+            {['狀態', '暫付款沖銷憑單號', '申請課別', '申請人', '暫付金額', ''].map((col, i) => <TableHead key={i}>{col}</TableHead>)}
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map(r => (
             <TableRow key={r.id}>
               <TableCell><StatusBadge module="temp_voucher" status="pending" stepName={r.step_name ?? null} labelConfig={labelConfig} /></TableCell>
+              <TableCell>
+                <Link href={`/funds-voucher/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">
+                  {r.serial_number ?? `#${r.id}`}
+                </Link>
+              </TableCell>
               <TableCell>{r.apply_section ?? '-'}</TableCell>
               <TableCell>{r.applicant ?? '-'}</TableCell>
               <TableCell>{r.amount != null ? r.amount.toLocaleString() : '-'}</TableCell>
@@ -176,7 +184,7 @@ function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig
       <Table>
         <TableHeader>
           <TableRow>
-            {['審核結果', '申請課別', '申請人', '暫付金額', '審核時間', ''].map((col, i) => <TableHead key={i}>{col}</TableHead>)}
+            {['審核結果', '暫付款沖銷憑單號', '申請課別', '申請人', '暫付金額', '審核時間', ''].map((col, i) => <TableHead key={i}>{col}</TableHead>)}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -184,6 +192,13 @@ function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig
             <TableRow key={r.id}>
               <TableCell>
                 <StatusBadge module="temp_voucher" status={r.temp_voucher?.status ?? (r.decision === 'approved' ? 'approved' : 'rejected')} stepName={r.step_name} labelConfig={labelConfig} />
+              </TableCell>
+              <TableCell>
+                {r.temp_voucher_id ? (
+                  <Link href={`/funds-voucher/review/check/${r.temp_voucher_id}`} className="text-sm text-primary underline underline-offset-4">
+                    {r.temp_voucher?.serial_number ?? `#${r.temp_voucher_id}`}
+                  </Link>
+                ) : '-'}
               </TableCell>
               <TableCell>{r.temp_voucher?.apply_section ?? '-'}</TableCell>
               <TableCell>{r.temp_voucher?.applicant ?? '-'}</TableCell>

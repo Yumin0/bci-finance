@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDateTime } from '@/lib/dateUtils'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 
 type StepDef = {
   id: number
@@ -27,6 +28,7 @@ type StepDef = {
 type TempVoucher = {
   id: number
   funds_payment_id: number
+  serial_number: string | null
   date: string | null
   apply_division: string | null
   apply_section: string | null
@@ -37,12 +39,15 @@ type TempVoucher = {
   status: string
   current_step: number | null
   flow_template_id: number | null
+  funds_payment?: { purchase_order_number: string | null } | null
   approval_flow_templates: { id: number; name: string; approval_flow_steps: StepDef[] } | null
 }
 
 const readonlyCls = 'bg-muted/40 cursor-default'
 
-function getFieldValue(fieldId: string, record: TempVoucher): string {
+function getFieldValue(slot: NonNullable<FormSlot>, record: TempVoucher): string {
+  // 採購單號＝母付款憑單的採購單號（表單欄位是自訂欄位，用欄位名稱對應）
+  if (slot.label === '採購單號') return record.funds_payment?.purchase_order_number ?? '-'
   const map: Record<string, unknown> = {
     date: record.date,
     apply_division: record.apply_division,
@@ -52,13 +57,13 @@ function getFieldValue(fieldId: string, record: TempVoucher): string {
     amount: record.amount,
     note: record.note,
   }
-  const val = map[fieldId]
+  const val = map[slot.fieldId]
   if (val == null || val === '') return '-'
   return String(val)
 }
 
 function renderSlot(slot: NonNullable<FormSlot>, record: TempVoucher) {
-  const value = getFieldValue(slot.fieldId, record)
+  const value = getFieldValue(slot, record)
   if (slot.type === 'textarea') return <Textarea value={value} readOnly rows={4} className={readonlyCls} />
   return <Input value={value} readOnly className={readonlyCls} />
 }
@@ -82,7 +87,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       const numId = Number(id)
 
       const [recRes, pastRes, session] = await Promise.all([
-        supabase.from('temp_vouchers').select('*').eq('id', numId).single(),
+        supabase.from('temp_vouchers').select('*, funds_payment:funds_payment_id(purchase_order_number)').eq('id', numId).single(),
         supabase.from('approval_records').select('*').eq('temp_voucher_id', numId).order('step_number'),
         getMySession(),
       ])
@@ -154,7 +159,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
     setSubmitting(true)
     setError(null)
     try {
-      await submitApprovalDecision({
+      const result = await submitApprovalDecision({
         tempVoucherId: record.id,
         stepNumber: currentStep,
         stepName: stepDef.step_name,
@@ -163,6 +168,11 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
         reviewerId: String(userId ?? ''),
         totalSteps: steps.length,
       })
+      if (result?.error) {
+        setError(result.error)
+        setSubmitting(false)
+        return
+      }
       router.push('/funds-voucher/review')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '送出失敗')
@@ -178,10 +188,11 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       {/* 頁面標題 */}
       <div className="flex items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => router.back()}>← 返回</Button>
-        <h1 className="text-xl font-bold text-foreground">審核暫付款沖銷憑單</h1>
+        <h1 className="text-xl font-bold text-foreground">審核暫付款沖銷憑單{record.serial_number ? ` ${record.serial_number}` : ''}</h1>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {/* 審核送出被擋改用全站共用中央彈窗 */}
+      <ErrorDialog message={error} title="無法送出審核結果" onClose={() => setError(null)} />
 
       {/* Schema 欄位區塊 */}
       {schema.map(block => (

@@ -31,6 +31,7 @@ function resolveStepLabel(row: TempVoucherExportRow, labelConfig: StatusLabelCon
 
 function buildColumns(labelConfig: StatusLabelConfig) {
   return [
+    { key: 'serial_number', label: '暫付款沖銷憑單號', getValue: (r: TempVoucherExportRow) => r.serial_number ?? '' },
     { key: 'date',          label: '申請日期', getValue: (r: TempVoucherExportRow) => r.date ? formatDate(r.date) : formatDate(r.created_at) },
     { key: 'apply_section', label: '申請課別', getValue: (r: TempVoucherExportRow) => r.apply_section ?? '' },
     { key: 'applicant',     label: '申請人',   getValue: (r: TempVoucherExportRow) => r.applicant ?? '' },

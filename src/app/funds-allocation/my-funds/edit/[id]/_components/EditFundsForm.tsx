@@ -19,8 +19,10 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 import { getAttachmentsByAllocationId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
 import { deleteFundsAllocation, updateFundsAllocation } from '@/app/actions/funds-allocation'
+import { getAllocationRemainingInfo } from '@/app/actions/fund-budget'
 import { saveUserFundTemplate } from '@/app/actions/fund-templates'
 import { logFieldChanges } from '@/app/actions/edit-logs'
 import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
@@ -98,6 +100,16 @@ export default function EditFundsForm({
   const isDraft = record.status === FUNDS_STATUS.DRAFT
   const canEdit = isDraft || isCurrentReviewer || (record.status === FUNDS_STATUS.PENDING && record.current_step === 1)
   const isApplicant = userId != null && String(record.created_by) === String(userId)
+
+  // 已核准單的剩餘可用額度：額度被底下憑單佔滿（≤0）時不顯示「建立付款憑單」按鈕（對齊筑今）。
+  // null = 尚未載入完成，載入完成且剩餘 > 0 才顯示按鈕
+  const [allocationRemaining, setAllocationRemaining] = useState<number | null>(null)
+  useEffect(() => {
+    if (record.status !== FUNDS_STATUS.APPROVED) return
+    getAllocationRemainingInfo(record.id).then(info => {
+      if (info) setAllocationRemaining(info.remaining)
+    })
+  }, [record.id, record.status])
 
   const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
     b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
@@ -1154,8 +1166,7 @@ export default function EditFundsForm({
     e.preventDefault()
     const feeError = validateFeePositive(schema, fieldValues, repeatableValues, groupInstances)
     if (feeError) {
-      setError(feeError)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      setError(feeError) // 以中央彈窗顯示，不需再捲動頁面
       return
     }
     setSubmitting(true); setError(null)
@@ -1172,8 +1183,7 @@ export default function EditFundsForm({
     // 已送出的單子（審核人或申請人修改）也不允許把費用改成 0 或負數
     const feeError = validateFeePositive(schema, fieldValues, repeatableValues, groupInstances)
     if (feeError) {
-      setError(feeError)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      setError(feeError) // 以中央彈窗顯示，不需再捲動頁面
       return
     }
     setSubmitting(true); setError(null)
@@ -1245,7 +1255,8 @@ export default function EditFundsForm({
         )}
       </div>
 
-      {error && <p style={errorStyle}>錯誤：{error}</p>}
+      {/* 儲存/送出被擋（費用檢查等）改用全站共用中央彈窗：按鈕在長表單底部，頁頂紅字看不到 */}
+      <ErrorDialog message={error} title="無法儲存或送出" onClose={() => setError(null)} />
 
       <form onSubmit={isDraft ? handleSubmitFromDraft : handleSaveChanges}>
         {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
@@ -1371,7 +1382,9 @@ export default function EditFundsForm({
                 {savingDraft ? '儲存中...' : '儲存草稿'}
               </Button>
             )}
-            {record.status === FUNDS_STATUS.APPROVED && record.current_step === null && (
+            {/* 剩餘額度被佔滿（≤0）時不顯示建立按鈕（缺口 8，對齊筑今）；剩餘載入完成且 >0 才出現 */}
+            {record.status === FUNDS_STATUS.APPROVED && record.current_step === null &&
+              allocationRemaining !== null && allocationRemaining > 0 && (
               <Button type="button" onClick={() => router.push(`/funds-payment/my-payment/add/${record.id}`)}>
                 建立付款憑單
               </Button>
@@ -1461,4 +1474,3 @@ export default function EditFundsForm({
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--text-body)', marginBottom: 10 }
-const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 12 }

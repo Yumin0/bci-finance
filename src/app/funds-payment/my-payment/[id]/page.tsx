@@ -19,6 +19,7 @@ import { getAttachmentsByAllocationId, getAttachmentsByPaymentId, saveAttachment
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
 import StatusBadge from '@/app/_components/StatusBadge'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -814,10 +815,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
   async function handleSave() {
     if (!record) return
-    if (remainingInfo && grandTotal > remainingInfo.remaining) {
-      setError(`金額超過剩餘可用額度（剩餘 NT$${remainingInfo.remaining.toLocaleString()}）`)
-      return
-    }
+    // 超額檢查交給 updateDraftPayment 的存檔驗證（伺服器回點名式訊息）
     setSaving(true)
     setError(null)
     const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue(), grandTotal)
@@ -831,10 +829,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     // 付款憑單表單沒有可重複列，repeatableValues 傳空物件
     const feeError = validateFeePositive(schema, fieldValues, {}, groupInstances)
     if (feeError) { setError(feeError); return }
-    if (remainingInfo && grandTotal > remainingInfo.remaining) {
-      setError(`金額超過剩餘可用額度（剩餘 NT$${remainingInfo.remaining.toLocaleString()}）`)
-      return
-    }
+    // 超額檢查交給 updateDraftPayment 的存檔驗證（伺服器回點名式訊息）
     setSubmitting(true)
     setError(null)
     const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue(), grandTotal)
@@ -963,7 +958,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           <FundsPaymentDetail record={record!} schema={schema} />
         )}
 
-        {error && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 16 }}>錯誤：{error}</p>}
+        {/* 儲存/送出被擋（費用檢查、超額等）改用全站共用中央彈窗 */}
+        <ErrorDialog message={error} title="無法儲存或送出" onClose={() => setError(null)} />
 
         {isDraft && (
           <div style={{ marginTop: 32, display: 'flex', gap: 8 }}>

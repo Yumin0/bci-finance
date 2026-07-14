@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { FundsAllocation, FormBlock, FormSchemaRow, FormSlot, DropdownOption, TaxRateOption, FundAttachment } from '@/lib/types'
 import { applyTaxFormula, computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
-import { createPayment } from '@/app/actions/payment'
+import { createPayment, nextPurchaseOrderNumber } from '@/app/actions/payment'
+import { taipeiToday } from '@/lib/dateUtils'
 import { getAllocationRemainingInfo, type AllocationRemainingInfo } from '@/app/actions/fund-budget'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getAttachmentsByAllocationId, saveAttachments } from '@/app/actions/attachments'
@@ -16,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 
 
 // fieldId-based: known default fieldIds that are direct allocation columns → always readonly
@@ -36,9 +38,11 @@ const isCategorySlot = (slot: NonNullable<FormSlot>) =>
 // Label-based fallback: catches fields whose Supabase fieldId differs from the default
 // (e.g. 職稱/類型 in a customised schema). Also covers extra_data-only fields.
 const ALLOCATION_READONLY_LABEL_MAP: Record<string, (r: FundsAllocation) => string> = {
-  '採購單號':     r => r.serial_number ? `${r.serial_number}001` : '',
-  '申請日期':     r => r.date ?? '',
-  '日期':         r => r.date ?? '',
+  // 採購單號實際值由 nextPurchaseOrderNumber 取得（renderField 特例處理），這裡留空當保底
+  '採購單號':     () => '',
+  // 日期＝實際建單日（2026-07-14 Yumin 拍板），不再顯示母單申請日期（母單日期看頁首摘要卡）
+  '申請日期':     () => taipeiToday(),
+  '日期':         () => taipeiToday(),
   '申請處別':     r => r.apply_division ?? '',
   '申請課別':     r => r.apply_section ?? '',
   '申請人':       r => r.applicant ?? '',
@@ -63,8 +67,8 @@ function getGroupRows(block: FormBlock): FormSchemaRow[] {
 
 function getAllocFieldValue(fieldId: string, record: FundsAllocation): string {
   const map: Record<string, unknown> = {
-    purchase_order_number: record.serial_number ? `${record.serial_number}001` : '',
-    date: record.date,
+    purchase_order_number: '', // 實際值由 nextPurchaseOrderNumber 取得（renderField 特例處理）
+    date: taipeiToday(), // 日期＝實際建單日，不再繼承母單申請日期
     apply_division: record.apply_division,
     apply_section: record.apply_section,
     applicant: record.applicant,
@@ -106,6 +110,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   // key 格式：群組實例 `${blockId}:${instIdx}:${totalFieldId}`，非群組欄位 `root:${fieldId}`
   const [manualTotalKeys, setManualTotalKeys] = useState<Set<string>>(new Set())
   const [remainingInfo, setRemainingInfo] = useState<AllocationRemainingInfo | null>(null)
+  // 這張憑單建立後會拿到的採購單號（母單號＋下一個 3 碼流水），僅供畫面預覽
+  const [nextPoNumber, setNextPoNumber] = useState<string>('')
 
   const setField = useCallback((id: string, val: string) => {
     setFieldValues(prev => ({ ...prev, [id]: val }))
@@ -135,6 +141,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       if (fetchError) { setError(fetchError.message); setLoading(false); return }
       setRemainingInfo(remaining)
       setRecord(data as FundsAllocation)
+      nextPurchaseOrderNumber(numId, (data as FundsAllocation).serial_number).then(po => setNextPoNumber(po ?? ''))
 
       const paymentSchema = schemas.payment_voucher
       setSchema(paymentSchema)
@@ -143,6 +150,23 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       const schemaGroupSlotIds = new Set(
         paymentSchema.flatMap(b => getGroupRows(b).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId)))
       )
+      // 申請單付款明細「第一組」的值（label → 值）：申請單把單據種類/幣別存在明細組裡，
+      // 而付款憑單這兩欄在組外（整張填一次），對不到頂層值時退回帶第一組的值
+      // （2026-07-14 Yumin 拍板：多組值不同時帶第一組，可修改）
+      const firstGroupByLabel: Record<string, string> = {}
+      for (const [key, raw] of Object.entries(rec.extra_data ?? {})) {
+        if (!key.startsWith('__group_')) continue
+        try {
+          const parsed = JSON.parse(raw)
+          const first = Array.isArray(parsed) ? parsed[0] : null
+          if (first && typeof first === 'object') {
+            for (const [label, v] of Object.entries(first)) {
+              if (firstGroupByLabel[label] === undefined && typeof v === 'string' && v !== '') firstGroupByLabel[label] = v
+            }
+          }
+        } catch { /* 忽略解析錯誤 */ }
+      }
+
       const initValues: Record<string, string> = {}
       paymentSchema.flatMap(b => b.rows.flatMap(r => r.slots)).forEach(slot => {
         if (!slot) return
@@ -163,7 +187,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
           return
         }
         // Pre-fill other editable fields from allocation.extra_data by label (e.g. 幣別, 會計科目)
-        const extraVal = rec.extra_data?.[slot.label]
+        // 頂層沒有時退回申請單付款明細第一組的值（單據種類/幣別存在組裡）
+        const extraVal = rec.extra_data?.[slot.label] ?? firstGroupByLabel[slot.label]
         if (extraVal) initValues[slot.fieldId] = extraVal
       })
       if (Object.keys(initValues).length > 0) setFieldValues(initValues)
@@ -444,6 +469,11 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
 
   function renderField(slot: NonNullable<FormSlot>, rec: FundsAllocation) {
     const { fieldId, type, dataSource, staticOptions, required } = slot
+
+    // 採購單號：顯示建立後會拿到的單號（母單號＋下一個流水碼，由 server 算）
+    if (fieldId === 'purchase_order_number' || slot.label === '採購單號') {
+      return <Input value={nextPoNumber} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+    }
 
     // Fields inherited from allocation: always readonly regardless of schema type
     // Check by fieldId first, then fall back to label map (handles Supabase-customised schemas)
@@ -745,12 +775,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
     const categorySlot = allSlots.find(isCategorySlot)
     const categoryValue = categorySlot ? (fieldValues[categorySlot.fieldId] || '一般') : null
 
-    if (remainingInfo && grandTotal > remainingInfo.remaining) {
-      setError(`金額超過剩餘可用額度（剩餘 NT$${remainingInfo.remaining.toLocaleString()}）`)
-      setSubmitting(false)
-      return
-    }
-
+    // 超額檢查交給 createPayment 的存檔驗證：伺服器會回點名式訊息
+    // （核准金額、底下已有哪幾張憑單各佔多少、這次最多能填多少），比前端只知道剩餘數字更清楚
     const { id: newPaymentId, error: insertError } = await createPayment(
       allocationId,
       fieldValues['payment_method'] ?? '',
@@ -780,7 +806,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
         <AllocationSummaryCard info={remainingInfo} remainingLabel="目前剩餘" submitPreview={grandTotal} />
       )}
 
-      {error && <p style={errorStyle}>錯誤：{error}</p>}
+      {/* 送出被擋（金額 0/超額等）改用中央彈窗：建立按鈕在長表單底部，頁頂紅字使用者看不到 */}
+      <ErrorDialog message={error} title="無法建立付款憑單" onClose={() => setError(null)} />
 
       <form onSubmit={handleSubmit}>
         {schema.map(block => {
@@ -876,4 +903,3 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 8 }

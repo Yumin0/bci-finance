@@ -4,6 +4,8 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { ApprovalFlowTemplate, ApprovalFlowStep, ApprovalFlowStepWithRole } from '@/lib/types'
 import { notifyReviewersForStep, notifyApplicant } from './notifications'
 import { emailToEnglishName } from '@/lib/userNames'
+import { calcRemainingAmount, type PaymentForRemaining } from '@/lib/fundsAllocationRemaining'
+import { buildOccupiedVoucherSummary } from '@/lib/occupiedVoucherLines'
 
 // ── 查詢 ──────────────────────────────────────────────
 
@@ -179,6 +181,104 @@ export async function saveTemplatePaymentAccounts(
   if (insertError) throw new Error(insertError.message)
 }
 
+// ── 核准金額存檔前驗證（最後一道防線）────────────────
+// 畫面上已有同樣的限制，但畫面的擋法可能被繞過或改壞，
+// 這裡在真正寫入前再檢查一次，違反規則就整筆拒收。
+// 回傳錯誤訊息字串（白話，含具體人/單/金額），通過回傳 null。
+
+async function validateAllocationApprovedAmount(
+  allocationId: number,
+  approvedAmount: number,
+  reviewerId: string
+): Promise<string | null> {
+  // 缺口 5：核准 0 元（或負數）在業務上等於不核准，禁止用「核准」送出
+  if (!(approvedAmount > 0)) {
+    return '核准金額必須大於 0。如果不同意這張申請單，請按「不核准」，不要用 0 元（或負數）核准。'
+  }
+
+  const { data: alloc } = await supabase
+    .from('funds_allocation')
+    .select('amount, approved_amount')
+    .eq('id', allocationId)
+    .single()
+  if (!alloc) return '找不到這張資金分配申請單，無法儲存審核結果。'
+
+  // 缺口 1：只能等於或下修——上限是上一關核准的金額（第一關是申請金額）
+  const cap = alloc.approved_amount ?? alloc.amount
+  if (cap != null && approvedAmount > cap) {
+    const capLabel = alloc.approved_amount != null ? '上一關核准的金額' : '申請人填的申請金額'
+    return `核准金額只能等於或低於${capLabel} NT$${Number(cap).toLocaleString()}，不能往上調高。請重新填寫。`
+  }
+
+  // 缺口 3：下修不可低於底下付款憑單已經佔用的總額（點名式清單：誰、哪天、哪張單、什麼狀態）
+  const { lines, creators, occupiedTotal } = await buildOccupiedVoucherSummary(allocationId, { viewerId: reviewerId })
+  if (occupiedTotal === 0 || approvedAmount >= occupiedTotal) return null
+
+  const onlySelf = creators.length === 1 && creators[0] === '你自己'
+  const howToFix = onlySelf
+    ? '或先刪除／調降你自己建立的上面那（幾）張憑單的金額，再回來下修。'
+    : `或請 ${creators.filter(n => n !== '你自己').join('、')}${creators.includes('你自己') ? '（部分是你自己建立的）' : ''} 先刪除／調降上面憑單的金額，再回來下修。`
+
+  return [
+    '**這張資金分配單底下已經有付款憑單在用額度：**',
+    ...lines,
+    '',
+    `合計已佔用 NT$${occupiedTotal.toLocaleString()}。核准金額如果改成 NT$${approvedAmount.toLocaleString()}，會低於已經用掉的錢，帳會對不起來，所以無法儲存。`,
+    `**請填 NT$${occupiedTotal.toLocaleString()} 以上；${howToFix}**`,
+  ].join('\n')
+}
+
+async function validatePaymentApprovedAmount(
+  paymentId: number,
+  approvedAmount: number,
+  reviewerId: string
+): Promise<string | null> {
+  // 缺口 5：同資金分配——0 元或負數不能當「核准」
+  if (!(approvedAmount > 0)) {
+    return '核准金額必須大於 0。如果不同意這張付款憑單，請按「不核准」，不要用 0 元（或負數）核准。'
+  }
+
+  const { data: payment } = await supabase
+    .from('funds_payment')
+    .select('funds_allocation_id')
+    .eq('id', paymentId)
+    .single()
+  if (!payment?.funds_allocation_id) return null // 沒掛母單的舊資料，無額度可比
+
+  const { data: alloc } = await supabase
+    .from('funds_allocation')
+    .select('approved_amount')
+    .eq('id', payment.funds_allocation_id)
+    .single()
+  if (!alloc) return null
+
+  // 缺口 1：上限＝母單剩餘額度（排除本張自己目前佔用的金額）
+  const { data: siblings } = await supabase
+    .from('funds_payment')
+    .select('id, status, amount, approved_amount')
+    .eq('funds_allocation_id', payment.funds_allocation_id)
+  const others = (siblings ?? []).filter(p => p.id !== paymentId) as PaymentForRemaining[]
+  const remainingBeforeThis = calcRemainingAmount(alloc.approved_amount, others)
+  if (approvedAmount > remainingBeforeThis) {
+    // 點名式訊息：核准金額多少、其他憑單各佔多少、這次最多能核多少
+    const { lines, occupiedTotal } = await buildOccupiedVoucherSummary(payment.funds_allocation_id, {
+      viewerId: reviewerId,
+      excludePaymentId: paymentId,
+    })
+    const approvedLabel = alloc.approved_amount != null ? `NT$${Number(alloc.approved_amount).toLocaleString()}` : '（尚未核准）'
+    return [
+      `**核准金額 NT$${approvedAmount.toLocaleString()} 超過這張資金分配單剩下可用的額度。**`,
+      '',
+      `資金分配單的核准金額是 ${approvedLabel}，除了這張憑單以外，底下已經有這些付款憑單在用額度：`,
+      ...(lines.length > 0 ? lines : ['（無其他憑單）']),
+      '',
+      `合計已佔用 NT$${occupiedTotal.toLocaleString()}。`,
+      `**這張憑單最多只能核 NT$${remainingBeforeThis.toLocaleString()}，請調低核准金額。**`,
+    ].join('\n')
+  }
+  return null
+}
+
 // ── 提交審核決定 ──────────────────────────────────────
 
 export async function submitApprovalDecision(params: {
@@ -192,8 +292,20 @@ export async function submitApprovalDecision(params: {
   reviewerId: string
   totalSteps: number
   approvedAmount?: number | null
-}) {
+}): Promise<{ error: string | null }> {
   const { fundsAllocationId, fundsPaymentId, tempVoucherId, stepNumber, stepName, decision, comment, reviewerId, totalSteps, approvedAmount } = params
+
+  // 核准金額存檔前驗證（畫面已擋過一次，這裡是最後一道防線；錯誤用回傳值帶回，
+  // 不能用 throw——正式環境 throw 的訊息會被 Next.js 遮蔽，使用者只會看到通用錯誤）
+  if (decision === 'approved' && approvedAmount != null) {
+    let validationError: string | null = null
+    if (fundsAllocationId) {
+      validationError = await validateAllocationApprovedAmount(fundsAllocationId, approvedAmount, reviewerId)
+    } else if (fundsPaymentId) {
+      validationError = await validatePaymentApprovedAmount(fundsPaymentId, approvedAmount, reviewerId)
+    }
+    if (validationError) return { error: validationError }
+  }
 
   const isLastStep = stepNumber >= totalSteps
   const newStatus = decision === 'rejected' ? 'rejected' : isLastStep ? 'approved' : 'pending'
@@ -400,6 +512,8 @@ export async function submitApprovalDecision(params: {
   } catch (e) {
     console.error('Notification error:', e)
   }
+
+  return { error: null }
 }
 
 // ── 審核人資格驗證與待審清單 ─────────────────────────────────

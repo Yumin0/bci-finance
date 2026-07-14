@@ -7,19 +7,25 @@ import { supabase } from '@/lib/supabase'
 import { FundsPayment, FormBlock, FormSlot } from '@/lib/types'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { createTempVoucher } from '@/app/actions/temp-voucher'
+import { taipeiToday } from '@/lib/dateUtils'
 import { saveAttachments } from '@/app/actions/attachments'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { buttonVariants } from '@/components/ui/button'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 
 const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6,
 }
 const readonlyCls = 'bg-[var(--bg-page)] cursor-not-allowed'
 
-function getPrefilledValue(fieldId: string, payment: FundsPayment): string {
+function getPrefilledValue(slot: NonNullable<FormSlot>, payment: FundsPayment): string {
+  // 採購單號＝母付款憑單的採購單號（表單欄位是自訂欄位，用欄位名稱對應）
+  if (slot.label === '採購單號') return payment.purchase_order_number ?? ''
+  // 申請日期預設建立當天（可改）
+  if (slot.fieldId === 'date' || slot.label === '申請日期') return taipeiToday()
   const map: Record<string, unknown> = {
     apply_division: payment.apply_division,
     apply_section:  payment.apply_section,
@@ -27,13 +33,14 @@ function getPrefilledValue(fieldId: string, payment: FundsPayment): string {
     apply_role:     payment.apply_role,
     amount:         payment.amount,
   }
-  const val = map[fieldId]
+  const val = map[slot.fieldId]
   if (val == null || val === '') return ''
   return String(val)
 }
 
-function isReadonlyField(fieldId: string): boolean {
-  return ['applicant', 'apply_division', 'apply_section', 'apply_role'].includes(fieldId)
+function isReadonlySlot(slot: NonNullable<FormSlot>): boolean {
+  return ['applicant', 'apply_division', 'apply_section', 'apply_role'].includes(slot.fieldId)
+    || slot.label === '採購單號' // 唯讀帶入母付款憑單採購單號，不可手改
 }
 
 export default function AddTempVoucherPage({ params }: { params: Promise<{ id: string }> }) {
@@ -72,7 +79,7 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
       for (const block of schemas.temp_voucher) {
         for (const row of block.rows) {
           for (const slot of row.slots) {
-            if (slot) prefilled[slot.fieldId] = getPrefilledValue(slot.fieldId, p)
+            if (slot) prefilled[slot.fieldId] = getPrefilledValue(slot, p)
           }
         }
       }
@@ -88,7 +95,7 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
 
   function renderSlot(slot: NonNullable<FormSlot>) {
     const value = fieldValues[slot.fieldId] ?? ''
-    const readonly = isReadonlyField(slot.fieldId) || slot.type === 'readonly'
+    const readonly = isReadonlySlot(slot) || slot.type === 'readonly'
 
     if (slot.type === 'attachment') {
       const items = pendingAttachments[slot.label] ?? []
@@ -141,7 +148,9 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
   }
 
   if (loading) return <p>載入中...</p>
-  if (error || !payment) return (
+  // 只有載入不到付款憑單才整頁換成錯誤畫面；送出被擋（例如沖銷金額檢查）時
+  // 表單要保留讓使用者直接修改重送，錯誤訊息顯示在表單上方
+  if (!payment) return (
     <div>
       <p style={{ color: '#dc2626' }}>{error ?? '載入失敗'}</p>
       <Link href="/funds-payment/my-payment" className={buttonVariants({ variant: 'outline' })}>返回</Link>
@@ -160,7 +169,8 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
         付款憑單 #{paymentId}
       </p>
 
-      {error && <p style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>錯誤：{error}</p>}
+      {/* 送出被擋（沖銷金額檢查等）改用全站共用中央彈窗 */}
+      <ErrorDialog message={error} title="無法建立沖銷憑單" onClose={() => setError(null)} />
 
       <form onSubmit={handleSubmit}>
         {schema.map(block => (
