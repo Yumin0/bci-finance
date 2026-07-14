@@ -232,6 +232,10 @@
 
 ## 已完成
 
+**付款憑單／暫付款沖銷憑單建立頁加「儲存草稿」按鈕**（2026-07-15，Yumin）
+分支：`feature/yumin-payment-voucher-draft`
+說明：對齊資金分配新增頁，兩個建立頁改成「儲存草稿」＋「確定送出」雙按鈕。儲存草稿只建立 draft（放寬：`createPayment`/`createTempVoucher` 加 `asDraft` 參數，草稿允許金額 0 存半成品、仍擋負數與超過剩餘/原預支上限）、確定送出跑費用檢查（付款憑單 `validateFeePositive`）後建立並接送審 action（`submitMyPayment`/`submitTempVoucher`）。既有呼叫端不受影響（新增選填參數、預設嚴格）。無資料庫結構變更。tsc/eslint 通過。
+
 **付款分類全套＋財務付款憑單管理頁對齊筑今＋付款方式/費用項目欄位代號修正**（2026-07-14，Yumin）
 分支：`feature/yumin-payment-category`（已合併 main）
 說明（Yumin 拍板，規格見 BC 核心邏輯文件第十節）：

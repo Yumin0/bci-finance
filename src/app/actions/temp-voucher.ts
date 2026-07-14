@@ -40,7 +40,9 @@ export async function nextTempVoucherSerial(fundsPaymentId: number, paymentPoNum
 export async function createTempVoucher(
   fundsPaymentId: number,
   fields: Record<string, string>,
-  extraData: Record<string, string> = {}
+  extraData: Record<string, string> = {},
+  // 儲存草稿時 asDraft=true：放寬沖銷金額下限（允許 0，仍擋負數與超過原預支上限），送出時為 false
+  asDraft = false
 ): Promise<{ id: number | null; error: string | null }> {
   const session = await getSession()
   if (!session) return { id: null, error: '請先登入' }
@@ -110,8 +112,11 @@ export async function createTempVoucher(
     amount = Number(amountRaw)
   }
 
-  // 沖銷金額檢查：必須大於 0，且不能超過原預支憑單實際付款的金額
-  if (!Number.isFinite(amount) || amount <= 0) {
+  // 沖銷金額檢查：負數一律擋（草稿也擋）；送出時必須大於 0，儲存草稿允許 0（半成品尚未填總額）
+  if (!Number.isFinite(amount) || amount < 0) {
+    return { id: null, error: '沖銷金額（各組總額加總）不可為負數。請填寫這次實際要沖銷的金額再儲存。' }
+  }
+  if (!asDraft && amount <= 0) {
     return { id: null, error: '沖銷金額（各組總額加總）必須大於 0。請填寫這次實際要沖銷的金額再送出。' }
   }
   const paidAmount = payment.approved_amount ?? payment.amount // 已付款憑單實際撥款金額＝核准金額（舊資料無核准金額則用憑單金額）
