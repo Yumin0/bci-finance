@@ -35,6 +35,11 @@ const ALLOCATION_READONLY_FIELD_IDS = new Set([
 const isCategorySlot = (slot: NonNullable<FormSlot>) =>
   slot.fieldId === 'category' || slot.label === '類型'
 
+// 付款方式欄位：存入 funds_payment.payment_method 結構化欄位（列表「付款方式」欄的來源）
+// 以 label 比對備援——2026-07-14 曾發生表單設定把此欄掛到 note fieldId，導致付款方式全數存空
+const isPaymentMethodSlot = (slot: NonNullable<FormSlot>) =>
+  slot.fieldId === 'payment_method' || slot.label === '付款方式'
+
 // Label-based fallback: catches fields whose Supabase fieldId differs from the default
 // (e.g. 職稱/類型 in a customised schema). Also covers extra_data-only fields.
 const ALLOCATION_READONLY_LABEL_MAP: Record<string, (r: FundsAllocation) => string> = {
@@ -55,8 +60,8 @@ const ALLOCATION_READONLY_LABEL_MAP: Record<string, (r: FundsAllocation) => stri
 }
 
 // Fields to pre-fill as initial value but keep editable (by fieldId or by label)
-// 注意：'note' 不可加入 — 表單設定中「付款方式」select 掛的是 note fieldId，
-// 預填會把申請單備註帶進付款方式下拉（應保持空白讓使用者自選）
+// 注意：'note' 不可加入 — 2026-07-14 前表單設定「付款方式」曾掛 note fieldId（已修正為 payment_method），
+// 若未來又有欄位掛到 note，預填會把申請單備註帶進去（應保持空白讓使用者自填）
 const ALLOCATION_PREFILL_FIELD_IDS = new Set(['name'])
 
 function getGroupRows(block: FormBlock): FormSchemaRow[] {
@@ -752,7 +757,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       if (slot.type === 'attachment') continue
       if (ALLOCATION_READONLY_FIELD_IDS.has(slot.fieldId)) continue
       if (slot.label in ALLOCATION_READONLY_LABEL_MAP) continue
-      if (slot.fieldId === 'payment_method') continue
+      if (isPaymentMethodSlot(slot)) continue
       // 類型存入 funds_payment.category 結構化欄位（沖銷憑單判斷依據），不重複存進動態欄位資料
       if (isCategorySlot(slot)) continue
       extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
@@ -775,11 +780,15 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
     const categorySlot = allSlots.find(isCategorySlot)
     const categoryValue = categorySlot ? (fieldValues[categorySlot.fieldId] || '一般') : null
 
+    // 付款方式以欄位（含 label 備援）解析，存入結構化欄位
+    const paymentMethodSlot = allSlots.find(isPaymentMethodSlot)
+    const paymentMethodValue = (paymentMethodSlot ? fieldValues[paymentMethodSlot.fieldId] : fieldValues['payment_method']) ?? ''
+
     // 超額檢查交給 createPayment 的存檔驗證：伺服器會回點名式訊息
     // （核准金額、底下已有哪幾張憑單各佔多少、這次最多能填多少），比前端只知道剩餘數字更清楚
     const { id: newPaymentId, error: insertError } = await createPayment(
       allocationId,
-      fieldValues['payment_method'] ?? '',
+      paymentMethodValue,
       extraData,
       categoryValue,
       grandTotal,

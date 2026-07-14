@@ -30,7 +30,8 @@ const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWe
 const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
 
 // 從 allocation 複製過來的直接欄位，付款憑單階段不可修改
-// 注意：name/note 在此表單被挪用為「摘要/用途說明」和「付款方式」，屬於可編輯的付款欄位，不列入
+// 注意：name 在此表單被挪用為「摘要/用途說明」，屬於可編輯的付款欄位，不列入
+//（付款方式已於 2026-07-14 自 note fieldId 修正為 payment_method 結構化欄位）
 const ALLOCATION_READONLY_FIELDS = new Set([
   'purchase_order_number', 'apply_division', 'apply_section',
   'applicant', 'apply_role', 'institution', 'payment_account',
@@ -49,6 +50,11 @@ const ALLOCATION_READONLY_LABELS = new Set([
 // 畫面以單一勾選框呈現：勾＝預支、不勾＝一般（資料仍存「一般/預支」，下游判斷不變）
 const isCategorySlot = (slot: NonNullable<FormSlot>) =>
   slot.fieldId === 'category' || slot.label === '類型'
+
+// 付款方式欄位：存入 funds_payment.payment_method 結構化欄位（列表「付款方式」欄的來源）
+// 以 label 比對備援——2026-07-14 曾發生表單設定把此欄掛到 note fieldId，導致付款方式全數存空
+const isPaymentMethodSlot = (slot: NonNullable<FormSlot>) =>
+  slot.fieldId === 'payment_method' || slot.label === '付款方式'
 
 function getGroupRows(block: FormBlock): FormSchemaRow[] {
   const startIdx = block.rows.findIndex(r => r.rowGroupStart)
@@ -261,9 +267,12 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           paymentSchema.flatMap(b => getGroupRows(b).flatMap(r => r.slots.filter(Boolean).map(s => s!.fieldId)))
         )
         const initial: Record<string, string> = { payment_method: rec.payment_method ?? '' }
+        // 付款方式（含 label 備援）：從結構化欄位載入，舊資料退回 extra_data 裡以欄位名稱存的值
+        const pmSlot = allSlots.find(isPaymentMethodSlot)
+        if (pmSlot) initial[pmSlot.fieldId] = rec.payment_method || rec.extra_data?.['付款方式'] || ''
         for (const slot of allSlots) {
           if (groupSlotIds.has(slot.fieldId)) continue
-          if (isReadonlySlot(slot) || slot.fieldId === 'payment_method') continue
+          if (isReadonlySlot(slot) || isPaymentMethodSlot(slot)) continue
           if (isCategorySlot(slot)) {
             // 類型從結構化欄位載入，預設「一般」
             initial[slot.fieldId] = rec.category || '一般'
@@ -785,7 +794,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
       if (groupSlotFieldIds.has(slot.fieldId)) continue
-      if (slot.type === 'readonly' || ALLOCATION_READONLY_FIELDS.has(slot.fieldId) || ALLOCATION_READONLY_LABELS.has(slot.label) || slot.fieldId === 'payment_method') continue
+      if (slot.type === 'readonly' || ALLOCATION_READONLY_FIELDS.has(slot.fieldId) || ALLOCATION_READONLY_LABELS.has(slot.label) || isPaymentMethodSlot(slot)) continue
       // 類型存入 funds_payment.category 結構化欄位，不重複存進動態欄位資料
       if (isCategorySlot(slot)) continue
       extraData[slot.label] = computedTotals[slot.fieldId] ?? fieldValues[slot.fieldId] ?? ''
@@ -817,6 +826,14 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
+  // 目前表單裡付款方式欄位的選擇值（含 label 備援；schema 沒有此欄位時退回 payment_method key）
+  function getPaymentMethodValue(): string {
+    const pmSlot = schema
+      .flatMap(b => b.rows.flatMap(r => r.slots))
+      .find((s): s is NonNullable<FormSlot> => s !== null && isPaymentMethodSlot(s))
+    return (pmSlot ? fieldValues[pmSlot.fieldId] : fieldValues['payment_method']) ?? ''
+  }
+
   // 目前表單裡類型欄位的選擇值（schema 沒有類型欄位時回傳 undefined，不更新該欄位）
   function getCategoryValue(): string | undefined {
     const categorySlot = schema
@@ -831,7 +848,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     // 超額檢查交給 updateDraftPayment 的存檔驗證（伺服器回點名式訊息）
     setSaving(true)
     setError(null)
-    const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue(), grandTotal)
+    const { error: saveError } = await updateDraftPayment(record.id, getPaymentMethodValue(), buildExtraData(), getCategoryValue(), grandTotal)
     if (saveError) { setError(saveError); setSaving(false); return }
     await persistPaymentAttachments(record.id)
     setSaving(false)
@@ -845,7 +862,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     // 超額檢查交給 updateDraftPayment 的存檔驗證（伺服器回點名式訊息）
     setSubmitting(true)
     setError(null)
-    const { error: saveError } = await updateDraftPayment(record.id, fieldValues['payment_method'] ?? '', buildExtraData(), getCategoryValue(), grandTotal)
+    const { error: saveError } = await updateDraftPayment(record.id, getPaymentMethodValue(), buildExtraData(), getCategoryValue(), grandTotal)
     if (saveError) { setError(saveError); setSubmitting(false); return }
     await persistPaymentAttachments(record.id)
     const { error: submitError } = await submitMyPayment(record.id)

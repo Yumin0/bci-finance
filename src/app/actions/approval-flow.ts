@@ -292,8 +292,10 @@ export async function submitApprovalDecision(params: {
   reviewerId: string
   totalSteps: number
   approvedAmount?: number | null
+  // 付款分類：僅付款憑單/沖銷憑單的審核群組步驟會帶入（財務出帳分類，選填）
+  paymentCategory?: string | null
 }): Promise<{ error: string | null }> {
-  const { fundsAllocationId, fundsPaymentId, tempVoucherId, stepNumber, stepName, decision, comment, reviewerId, totalSteps, approvedAmount } = params
+  const { fundsAllocationId, fundsPaymentId, tempVoucherId, stepNumber, stepName, decision, comment, reviewerId, totalSteps, approvedAmount, paymentCategory } = params
 
   // 核准金額存檔前驗證（畫面已擋過一次，這裡是最後一道防線；錯誤用回傳值帶回，
   // 不能用 throw——正式環境 throw 的訊息會被 Next.js 遮蔽，使用者只會看到通用錯誤）
@@ -322,10 +324,14 @@ export async function submitApprovalDecision(params: {
       decision,
       comment: comment || null,
       approved_amount: decision === 'approved' ? (approvedAmount ?? null) : null,
+      payment_category: decision === 'approved' ? (paymentCategory || null) : null,
       reviewer_id: reviewerId,
       reviewed_at: new Date().toISOString(),
     })
-  if (recordError) throw new Error(recordError.message)
+  // 存檔失敗以中文訊息回傳（不用 throw——正式環境 throw 的訊息會被遮蔽，使用者只看到通用錯誤）
+  if (recordError) {
+    return { error: `審核結果存檔失敗，這次的審核沒有寫入，請稍後再試。\n\n若重試仍失敗，請把下面這行技術訊息告訴系統管理員：\n${recordError.message}` }
+  }
 
   if (fundsAllocationId) {
     const updatePayload: Record<string, unknown> = { status: newStatus, current_step: newCurrentStep, updated_at: new Date().toISOString() }
@@ -1086,4 +1092,33 @@ export async function getUsedPaymentAccountIds(
   const { data, error } = await query
   if (error) throw new Error(error.message)
   return (data ?? []).map((r: { payment_account_option_id: number }) => r.payment_account_option_id)
+}
+
+// ── 付款分類 ─────────────────────────────────────────
+
+// 付款分類選項（財務在支出欄位設定頁維護，dropdown_options field='payment_category'）
+export async function getPaymentCategoryOptions(): Promise<string[]> {
+  const { data } = await supabase
+    .from('dropdown_options')
+    .select('label')
+    .eq('field', 'payment_category')
+    .order('sort_order')
+  return (data ?? []).map((r: { label: string }) => r.label)
+}
+
+// 取多張付款憑單「最新選定的付款分類」：審核群組步驟核准時加註在審核紀錄，
+// 同一張憑單多關都選過時取最後審的那筆（後面關卡可調整前面關卡的選值）
+export async function getLatestPaymentCategories(paymentIds: number[]): Promise<Record<number, string>> {
+  if (paymentIds.length === 0) return {}
+  const { data } = await supabase
+    .from('approval_records')
+    .select('funds_payment_id, payment_category, reviewed_at')
+    .in('funds_payment_id', paymentIds)
+    .not('payment_category', 'is', null)
+    .order('reviewed_at', { ascending: true })
+  const map: Record<number, string> = {}
+  for (const r of (data ?? []) as { funds_payment_id: number; payment_category: string | null }[]) {
+    if (r.funds_payment_id != null && r.payment_category) map[r.funds_payment_id] = r.payment_category
+  }
+  return map
 }

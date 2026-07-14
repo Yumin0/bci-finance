@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsPayment, ApprovalRecord, StepDecision, FormBlock, FundAttachment } from '@/lib/types'
-import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approval-flow'
+import { submitApprovalDecision, checkCanReviewStep, getPaymentCategoryOptions } from '@/app/actions/approval-flow'
 import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getAttachmentsByAllocationId, getAttachmentsByPaymentId } from '@/app/actions/attachments'
@@ -47,6 +47,9 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
   const [approvedAmount, setApprovedAmount] = useState<string>('')
+  // 付款分類（審核群組步驟才顯示）：預設承接前面關卡最新選的值，本關可調整
+  const [paymentCategory, setPaymentCategory] = useState<string>('')
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [allocationAttachments, setAllocationAttachments] = useState<FundAttachment[]>([])
@@ -68,7 +71,12 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
       const payment = recRes.data as FundsPayment
-      setPastRecords((pastRes.data as ApprovalRecord[]) ?? [])
+      const past = (pastRes.data as ApprovalRecord[]) ?? []
+      setPastRecords(past)
+
+      // 付款分類預設值：承接前面關卡最新選的值（比照核准金額的承接邏輯）
+      const inherited = [...past].reverse().find(r => r.payment_category)?.payment_category
+      if (inherited) setPaymentCategory(inherited)
 
       let steps: StepDef[] = []
       if (payment.flow_template_id) {
@@ -121,6 +129,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
     }
     load()
     getFormSchemas().then(s => setSchema(s.payment_voucher))
+    getPaymentCategoryOptions().then(setCategoryOptions)
   }, [params])
 
   const steps = record?.approval_flow_templates?.approval_flow_steps
@@ -128,6 +137,10 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
 
   const currentStep = record?.current_step ?? null
   const canReview = record?.status === 'pending' && currentStep !== null && canReviewStep
+
+  // 付款分類只在「審核群組」步驟（財務人員、第三處處長等）顯示，課長/處長等組織步驟不顯示
+  const currentStepDef = steps.find(s => s.step_number === currentStep)
+  const showPaymentCategory = currentStepDef?.reviewer_type === 'approval_group'
 
   // 這張憑單目前佔用的金額（審核中用建立時填的金額）——核准金額上限 = 剩餘（已排除本張）+ 本張目前佔用
   const ownOccupied = record ? getPaymentOccupiedAmount(record) : 0
@@ -156,6 +169,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         reviewerId: String(userId ?? ''),
         totalSteps: steps.length,
         approvedAmount: decision === 'approved' && approvedAmount !== '' ? Number(approvedAmount) : null,
+        paymentCategory: showPaymentCategory ? paymentCategory || null : null,
       })
       // 存檔驗證擋下（核准金額 0/超過剩餘額度等）：以中央彈窗顯示
       if (result?.error) {
@@ -243,6 +257,9 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
                     {past.decision === 'approved' && past.approved_amount != null && (
                       <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>核准金額：{past.approved_amount.toLocaleString()} 元</span>
                     )}
+                    {past.payment_category && (
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>付款分類：{past.payment_category}</span>
+                    )}
                     {past.reviewed_at && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>{formatDateTime(past.reviewed_at)}</span>}
                     {past.comment && <span style={{ display: 'block', color: 'var(--text-muted)', fontWeight: 400, fontSize: 12, marginTop: 2 }}>{past.comment}</span>}
                   </span>
@@ -276,6 +293,25 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
                       style={{ width: 130, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--btn-border)', fontSize: 14, background: 'var(--bg-page)', color: 'var(--text-body)', flexShrink: 0 }}
                     />
                   </div>
+                  {showPaymentCategory && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                      <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>付款分類</span>
+                      <select
+                        value={paymentCategory}
+                        onChange={e => setPaymentCategory(e.target.value)}
+                        style={{ width: 180, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--btn-border)', fontSize: 14, background: 'var(--bg-page)', color: 'var(--text-body)' }}
+                      >
+                        <option value="">（未選擇）</option>
+                        {/* 承接的舊選值若已被財務從選項清單移除，仍保留可見避免被靜默清掉 */}
+                        {paymentCategory && !categoryOptions.includes(paymentCategory) && (
+                          <option value={paymentCategory}>{paymentCategory}</option>
+                        )}
+                        {categoryOptions.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div style={{ marginTop: 12 }}>
                     <Button onClick={handleSubmit} disabled={!decision || submitting}
                       className={decision && !submitting ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : ''}>
