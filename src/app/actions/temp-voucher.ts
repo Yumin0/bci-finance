@@ -19,6 +19,24 @@ async function findTempVoucherTemplateId(): Promise<number | null> {
   return tpls?.[0]?.id ?? null
 }
 
+// 暫付款沖銷單號＝母付款憑單採購單號 14 碼＋3 碼流水（001、002…）。
+// 取同一張付款憑單底下既有沖銷憑單的最大流水碼 +1，避免中間有單被刪除時重複編號
+export async function nextTempVoucherSerial(fundsPaymentId: number, paymentPoNumber: string | null): Promise<string | null> {
+  if (!paymentPoNumber) return null
+  const { data: siblings } = await supabase
+    .from('temp_vouchers')
+    .select('serial_number')
+    .eq('funds_payment_id', fundsPaymentId)
+  let maxSeq = 0
+  for (const s of siblings ?? []) {
+    const sn = s.serial_number
+    if (typeof sn !== 'string' || !sn.startsWith(paymentPoNumber)) continue
+    const seq = Number(sn.slice(paymentPoNumber.length))
+    if (Number.isInteger(seq) && seq > maxSeq) maxSeq = seq
+  }
+  return `${paymentPoNumber}${String(maxSeq + 1).padStart(3, '0')}`
+}
+
 export async function createTempVoucher(
   fundsPaymentId: number,
   fields: Record<string, string>
@@ -29,7 +47,7 @@ export async function createTempVoucher(
   // 僅限「已付款＋預支」的付款憑單可建立沖銷憑單（畫面按鈕已有同樣條件，這裡擋直接呼叫的情況）
   const { data: payment, error: paymentErr } = await supabase
     .from('funds_payment')
-    .select('status, category, amount, approved_amount')
+    .select('status, category, amount, approved_amount, purchase_order_number')
     .eq('id', fundsPaymentId)
     .single()
   if (paymentErr || !payment) return { id: null, error: '找不到關聯的付款憑單' }
@@ -67,11 +85,13 @@ export async function createTempVoucher(
   }
 
   const flowTemplateId = await findTempVoucherTemplateId()
+  const serialNumber = await nextTempVoucherSerial(fundsPaymentId, payment.purchase_order_number)
 
   const { data, error } = await supabase
     .from('temp_vouchers')
     .insert({
       funds_payment_id: fundsPaymentId,
+      serial_number: serialNumber,
       date: fields['date'] || null,
       apply_division: fields['apply_division'] || null,
       apply_section: fields['apply_section'] || null,

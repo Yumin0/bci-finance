@@ -25,6 +25,7 @@ type Tab = 'funds' | 'payment' | 'voucher'
 type TempVoucherRow = {
   id: number
   funds_payment_id: number
+  serial_number: string | null
   date: string | null
   amount: number | null
   applicant: string | null
@@ -162,7 +163,7 @@ export default function HomeTabView({
           <Table>
             <TableHeader>
               <TableRow>
-                {['狀態', '申請人', '日期', '金額', ''].map((col, i) => (
+                {['狀態', '暫付款沖銷憑單號', '申請人', '日期', '金額'].map((col, i) => (
                   <TableHead key={i}>{col}</TableHead>
                 ))}
               </TableRow>
@@ -176,14 +177,14 @@ export default function HomeTabView({
               {voucherRecords.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell><StatusBadge module="temp_voucher" status={r.status} stepName={r.stepName} labelConfig={labelConfig} /></TableCell>
+                  <TableCell>
+                    <Link href={`/funds-voucher/my-voucher/${r.id}`} className="text-sm text-primary underline underline-offset-4">
+                      {r.serial_number ?? `#${r.id}`}
+                    </Link>
+                  </TableCell>
                   <TableCell>{r.applicant ?? '-'}</TableCell>
                   <TableCell>{r.date ?? '-'}</TableCell>
                   <TableCell>{r.amount ?? '-'}</TableCell>
-                  <TableCell>
-                    <Link href={`/funds-voucher/my-voucher/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                      檢視
-                    </Link>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

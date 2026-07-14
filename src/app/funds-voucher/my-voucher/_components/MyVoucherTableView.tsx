@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -15,6 +14,7 @@ import WeekFilterBar, { useWeekFilter } from '@/app/_components/WeekFilterBar'
 type TempVoucherRow = {
   id: number
   funds_payment_id: number
+  serial_number: string | null
   date: string | null
   amount: number | null
   applicant: string | null
@@ -22,6 +22,7 @@ type TempVoucherRow = {
   current_step: number | null
   flow_template_id: number | null
   created_at: string
+  funds_payment: { purchase_order_number: string | null } | null
   approval_flow_templates: {
     name: string
     approval_flow_steps: Array<{ step_name: string; step_number: number }>
@@ -31,6 +32,8 @@ type TempVoucherRow = {
 
 const SEARCH_FIELDS: Array<(r: TempVoucherRow) => string | null | undefined> = [
   (r) => r.applicant,
+  (r) => r.serial_number,
+  (r) => r.funds_payment?.purchase_order_number,
   (r) => String(r.funds_payment_id),
 ]
 
@@ -84,7 +87,7 @@ export default function MyVoucherTableView({
         <Table>
           <TableHeader>
             <TableRow>
-              {['狀態', '申請日期', '暫付金額', '關聯付款憑單', ''].map((col, i) => (
+              {['狀態', '暫付款沖銷憑單號', '付款憑單號', '申請日期', '暫付金額'].map((col, i) => (
                 <TableHead key={i}>{col}</TableHead>
               ))}
             </TableRow>
@@ -102,18 +105,18 @@ export default function MyVoucherTableView({
                 <TableCell>
                   <StatusBadge module="temp_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
                 </TableCell>
-                <TableCell>{r.date ? formatDate(r.date) : '-'}</TableCell>
-                <TableCell>{r.amount != null ? r.amount.toLocaleString() : '-'}</TableCell>
+                <TableCell>
+                  <Link href={`/funds-voucher/my-voucher/${r.id}`} className="text-sm text-primary underline underline-offset-4">
+                    {r.serial_number ?? `#${r.id}`}
+                  </Link>
+                </TableCell>
                 <TableCell>
                   <Link href={`/funds-payment/my-payment/${r.funds_payment_id}`} className="text-sm text-primary underline underline-offset-4">
-                    #{r.funds_payment_id}
+                    {r.funds_payment?.purchase_order_number ?? `#${r.funds_payment_id}`}
                   </Link>
                 </TableCell>
-                <TableCell>
-                  <Link href={`/funds-voucher/my-voucher/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                    檢視
-                  </Link>
-                </TableCell>
+                <TableCell>{r.date ? formatDate(r.date) : '-'}</TableCell>
+                <TableCell>{r.amount != null ? r.amount.toLocaleString() : '-'}</TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -7,6 +7,7 @@ import AllVoucherTableView from './_components/AllVoucherTableView'
 type TempVoucherRow = {
   id: number
   funds_payment_id: number
+  serial_number: string | null
   date: string | null
   apply_section: string | null
   applicant: string | null
@@ -14,6 +15,7 @@ type TempVoucherRow = {
   status: string
   current_step: number | null
   created_at: string
+  funds_payment: { purchase_order_number: string | null } | null
   approval_flow_templates: {
     name: string
     approval_flow_steps: Array<{ step_name: string; step_number: number }>
@@ -34,6 +36,7 @@ export default async function AllVoucherPage() {
     .from('temp_vouchers')
     .select(`
       *,
+      funds_payment:funds_payment_id(purchase_order_number),
       approval_flow_templates(name, approval_flow_steps(step_name, step_number)),
       approval_records!temp_voucher_id(step_name, decision)
     `)

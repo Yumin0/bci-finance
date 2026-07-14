@@ -22,6 +22,11 @@ export function formatDateTime(iso: string | null | undefined): string {
   })
 }
 
+// 今天的日期字串（台北時區，YYYY-MM-DD）；付款憑單/沖銷憑單的日期＝實際建單日用這個
+export function taipeiToday(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: TZ })
+}
+
 // 依申請週期設定（允許的星期幾）算出今天或之後最近一個可選日期
 export function computeNearestAllowedDate(allowedWeekdays: number[]): string {
   if (!allowedWeekdays.length) return ''

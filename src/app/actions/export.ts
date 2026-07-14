@@ -56,6 +56,7 @@ export async function getPaymentForExport(filters: {
 export type TempVoucherExportRow = {
   id: number
   funds_payment_id: number
+  serial_number: string | null
   date: string | null
   apply_section: string | null
   applicant: string | null
