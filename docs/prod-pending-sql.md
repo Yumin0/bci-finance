@@ -14,6 +14,16 @@
 
 ## ✅ 已執行
 
+### 審核群組「主管議會」改名為「執行長」（feature/riku-rename-executive-tab）
+
+- [x] 已在正式機執行（執行日期：2026-07-14）
+
+用途：資金分配審核管理的「主管議會」Tab 改名為「執行長」。程式端的 Tab 標籤、權限勾選項標籤、以及用來比對群組的 `GROUP_NAMES` 都改成「執行長」；`GROUP_NAMES` 是**用名稱**去撈 `approval_groups`，所以資料庫這筆群組也必須同步改名，Tab 才撈得到、才會出現。審核流程範本的步驟是用群組 **ID** 綁定（非名稱），故改名不影響既有流程；付款憑單審核管理的群組 Tab 直接讀群組名稱，會自動一起顯示「執行長」。
+
+```sql
+update approval_groups set name = '執行長' where name = '主管議會';
+```
+
 ### 暫付款沖銷單號＋採購單號撞號補正（feature/yumin-voucher-serial-inherit）
 
 - [x] 已在正式機執行（執行日期：2026-07-14）

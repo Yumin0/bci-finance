@@ -226,6 +226,10 @@
 
 ## 已完成
 
+**審核管理「主管議會」Tab 改名為「執行長」**（2026-07-14，Riku）
+分支：`feature/riku-rename-executive-tab`
+說明：資金分配審核管理的「主管議會」Tab 改名「執行長」。程式端三處（`TAB_LABELS` 顯示、sidebar-config 權限勾選標籤、`page.tsx` 的 `GROUP_NAMES` 群組比對字串）＋資料庫 `approval_groups` 該筆同步改名（`GROUP_NAMES` 用名稱比對才撈得到群組）。審核流程範本以群組 ID 綁定不受影響；付款憑單群組 Tab 讀群組名稱自動跟著顯示「執行長」。SQL 已於 dev/staging 與正式機執行（2026-07-14，prod-pending-sql.md 已登記於已執行）。CLAUDE.md 相關描述同步更名。localhost 測試通過。
+
 **憑單欄位帶入補強＋暫付款沖銷單號＋採購單號撞號修正**（2026-07-14，Yumin）
 分支：`feature/yumin-voucher-serial-inherit`（已合併 main）
 說明（Yumin 拍板）：

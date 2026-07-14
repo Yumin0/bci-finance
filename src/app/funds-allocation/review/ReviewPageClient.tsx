@@ -47,7 +47,7 @@ const REVIEW_DEFAULT_COLS: ReviewColKey[] = [
 const TAB_LABELS: Record<ReviewTab, string> = {
   div: '課、處長審核',
   advisory: '諮詢議會',
-  executive: '主管議會',
+  executive: '執行長',
   cfo: '財務長',
   history: '我的審核紀錄',
 }
