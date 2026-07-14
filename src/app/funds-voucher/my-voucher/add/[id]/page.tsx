@@ -26,7 +26,8 @@ const GROUP_INHERIT_LABEL_MAP: Record<string, string> = {
   '摘要用途': '摘要/用途說明',
   '未稅金額': '未稅金額',
   '稅額': '稅額',
-  // 「總額」不帶入：沖銷金額由承辦人逐組自填
+  // 總額也預帶原組值（2026-07-14 Yumin 拍板：最常見是全額沖銷，預帶省得重打；可改，上限驗證照舊）
+  '總額': '總額',
 }
 
 function getPrefilledValue(slot: NonNullable<FormSlot>, payment: FundsPayment): string {
