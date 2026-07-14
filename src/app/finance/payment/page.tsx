@@ -2,16 +2,22 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsPayment } from '@/lib/types'
+import { FundsPayment, FundAttachment, FormSlot } from '@/lib/types'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { confirmPayment } from '@/app/actions/payment'
+import { getFormSchemas } from '@/app/actions/form-schema'
+import { getAttachmentsByPaymentIds } from '@/app/actions/attachments'
+import { getLatestPaymentCategories } from '@/app/actions/approval-flow'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
-import Link from 'next/link'
-import { buttonVariants, Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import PageHeader from '@/app/_components/PageHeader'
+import {
+  PaymentListCells,
+  PAYMENT_LIST_COLUMNS_AFTER_STATUS,
+} from '@/app/funds-payment/_components/PaymentListCells'
 
 type PaymentRecord = FundsPayment & {
   approval_flow_templates: {
@@ -26,18 +32,37 @@ export default function FinancePaymentPage() {
   const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
   const [confirming, setConfirming] = useState<Set<number>>(new Set())
+  // 對齊筑今 9 欄所需資料：受款人欄位名稱、發票憑證附件、付款分類（審核紀錄最新選值）
+  const [payeeLabel, setPayeeLabel] = useState<string | null>(null)
+  const [attachmentsMap, setAttachmentsMap] = useState<Record<number, FundAttachment[]>>({})
+  const [paymentCategoryMap, setPaymentCategoryMap] = useState<Record<number, string>>({})
 
   useEffect(() => {
     async function load() {
-      const [{ data }, config] = await Promise.all([
+      const [{ data }, config, schemas] = await Promise.all([
         supabase
           .from('funds_payment')
           .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number)), approval_records!funds_payment_id(step_name, decision)`)
           .order('created_at', { ascending: false }),
         getStatusLabelConfig(),
+        getFormSchemas(),
       ])
-      setRecords((data ?? []) as PaymentRecord[])
+      const rows = (data ?? []) as PaymentRecord[]
+      setRecords(rows)
       setLabelConfig(config)
+      setPayeeLabel(
+        schemas.payment_voucher
+          .flatMap(b => b.rows.flatMap(r => r.slots))
+          .find((s): s is NonNullable<FormSlot> => s !== null && s.dataSource?.startsWith('payee_records:') === true)
+          ?.label ?? null
+      )
+      const ids = rows.map(r => r.id)
+      const [attachments, categories] = await Promise.all([
+        getAttachmentsByPaymentIds(ids),
+        getLatestPaymentCategories(ids),
+      ])
+      setAttachmentsMap(attachments)
+      setPaymentCategoryMap(categories)
       setLoading(false)
     }
     load()
@@ -114,9 +139,12 @@ export default function FinancePaymentPage() {
             <Table className="[&_td]:px-4 [&_td]:py-3 [&_th]:px-4 [&_th]:py-3">
               <TableHeader>
                 <TableRow>
-                  {['狀態', '申請人', '費用項目', '項目', '付款方式', '金額', '付款執行', ''].map((col, i) => (
-                    <TableHead key={i}>{col}</TableHead>
+                  <TableHead>狀態</TableHead>
+                  {PAYMENT_LIST_COLUMNS_AFTER_STATUS.map(col => (
+                    <TableHead key={col}>{col}</TableHead>
                   ))}
+                  <TableHead>付款分類</TableHead>
+                  <TableHead>付款執行</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -125,11 +153,12 @@ export default function FinancePaymentPage() {
                     <TableCell>
                       <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
                     </TableCell>
-                    <TableCell>{r.applicant ?? '-'}</TableCell>
-                    <TableCell>{r.expense_item ?? '-'}</TableCell>
-                    <TableCell className="max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap">{r.name}</TableCell>
-                    <TableCell>{r.payment_method ?? '-'}</TableCell>
-                    <TableCell>{r.amount.toLocaleString()}</TableCell>
+                    <PaymentListCells
+                      r={r}
+                      payeeLabel={payeeLabel}
+                      attachments={attachmentsMap[r.id] ?? []}
+                    />
+                    <TableCell className="whitespace-nowrap">{paymentCategoryMap[r.id] ?? '-'}</TableCell>
                     <TableCell>
                       {r.status === 'approved' ? (
                         <Button
@@ -145,11 +174,6 @@ export default function FinancePaymentPage() {
                       ) : (
                         <span className="text-sm text-muted-foreground">—</span>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Link href={`/funds-payment/my-payment/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                        查閱
-                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}

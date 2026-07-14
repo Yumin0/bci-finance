@@ -113,7 +113,7 @@ export type OrgUnitRoleWithName = {
 
 export type StepDecision = 'approved' | 'rejected' | null
 
-export type DropdownField = 'institution' | 'payment_account'
+export type DropdownField = 'institution' | 'payment_account' | 'payment_category'
 
 export type DropdownOption = {
   id: number
@@ -353,6 +353,8 @@ export type ApprovalRecord = {
   decision: StepDecision
   comment: string | null
   approved_amount: number | null
+  // 付款分類：財務審核付款憑單/沖銷憑單（審核群組步驟）時加註的出帳分類，選項來自 dropdown_options（field='payment_category'）
+  payment_category: string | null
   reviewer_id: string | null
   reviewed_at: string | null
   created_at: string

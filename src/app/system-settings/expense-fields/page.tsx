@@ -72,6 +72,130 @@ function InstitutionSection({
   )
 }
 
+// ── 付款分類：財務審核付款憑單/沖銷憑單時加註的出帳分類，支援新增/改名/刪除 ──
+function PaymentCategorySection({
+  items,
+  isDuplicate,
+  onReload,
+}: {
+  items: DropdownOption[]
+  isDuplicate: (field: DropdownField, label: string, excludeId?: number) => boolean
+  onReload: () => Promise<void>
+}) {
+  const [newLabel, setNewLabel] = useState('')
+  const [sectionError, setSectionError] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingLabel, setEditingLabel] = useState('')
+
+  async function handleAdd() {
+    const label = newLabel.trim()
+    if (!label) return
+    setSectionError(null)
+    if (isDuplicate('payment_category', label)) { setSectionError(`已有相同的付款分類「${label}」，請勿重複新增。`); return }
+    const maxOrder = items.reduce((max, o) => Math.max(max, o.sort_order), -1)
+    const { error: e } = await supabase.from('dropdown_options').insert({ field: 'payment_category', label, sort_order: maxOrder + 1 })
+    if (e) { setSectionError(e.message); return }
+    setNewLabel('')
+    await onReload()
+  }
+
+  async function saveEdit(id: number) {
+    const label = editingLabel.trim()
+    if (!label) { setSectionError('名稱不可空白。'); return }
+    if (isDuplicate('payment_category', label, id)) { setSectionError(`已有相同的付款分類「${label}」，請換個名稱。`); return }
+    setSectionError(null)
+    const { error: e } = await supabase.from('dropdown_options').update({ label }).eq('id', id)
+    if (e) { setSectionError(e.message); return }
+    setEditingId(null)
+    setEditingLabel('')
+    await onReload()
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm('確定要刪除此付款分類嗎？已加註在憑單審核紀錄上的舊資料不受影響。')) return
+    setSectionError(null)
+    const { error: e } = await supabase.from('dropdown_options').delete().eq('id', id)
+    if (e) { setSectionError(e.message); return }
+    await onReload()
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>付款分類</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <p className="m-0 text-xs text-muted-foreground">
+          財務審核付款憑單／暫付款沖銷憑單時可加註的出帳分類（例：整批匯、單獨匯、現金），會顯示在審核列表的「付款分類」欄。
+        </p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>選項名稱</TableHead>
+              <TableHead className="w-36">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={2} className="text-center text-muted-foreground">尚無選項</TableCell>
+              </TableRow>
+            ) : items.map(item => (
+              <TableRow key={item.id}>
+                <TableCell>
+                  {editingId === item.id ? (
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        value={editingLabel}
+                        autoFocus
+                        onChange={e => { setEditingLabel(e.target.value); if (sectionError) setSectionError(null) }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); saveEdit(item.id) }
+                          if (e.key === 'Escape') { setEditingId(null); setEditingLabel(''); setSectionError(null) }
+                        }}
+                        className="max-w-xs"
+                      />
+                      {sectionError && <p className="text-sm text-destructive">{sectionError}</p>}
+                    </div>
+                  ) : item.label}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    {editingId === item.id ? (
+                      <>
+                        <Button size="sm" onClick={() => saveEdit(item.id)}>儲存</Button>
+                        <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setEditingLabel('') }}>取消</Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => { setEditingId(item.id); setEditingLabel(item.label); setSectionError(null) }}>編輯</Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id)}>刪除</Button>
+                      </>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <div className="flex flex-col gap-1">
+          <div className="flex gap-2">
+            <Input
+              value={newLabel}
+              onChange={e => { setNewLabel(e.target.value); if (sectionError) setSectionError(null) }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd() } }}
+              placeholder="新增付款分類選項"
+              className="max-w-xs"
+            />
+            <Button onClick={handleAdd}>新增</Button>
+          </div>
+          {editingId === null && sectionError && <p className="text-sm text-destructive">{sectionError}</p>}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function ExpenseFieldsPage() {
   const [dropdownOptions, setDropdownOptions] = useState<DropdownOption[]>([])
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
@@ -110,6 +234,7 @@ export default function ExpenseFieldsPage() {
 
   const institutions = dropdownOptions.filter(o => o.field === 'institution')
   const accounts = dropdownOptions.filter(o => o.field === 'payment_account')
+  const paymentCategories = dropdownOptions.filter(o => o.field === 'payment_category')
 
   // 同一欄位內是否已有相同名稱（去空白、不分大小寫），可排除指定 id（改名時排除自己）
   function isDuplicate(field: DropdownField, label: string, excludeId?: number): boolean {
@@ -222,7 +347,7 @@ export default function ExpenseFieldsPage() {
     <div className="flex flex-col gap-6">
       <div>
         <PageHeader title="支出欄位設定" />
-        <p className="mt-1 text-sm text-muted-foreground">管理資金分配申請單中各下拉選單的選項。</p>
+        <p className="mt-1 text-sm text-muted-foreground">管理資金分配申請單中各下拉選單的選項，以及財務審核用的付款分類。</p>
       </div>
 
       {error && <p className="text-sm text-destructive">錯誤：{error}</p>}
@@ -331,6 +456,12 @@ export default function ExpenseFieldsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <PaymentCategorySection
+          items={paymentCategories}
+          isDuplicate={isDuplicate}
+          onReload={loadAll}
+        />
       </div>
 
       {/* 可見範圍 Modal */}

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ApprovalRecord, FormBlock, FormSchemaRow, FormSlot, StepDecision } from '@/lib/types'
-import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approval-flow'
+import { submitApprovalDecision, checkCanReviewStep, getPaymentCategoryOptions, getLatestPaymentCategories } from '@/app/actions/approval-flow'
 import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { Input } from '@/components/ui/input'
@@ -128,6 +128,9 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
   const [loading, setLoading] = useState(true)
   const [decision, setDecision] = useState<StepDecision>(null)
   const [comment, setComment] = useState('')
+  // 付款分類（審核群組步驟才顯示）：預設帶母付款憑單審核時最後選的付款分類，本關可調整
+  const [paymentCategory, setPaymentCategory] = useState<string>('')
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -146,7 +149,19 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
       const voucher = recRes.data as TempVoucher
-      setPastRecords((pastRes.data as ApprovalRecord[]) ?? [])
+      const past = (pastRes.data as ApprovalRecord[]) ?? []
+      setPastRecords(past)
+
+      // 付款分類預設值：先承接本沖銷單前面關卡選的值，都沒有才帶母付款憑單審核時最後選的付款分類
+      const inherited = [...past].reverse().find(r => r.payment_category)?.payment_category
+      if (inherited) {
+        setPaymentCategory(inherited)
+      } else if (voucher.funds_payment_id) {
+        getLatestPaymentCategories([voucher.funds_payment_id]).then(map => {
+          const fromPayment = map[voucher.funds_payment_id]
+          if (fromPayment) setPaymentCategory(prev => prev || fromPayment)
+        })
+      }
 
       let steps: StepDef[] = []
       if (voucher.flow_template_id) {
@@ -196,11 +211,16 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
     }
     load()
     getFormSchemas().then(s => setSchema(s.temp_voucher))
+    getPaymentCategoryOptions().then(setCategoryOptions)
   }, [params])
 
   const steps = record?.approval_flow_templates?.approval_flow_steps?.slice().sort((a, b) => a.step_number - b.step_number) ?? []
   const currentStep = record?.current_step ?? null
   const canReview = record?.status === 'pending' && currentStep !== null && canReviewStep
+
+  // 付款分類只在「審核群組」步驟（財務人員、第三處處長等）顯示，課長/處長等組織步驟不顯示
+  const currentStepDef = steps.find(s => s.step_number === currentStep)
+  const showPaymentCategory = currentStepDef?.reviewer_type === 'approval_group'
 
   async function handleSubmit() {
     if (!record || !decision || !currentStep) return
@@ -217,6 +237,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
         comment,
         reviewerId: String(userId ?? ''),
         totalSteps: steps.length,
+        paymentCategory: showPaymentCategory ? paymentCategory || null : null,
       })
       if (result?.error) {
         setError(result.error)
@@ -300,6 +321,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
                   {isDone && (
                     <span className={`text-sm font-medium ${past.decision === 'approved' ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
                       {past.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
+                      {past.payment_category && <span className="ml-2 text-xs font-normal text-muted-foreground">付款分類：{past.payment_category}</span>}
                       {past.reviewed_at && <span className="ml-2 text-xs font-normal text-muted-foreground">{formatDateTime(past.reviewed_at)}</span>}
                       {past.comment && <span className="mt-1 block text-xs font-normal text-muted-foreground">{past.comment}</span>}
                     </span>
@@ -323,6 +345,25 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
                       value={comment}
                       onChange={e => setComment(e.target.value)}
                     />
+                    {showPaymentCategory && (
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-[13px] text-muted-foreground">付款分類</span>
+                        <select
+                          value={paymentCategory}
+                          onChange={e => setPaymentCategory(e.target.value)}
+                          className="h-9 w-48 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                        >
+                          <option value="">（未選擇）</option>
+                          {/* 承接的舊選值若已被財務從選項清單移除，仍保留可見避免被靜默清掉 */}
+                          {paymentCategory && !categoryOptions.includes(paymentCategory) && (
+                            <option value={paymentCategory}>{paymentCategory}</option>
+                          )}
+                          {categoryOptions.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div>
                       <Button
                         onClick={handleSubmit}

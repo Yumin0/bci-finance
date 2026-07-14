@@ -50,6 +50,8 @@ type Props = {
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
   attachmentsMap: PaymentAttachmentMap
+  // 各憑單最新選定的付款分類（審核群組步驟核准時加註），群組 Tab 顯示「付款分類」欄用
+  paymentCategoryMap: Record<number, string>
   selectedYear: number
   selectedWeekStart: string
 }
@@ -62,6 +64,7 @@ export default function PaymentReviewClient({
   labelConfig,
   payeeLabel,
   attachmentsMap,
+  paymentCategoryMap,
   selectedYear,
   selectedWeekStart,
 }: Props) {
@@ -151,6 +154,8 @@ export default function PaymentReviewClient({
           labelConfig={labelConfig}
           payeeLabel={payeeLabel}
           attachmentsMap={attachmentsMap}
+          // 「付款分類」欄只在群組 Tab（財務人員、第三處處長等）顯示，對齊筑今支出課/處長列表
+          paymentCategoryMap={activeTab.startsWith('group-') ? paymentCategoryMap : null}
         />
       )}
     </div>
@@ -163,12 +168,15 @@ function AccountGroupedList({
   labelConfig,
   payeeLabel,
   attachmentsMap,
+  paymentCategoryMap,
 }: {
   items: PaymentItem[]
   paymentAccounts: string[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
   attachmentsMap: PaymentAttachmentMap
+  // null＝此 Tab 不顯示付款分類欄
+  paymentCategoryMap: Record<number, string> | null
 }) {
   if (items.length === 0) return <p className="text-sm text-muted-foreground">本週沒有相關憑單</p>
 
@@ -198,6 +206,7 @@ function AccountGroupedList({
                 {PAYMENT_LIST_COLUMNS_AFTER_STATUS.map((col) => (
                   <TableHead key={col}>{col}</TableHead>
                 ))}
+                {paymentCategoryMap && <TableHead>付款分類</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -212,6 +221,9 @@ function AccountGroupedList({
                     attachments={attachmentsMap[r.id] ?? []}
                     hrefBase="/funds-payment/review/check"
                   />
+                  {paymentCategoryMap && (
+                    <TableCell className="whitespace-nowrap">{paymentCategoryMap[r.id] ?? '-'}</TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
