@@ -14,6 +14,29 @@
 
 ## ✅ 已執行
 
+### 正式機全面關閉 public 資料表 RLS（對齊 dev）
+
+- [x] 已在正式機執行（執行日期：2026-07-14，執行後以 pg_tables 查詢確認 rowsecurity=true 為 0 列，角色管理新增角色實測可存）
+
+用途：正式機幾乎所有 public 資料表 RLS 開著（dev 全關），伺服器端寫入（service role）不受影響，但**瀏覽器直接寫資料庫的頁面**（帳號管理角色管理、支出欄位設定等）在正式機會被擋（`new row violates row-level security policy`）。以 DO 迴圈一次關閉所有 public 表的 RLS，對齊 dev 現況；資料庫防線改為完全依賴系統登入把關，後續安全強化已列 BACKLOG（重新啟用 RLS 或全面伺服器端寫入）。**之後在正式機新建資料表時，記得一併 DISABLE ROW LEVEL SECURITY（或再跑一次本段）。**
+
+```sql
+DO $$
+DECLARE t record;
+BEGIN
+  FOR t IN
+    SELECT tablename FROM pg_tables
+    WHERE schemaname = 'public' AND rowsecurity = true
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I DISABLE ROW LEVEL SECURITY;', t.tablename);
+  END LOOP;
+END $$;
+
+-- 驗證（應為 0 列）
+SELECT tablename FROM pg_tables
+WHERE schemaname = 'public' AND rowsecurity = true;
+```
+
 ### 付款憑單表單欄位代號修正＋付款方式回填（feature/yumin-payment-category）
 
 - [x] 已在正式機執行（執行日期：2026-07-14，核對查詢確認：付款方式→payment_method、費用項目→expense_item；回填後 payment_method 為空的憑單數＝0）

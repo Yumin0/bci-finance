@@ -78,10 +78,10 @@
 - **修法方向**：把該欄位改掛自訂欄位代號（表單設定重新加入欄位、或 SQL 直接改 `form_schemas` jsonb 的 fieldId），改完值會存進 `extra_data`；需同步檢查共用範本（含筑今匯入的 23 個）的 `field_values` 是否有以 `amount` 為 key 存主要值，有的話要一起搬 key
 - **備註**：細項連動已對此防呆——主要值不在選項清單中時退回顯示全部選項，不會鎖死
 
-#### [支出欄位設定 RLS 寫入修復]
-- **問題**：`/system-settings/expense-fields` 新增／刪除選項時出現 RLS 錯誤（`new row violates row-level security policy for table "dropdown_options"`）
-- **原因**：頁面直接用 `supabase`（一般客戶端）執行 INSERT/DELETE，被 Supabase RLS 擋住
-- **解法**：與組織架構頁相同，將寫入操作移至 Server Actions，改用 `supabaseAdmin`（service role key）
+#### ~~[支出欄位設定 RLS 寫入修復]~~ ✅ 已解（2026-07-14，Yumin）
+- 根因＝正式機 Supabase 幾乎所有 public 資料表 RLS 開著、dev 全關，凡是瀏覽器直接寫資料庫的頁面（支出欄位設定、帳號管理角色管理…）在正式機都會撞 RLS 錯誤
+- 2026-07-14 於正式機以 DO 迴圈一次 DISABLE 所有 public 表的 RLS，對齊 dev（SQL 存查見 docs/prod-pending-sql.md）；角色管理新增角色實測可存
+- 後續補強見「低優先／未來探索」的資料庫安全強化項目
 
 #### ~~[（稅收）費用自動計算]~~（Riku）✅ 已完成（2026-06-02）
 
@@ -164,6 +164,10 @@
 - **備註**：問題回報列表、帳號管理列表不需要做 CSV 匯出
 
 ### 🟢 低優先 / 未來探索
+
+#### [資料庫安全強化：重新啟用 RLS 或全面伺服器端寫入]
+- 現況：dev 與正式機所有 public 表 RLS 皆已關閉（2026-07-14 正式機對齊 dev），資料庫防線完全依賴系統登入把關；前端公開金鑰理論上可繞過網頁直接呼叫資料庫 API，正式機為真實財務資料
+- 方向：把仍在瀏覽器直接讀寫 supabase 的頁面全面改走 Server Actions（supabaseAdmin），完成後重新開啟 RLS 並以「全部拒絕」為預設
 
 #### [站外通知（推播）]（Riku）
 - **目標**：在現有站內通知基礎上，支援站外推播，讓使用者不開瀏覽器也能收到通知
