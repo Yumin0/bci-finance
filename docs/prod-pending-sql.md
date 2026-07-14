@@ -47,6 +47,7 @@ WHERE form_type = 'temp_voucher';
 
 （dev 已於 2026-07-14 直接改資料完成同樣調整，dev 調整前的表單 JSON 備份在開發機 scratchpad `temp_voucher_schema_backup.json`；正式機改版前備份 Yumin 已於執行時留存。）
 
+
 ### 審核群組「主管議會」改名為「執行長」（feature/riku-rename-executive-tab）
 
 - [x] 已在正式機執行（執行日期：2026-07-14）

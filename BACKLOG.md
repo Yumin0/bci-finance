@@ -227,10 +227,6 @@
 
 ## 已完成
 
-**審核管理「主管議會」Tab 改名為「執行長」**（2026-07-14，Riku）
-分支：`feature/riku-rename-executive-tab`
-說明：資金分配審核管理的「主管議會」Tab 改名「執行長」。程式端三處（`TAB_LABELS` 顯示、sidebar-config 權限勾選標籤、`page.tsx` 的 `GROUP_NAMES` 群組比對字串）＋資料庫 `approval_groups` 該筆同步改名（`GROUP_NAMES` 用名稱比對才撈得到群組）。審核流程範本以群組 ID 綁定不受影響；付款憑單群組 Tab 讀群組名稱自動跟著顯示「執行長」。SQL 已於 dev/staging 與正式機執行（2026-07-14，prod-pending-sql.md 已登記於已執行）。CLAUDE.md 相關描述同步更名。localhost 測試通過。
-
 **暫付款沖銷憑單改版：多組明細繼承＋一單一沖銷＋核心邏輯文件重整 v7**（2026-07-14，Yumin）
 分支：`feature/yumin-tempvoucher-groups`（已合併 main）
 說明（Yumin 拍板）：
@@ -239,6 +235,10 @@
 3. 核心邏輯文件重整 v7：第四節改為對齊後 9 欄現況、新增第五節沖銷憑單列表、舊五/六節併為第六節對齊狀態、第八節缺口盤點整併成「規則｜目前狀況」總表（15 條）、第九節總表更新且 9-5 三條待補全部結案
 4. 順修：付款憑單詳細/審核頁「日期、職稱」顯示「-」的 label 回退缺漏（FundsPaymentDetail）
 SQL 與表單設定：dev 與正式機皆已執行（含表單區塊 SQL 替換，正式機以唯讀查詢驗證生效）；本機 Playwright 實測（多組繼承/單號/一單一沖銷擋法/總額預帶）與 staging Yumin 驗收通過。
+
+**審核管理「主管議會」Tab 改名為「執行長」**（2026-07-14，Riku）
+分支：`feature/riku-rename-executive-tab`
+說明：資金分配審核管理的「主管議會」Tab 改名「執行長」。程式端三處（`TAB_LABELS` 顯示、sidebar-config 權限勾選標籤、`page.tsx` 的 `GROUP_NAMES` 群組比對字串）＋資料庫 `approval_groups` 該筆同步改名（`GROUP_NAMES` 用名稱比對才撈得到群組）。審核流程範本以群組 ID 綁定不受影響；付款憑單群組 Tab 讀群組名稱自動跟著顯示「執行長」。SQL 已於 dev/staging 與正式機執行（2026-07-14，prod-pending-sql.md 已登記於已執行）。CLAUDE.md 相關描述同步更名。localhost 測試通過。
 
 **憑單欄位帶入補強＋暫付款沖銷單號＋採購單號撞號修正**（2026-07-14，Yumin）
 分支：`feature/yumin-voucher-serial-inherit`（已合併 main）
