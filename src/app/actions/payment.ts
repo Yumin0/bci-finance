@@ -9,6 +9,25 @@ import { buildOccupiedVoucherSummary } from '@/lib/occupiedVoucherLines'
 import { notifyReviewersForStep } from './notifications'
 import { getAllocationOrgContext } from './approval-flow'
 import { recalcAllocationCloseStatus } from './fund-budget'
+import { taipeiToday } from '@/lib/dateUtils'
+
+// 採購單號＝母單號 11 碼＋3 碼流水（001、002…）。
+// 取同母單既有憑單的最大流水碼 +1，而不是數筆數，避免中間有憑單被刪除時重複編號
+export async function nextPurchaseOrderNumber(allocationId: number, allocationSerial: string | null): Promise<string | null> {
+  if (!allocationSerial) return null
+  const { data: siblings } = await supabase
+    .from('funds_payment')
+    .select('purchase_order_number')
+    .eq('funds_allocation_id', allocationId)
+  let maxSeq = 0
+  for (const s of siblings ?? []) {
+    const po = s.purchase_order_number
+    if (typeof po !== 'string' || !po.startsWith(allocationSerial)) continue
+    const seq = Number(po.slice(allocationSerial.length))
+    if (Number.isInteger(seq) && seq > maxSeq) maxSeq = seq
+  }
+  return `${allocationSerial}${String(maxSeq + 1).padStart(3, '0')}`
+}
 
 // 檢查這筆金額（新建或修改一筆憑單）是否會讓同一張資金分配單的佔用總額超過核准金額。
 // excludePaymentId：修改既有憑單時，要先排除它自己原本佔用的金額，否則會拿自己當作額外佔用去卡自己。
@@ -119,12 +138,14 @@ export async function createPayment(
 
   // 根據出款帳號查找對應的付款憑單審核流程範本
   const flowTemplateId = await findPaymentVoucherTemplateId(record.payment_account)
+  const purchaseOrderNumber = await nextPurchaseOrderNumber(record.id, record.serial_number)
 
   const { data: inserted, error } = await supabase.from('funds_payment').insert({
     funds_allocation_id: record.id,
     name: record.name,
     amount: paymentAmount,
-    date: record.date,
+    // 日期＝實際建單日（台北時區），不再繼承母單申請日期（母單申請日期看頁首摘要卡）
+    date: taipeiToday(),
     institution: record.institution,
     payment_account: record.payment_account,
     expense_item: record.expense_item,
@@ -136,7 +157,7 @@ export async function createPayment(
     applicant: record.applicant,
     apply_role: record.apply_role,
     payment_method: paymentMethod || null,
-    purchase_order_number: record.serial_number ? `${record.serial_number}001` : null,
+    purchase_order_number: purchaseOrderNumber,
     extra_data: { ...(record.extra_data ?? {}), ...extraData },
     created_by: String(session.userId),
     status: PAYMENT_STATUS.DRAFT,

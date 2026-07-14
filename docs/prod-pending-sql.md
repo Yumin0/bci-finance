@@ -8,7 +8,46 @@
 
 ## ⏳ 待執行
 
-目前無待執行項目。
+### 暫付款沖銷單號＋採購單號撞號補正（feature/yumin-voucher-serial-inherit）
+
+- [ ] 尚未在正式機執行
+
+用途（三段一起跑，順序不可換）：
+1. `temp_vouchers` 加 `serial_number` 欄——暫付款沖銷單號（＝母付款憑單採購單號＋3 碼流水），未執行前沖銷憑單相關頁面查詢會失敗。
+2. 補正既有付款憑單採購單號：舊程式流水碼寫死 `001`，同一張資金分配單底下多張憑單全部撞號；依建單順序重編為 001、002…（沖銷單號掛在憑單單號後面，必須先補正）。
+3. 既有沖銷憑單依補正後的母憑單採購單號補上單號。
+
+```sql
+-- 1. 暫付款沖銷單號欄位
+ALTER TABLE temp_vouchers ADD COLUMN IF NOT EXISTS serial_number text;
+
+-- 2. 付款憑單採購單號補正（同母單依建單順序 001、002…）
+WITH renumbered AS (
+  SELECT fp.id,
+         fa.serial_number || lpad((row_number() OVER (PARTITION BY fp.funds_allocation_id ORDER BY fp.id))::text, 3, '0') AS new_po
+  FROM funds_payment fp
+  JOIN funds_allocation fa ON fa.id = fp.funds_allocation_id
+  WHERE fa.serial_number IS NOT NULL
+)
+UPDATE funds_payment fp
+SET purchase_order_number = r.new_po
+FROM renumbered r
+WHERE fp.id = r.id
+  AND fp.purchase_order_number IS DISTINCT FROM r.new_po;
+
+-- 3. 既有沖銷憑單補單號（依補正後的母憑單採購單號＋流水）
+WITH renumbered AS (
+  SELECT tv.id,
+         fp.purchase_order_number || lpad((row_number() OVER (PARTITION BY tv.funds_payment_id ORDER BY tv.id))::text, 3, '0') AS new_sn
+  FROM temp_vouchers tv
+  JOIN funds_payment fp ON fp.id = tv.funds_payment_id
+  WHERE fp.purchase_order_number IS NOT NULL
+)
+UPDATE temp_vouchers tv
+SET serial_number = r.new_sn
+FROM renumbered r
+WHERE tv.id = r.id;
+```
 
 ---
 

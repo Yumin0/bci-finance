@@ -15,6 +15,7 @@ import ExportCsvButton from './ExportCsvButton'
 type TempVoucherRow = {
   id: number
   funds_payment_id: number
+  serial_number: string | null
   date: string | null
   apply_section: string | null
   applicant: string | null
@@ -22,6 +23,7 @@ type TempVoucherRow = {
   status: string
   current_step: number | null
   created_at: string
+  funds_payment: { purchase_order_number: string | null } | null
   approval_flow_templates: {
     name: string
     approval_flow_steps: Array<{ step_name: string; step_number: number }>
@@ -32,6 +34,8 @@ type TempVoucherRow = {
 const SEARCH_FIELDS: Array<(r: TempVoucherRow) => string | null | undefined> = [
   (r) => r.apply_section,
   (r) => r.applicant,
+  (r) => r.serial_number,
+  (r) => r.funds_payment?.purchase_order_number,
   (r) => r.approval_flow_templates?.name,
 ]
 
@@ -90,7 +94,7 @@ export default function AllVoucherTableView({
         <Table>
           <TableHeader>
             <TableRow>
-              {['申請日期', '申請課別', '申請人', '暫付金額', '審核流程', '狀態', ''].map((col, i) => (
+              {['暫付款沖銷憑單號', '付款憑單號', '申請日期', '申請課別', '申請人', '暫付金額', '審核流程', '狀態', ''].map((col, i) => (
                 <TableHead key={i}>{col}</TableHead>
               ))}
             </TableRow>
@@ -98,13 +102,23 @@ export default function AllVoucherTableView({
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
                   {query ? '找不到符合的紀錄' : '目前無暫付款沖銷憑單'}
                 </TableCell>
               </TableRow>
             )}
             {filtered.map(r => (
               <TableRow key={r.id}>
+                <TableCell>
+                  <Link href={`/funds-voucher/my-voucher/${r.id}`} className="text-sm text-primary underline underline-offset-4">
+                    {r.serial_number ?? `#${r.id}`}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <Link href={`/funds-payment/my-payment/${r.funds_payment_id}`} className="text-sm text-primary underline underline-offset-4">
+                    {r.funds_payment?.purchase_order_number ?? `#${r.funds_payment_id}`}
+                  </Link>
+                </TableCell>
                 <TableCell>{r.date ? formatDate(r.date) : formatDate(r.created_at)}</TableCell>
                 <TableCell>{r.apply_section ?? '-'}</TableCell>
                 <TableCell>{r.applicant ?? '-'}</TableCell>
