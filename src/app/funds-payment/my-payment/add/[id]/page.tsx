@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 
 
 // fieldId-based: known default fieldIds that are direct allocation columns → always readonly
@@ -745,12 +746,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
     const categorySlot = allSlots.find(isCategorySlot)
     const categoryValue = categorySlot ? (fieldValues[categorySlot.fieldId] || '一般') : null
 
-    if (remainingInfo && grandTotal > remainingInfo.remaining) {
-      setError(`金額超過剩餘可用額度（剩餘 NT$${remainingInfo.remaining.toLocaleString()}）`)
-      setSubmitting(false)
-      return
-    }
-
+    // 超額檢查交給 createPayment 的存檔驗證：伺服器會回點名式訊息
+    // （核准金額、底下已有哪幾張憑單各佔多少、這次最多能填多少），比前端只知道剩餘數字更清楚
     const { id: newPaymentId, error: insertError } = await createPayment(
       allocationId,
       fieldValues['payment_method'] ?? '',
@@ -780,7 +777,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
         <AllocationSummaryCard info={remainingInfo} remainingLabel="目前剩餘" submitPreview={grandTotal} />
       )}
 
-      {error && <p style={errorStyle}>錯誤：{error}</p>}
+      {/* 送出被擋（金額 0/超額等）改用中央彈窗：建立按鈕在長表單底部，頁頂紅字使用者看不到 */}
+      <ErrorDialog message={error} title="無法建立付款憑單" onClose={() => setError(null)} />
 
       <form onSubmit={handleSubmit}>
         {schema.map(block => {
@@ -876,4 +874,3 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: 12, marginBottom: 8 }

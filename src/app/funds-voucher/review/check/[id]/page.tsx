@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDateTime } from '@/lib/dateUtils'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 
 type StepDef = {
   id: number
@@ -154,7 +155,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
     setSubmitting(true)
     setError(null)
     try {
-      await submitApprovalDecision({
+      const result = await submitApprovalDecision({
         tempVoucherId: record.id,
         stepNumber: currentStep,
         stepName: stepDef.step_name,
@@ -163,6 +164,11 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
         reviewerId: String(userId ?? ''),
         totalSteps: steps.length,
       })
+      if (result?.error) {
+        setError(result.error)
+        setSubmitting(false)
+        return
+      }
       router.push('/funds-voucher/review')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '送出失敗')
@@ -181,7 +187,8 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
         <h1 className="text-xl font-bold text-foreground">審核暫付款沖銷憑單</h1>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {/* 審核送出被擋改用全站共用中央彈窗 */}
+      <ErrorDialog message={error} title="無法送出審核結果" onClose={() => setError(null)} />
 
       {/* Schema 欄位區塊 */}
       {schema.map(block => (

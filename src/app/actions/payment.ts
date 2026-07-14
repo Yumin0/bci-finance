@@ -5,6 +5,7 @@ import { getSession } from '@/lib/session'
 import { FundsPayment, FundsAllocation } from '@/lib/types'
 import { PAYMENT_STATUS } from '@/lib/constants'
 import { calcRemainingAmount, type PaymentForRemaining } from '@/lib/fundsAllocationRemaining'
+import { buildOccupiedVoucherSummary } from '@/lib/occupiedVoucherLines'
 import { notifyReviewersForStep } from './notifications'
 import { getAllocationOrgContext } from './approval-flow'
 import { recalcAllocationCloseStatus } from './fund-budget'
@@ -14,8 +15,13 @@ import { recalcAllocationCloseStatus } from './fund-budget'
 async function checkAmountWithinRemaining(
   allocationId: number,
   amount: number,
-  excludePaymentId?: number
+  excludePaymentId?: number,
+  viewerId?: string | null
 ): Promise<string | null> {
+  // 下限：0 或負數不可存檔（草稿也擋）。負數會讓母單剩餘金額不減反增，直接扭曲全站帳面
+  if (!(amount > 0)) {
+    return `付款憑單金額必須大於 0（目前為 NT$${Number(amount || 0).toLocaleString()}）。請確認付款明細每一組的「總額」都已填寫正確再儲存。`
+  }
   const { data: alloc } = await supabase
     .from('funds_allocation')
     .select('approved_amount')
@@ -31,7 +37,18 @@ async function checkAmountWithinRemaining(
   const others = (payments ?? []).filter(p => p.id !== excludePaymentId) as (PaymentForRemaining & { id: number })[]
   const remainingBeforeThis = calcRemainingAmount(alloc.approved_amount, others)
   if (amount > remainingBeforeThis) {
-    return `金額超過剩餘可用額度（剩餘 NT$${remainingBeforeThis.toLocaleString()}）`
+    // 點名式訊息：核准金額多少、底下已有哪幾張憑單（誰、哪天、狀態、各佔多少）、這次最多能填多少
+    const { lines, occupiedTotal } = await buildOccupiedVoucherSummary(allocationId, { viewerId, excludePaymentId })
+    const approvedLabel = alloc.approved_amount != null ? `NT$${Number(alloc.approved_amount).toLocaleString()}` : '（尚未核准）'
+    return [
+      `**這張憑單填的金額 NT$${amount.toLocaleString()} 超過資金分配單剩下可用的額度。**`,
+      '',
+      `這張資金分配單的核准金額是 ${approvedLabel}，底下已經有這些付款憑單在用額度：`,
+      ...(lines.length > 0 ? lines : ['（無其他憑單）']),
+      '',
+      `合計已佔用 NT$${occupiedTotal.toLocaleString()}，目前剩餘 NT$${remainingBeforeThis.toLocaleString()}。`,
+      `**這次最多只能填 NT$${remainingBeforeThis.toLocaleString()}，請調低本張金額，或先處理上面佔用額度的憑單。**`,
+    ].join('\n')
   }
   return null
 }
@@ -97,7 +114,7 @@ export async function createPayment(
   // 未傳入金額時（例如舊呼叫端）退回分配單全額，維持相容
   const paymentAmount = amount ?? record.amount
 
-  const amountError = await checkAmountWithinRemaining(allocationId, paymentAmount)
+  const amountError = await checkAmountWithinRemaining(allocationId, paymentAmount, undefined, String(session.userId))
   if (amountError) return { id: null, error: amountError }
 
   // 根據出款帳號查找對應的付款憑單審核流程範本
@@ -148,7 +165,7 @@ export async function updateDraftPayment(
       .eq('id', id)
       .single()
     if (payment) {
-      const amountError = await checkAmountWithinRemaining(payment.funds_allocation_id, amount, id)
+      const amountError = await checkAmountWithinRemaining(payment.funds_allocation_id, amount, id, String(session.userId))
       if (amountError) return { error: amountError }
     }
   }

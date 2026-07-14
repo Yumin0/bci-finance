@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { buttonVariants } from '@/components/ui/button'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 
 const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6,
@@ -141,7 +142,9 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
   }
 
   if (loading) return <p>載入中...</p>
-  if (error || !payment) return (
+  // 只有載入不到付款憑單才整頁換成錯誤畫面；送出被擋（例如沖銷金額檢查）時
+  // 表單要保留讓使用者直接修改重送，錯誤訊息顯示在表單上方
+  if (!payment) return (
     <div>
       <p style={{ color: '#dc2626' }}>{error ?? '載入失敗'}</p>
       <Link href="/funds-payment/my-payment" className={buttonVariants({ variant: 'outline' })}>返回</Link>
@@ -160,7 +163,8 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
         付款憑單 #{paymentId}
       </p>
 
-      {error && <p style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>錯誤：{error}</p>}
+      {/* 送出被擋（沖銷金額檢查等）改用全站共用中央彈窗 */}
+      <ErrorDialog message={error} title="無法建立沖銷憑單" onClose={() => setError(null)} />
 
       <form onSubmit={handleSubmit}>
         {schema.map(block => (

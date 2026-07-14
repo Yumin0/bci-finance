@@ -16,6 +16,7 @@ import PageHeader from '@/app/_components/PageHeader'
 import { YearDropdown, WeekDropdown } from '@/app/_components/WeekPicker'
 import ColumnPicker from '@/app/_components/ColumnPicker'
 import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 
 export type ReviewTab = 'div' | 'advisory' | 'executive' | 'cfo' | 'history'
 
@@ -248,6 +249,8 @@ function AccountGroupedList({
   const [batchRejectItems, setBatchRejectItems] = useState<AllocationItem[]>([])
   const [batchComment, setBatchComment] = useState('')
   const [batchLoading, setBatchLoading] = useState(false)
+  // 快速/批次審核被擋或失敗時的訊息（取代原生 alert，改用全站共用中央彈窗）
+  const [actionError, setActionError] = useState<string | null>(null)
 
   function toggleSelect(id: number) {
     setSelectedIds(prev => {
@@ -283,7 +286,7 @@ function AccountGroupedList({
     if (actioningId) return
     setActioningId(item.id)
     try {
-      await submitApprovalDecision({
+      const result = await submitApprovalDecision({
         fundsAllocationId: item.id,
         stepNumber: item.current_step ?? 1,
         stepName: item.step_name ?? '',
@@ -293,9 +296,14 @@ function AccountGroupedList({
         totalSteps: item.total_steps ?? 1,
         approvedAmount: item.approved_amount ?? item.amount ?? null,
       })
+      // 存檔驗證擋下（例如承接金額已低於底下憑單佔用）：完整說明原因
+      if (result?.error) {
+        setActionError(result.error)
+        return
+      }
       onActionCompleted()
     } catch {
-      alert('核准失敗，請重試')
+      setActionError('核准失敗，請重試')
     } finally {
       setActioningId(null)
     }
@@ -318,7 +326,7 @@ function AccountGroupedList({
       setRejectComment('')
       onActionCompleted()
     } catch {
-      alert('退回失敗，請重試')
+      setActionError('退回失敗，請重試')
     } finally {
       setRejectLoading(false)
     }
@@ -330,7 +338,7 @@ function AccountGroupedList({
     if (targets.length === 0) return
     setBatchLoading(true)
     try {
-      await Promise.all(targets.map(item => submitApprovalDecision({
+      const results = await Promise.all(targets.map(item => submitApprovalDecision({
         fundsAllocationId: item.id,
         stepNumber: item.current_step ?? 1,
         stepName: item.step_name ?? '',
@@ -339,7 +347,12 @@ function AccountGroupedList({
         reviewerId: String(userId),
         totalSteps: item.total_steps ?? 1,
         approvedAmount: item.approved_amount ?? item.amount ?? null,
-      })))
+      }).then(r => ({ item, error: r?.error ?? null }))))
+      // 存檔驗證擋下的單子逐張說明；其餘照常核准成功
+      const blocked = results.filter(r => r.error)
+      if (blocked.length > 0) {
+        setActionError(blocked.map(r => `單號 ${r.item.serial_number ?? r.item.id}：\n${r.error}`).join('\n\n'))
+      }
       setSelectedIds(prev => {
         const next = new Set(prev)
         targets.forEach(r => next.delete(r.id))
@@ -347,7 +360,7 @@ function AccountGroupedList({
       })
       onActionCompleted()
     } catch {
-      alert('批次核准失敗，請重試')
+      setActionError('批次核准失敗，請重試')
     } finally {
       setBatchLoading(false)
     }
@@ -375,7 +388,7 @@ function AccountGroupedList({
       setBatchComment('')
       onActionCompleted()
     } catch {
-      alert('批次不核准失敗，請重試')
+      setActionError('批次不核准失敗，請重試')
     } finally {
       setBatchLoading(false)
     }
@@ -397,6 +410,7 @@ function AccountGroupedList({
 
   return (
     <>
+      <ErrorDialog message={actionError} title="無法完成審核" onClose={() => setActionError(null)} />
       <div className="flex flex-col gap-6">
         {orderedKeys.map(account => {
           const budget = budgets[account] ?? null
