@@ -255,6 +255,14 @@
 實測（Playwright，2026-07-13）：建 2 張憑單 2000+1000＝核准 3000 → 超額第 3 張被擋（剩餘 NT$1,000 錯誤）→ 逐張確認付款 → 分配單自動轉「已付款」、剩餘 0；部分付款情境（10000 核准、2 付 1 待）分配單維持「已核准」、剩餘正確 4000；審核頁對照卡片＋核准金額輸入框（承接 1000、上限 6000 超額被擋）皆正確。付款明細改版實測：分配單 #42（核准 5750）建憑單填 2 組總額 2298+566、未稅/稅額留 0 → 送出未被「必須大於 0」擋、`amount` 存入 2864、彙總顯示「未稅金額 0／稅額 0／總額 2,864」、剩餘 2886，測試資料已清除。
 備註：需在正式機執行兩段 SQL（見 `docs/prod-pending-sql.md`）——`funds_payment` 加 `approved_amount` 欄位、放寬 `funds_allocation_status_check` 約束允許 `paid`（此約束未曾記錄在專案 migration，實測時才發現是當初直接在 Supabase Dashboard 手動加的，dev/staging 已補跑）。
 
+**資金分配審核管理：欄位顯示 + 快速核准按鈕改上下排列**（2026-07-14，Riku）
+分支：`feature/riku-review-columns`
+審核管理頁（課處長／諮詢議會／主管議會／財務長 Tab）右上角新增「欄位」按鈕，可自由開關欄位（狀態/單號/申請處別/申請課別/申請人/職務/申請金額/核准金額/剩餘金額/費用項目/項目），快速審核/審核/查閱動作欄固定顯示不列入；預設收起處別/課別/剩餘金額，讓核准鈕更容易落在畫面內、減少往右滑；每個 Tab 各記各的（localStorage）。快速核准／不核准按鈕改為上下排列（不核准在上、核准在下）、以 `items-stretch` 撐成等寬。
+影響範圍確認（共用 hook `useColumnVisibility` 加選填 `defaultKeys` 參數，向下相容）：
+- [x] `src/app/_components/useColumnVisibility.ts`（新增 defaultKeys、切換 Tab 回預設值）
+- [x] `HomeTabView` / `MyFundsTableView` / `AllFundsTableView`（仍傳兩參數，行為不變，typecheck 綠）
+- [x] `funds-allocation/review/ReviewPageClient.tsx`（欄位顯示 + 按鈕 UI）
+
 **付款憑單「受款人」資料來源合併付款對象類別**（2026-07-13，Yumin）
 分支：`feature/yumin-payee-merge-source`
 表單設定「資料來源」下拉新增「全部付款對象（合併）」選項（`payee_records:all`，`actions/form-schema.ts` 的 `getFormDataSources()` 動態附加，只要 `payee_categories` 有資料就會出現），選這個欄位會合併目前所有付款對象類別（不寫死類別數量，未來新增類別自動一起併入）供搜尋/選取。付款憑單表單「受款人」欄位已改選此選項，實測搜尋同時涵蓋國內廠商（賀伯特行政管理有限公司）與職員（謝靜弦），選取廠商後正確自動帶入對應欄位值。
