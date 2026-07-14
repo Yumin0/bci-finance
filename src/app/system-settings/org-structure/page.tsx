@@ -270,7 +270,7 @@ function OrgTreeNode({
   const unitRoles = orgUnitRoles.filter(r => r.org_unit_id === unit.id).sort((a, b) => a.sort_order - b.sort_order)
 
   async function handleEditSave() {
-    if (!editName.trim() || !editLevel.trim()) return
+    if (!editName.trim()) return
     setError(null)
     const err = await updateOrgUnit(unit.id, editCode.trim() || null, editName.trim(), editLevel.trim(), editUnitType)
     if (err) { setError(err); return }
