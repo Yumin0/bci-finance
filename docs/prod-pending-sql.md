@@ -8,9 +8,15 @@
 
 ## ⏳ 待執行
 
+目前無待執行項目。
+
+---
+
+## ✅ 已執行
+
 ### 暫付款沖銷單號＋採購單號撞號補正（feature/yumin-voucher-serial-inherit）
 
-- [ ] 尚未在正式機執行
+- [x] 已在正式機執行（執行日期：2026-07-14）
 
 用途（三段一起跑，順序不可換）：
 1. `temp_vouchers` 加 `serial_number` 欄——暫付款沖銷單號（＝母付款憑單採購單號＋3 碼流水），未執行前沖銷憑單相關頁面查詢會失敗。
@@ -48,10 +54,6 @@ SET serial_number = r.new_sn
 FROM renumbered r
 WHERE tv.id = r.id;
 ```
-
----
-
-## ✅ 已執行
 
 ### 出款帳戶可見範圍（feature/riku-payment-account-visibility）
 
