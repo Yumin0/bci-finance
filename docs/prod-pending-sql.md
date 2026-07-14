@@ -8,9 +8,15 @@
 
 ## ⏳ 待執行
 
+目前無待執行項目。
+
+---
+
+## ✅ 已執行
+
 ### 付款憑單條件欄位 showWhen 代號修正（note → payment_method）
 
-- [ ] 尚未在正式機執行
+- [x] 已在正式機執行（執行日期：2026-07-15，驗證查詢 to_payment_method=11、still_note=0；改前已備份 rows）
 
 用途：2026-07-14 把付款憑單「付款方式」欄位代號從 `note` 改成 `payment_method`（修付款方式存不進結構化欄位的 bug）後，那些「條件顯示」欄位（受款銀行代碼／受款分行／受款帳戶／受款地區國別…共 11 個）的 `showWhen.fieldId` 仍指向舊代號 `note`，導致條件永遠不成立、選「銀行轉帳」＋受款人後這些欄位不再顯示（只剩沒設條件的「受款人email」會出現）。以 jsonb 改寫把付款憑單表單所有 `showWhen.fieldId = 'note'` 的欄位改成 `payment_method`。dev/staging 已於 2026-07-15 用 script 修正並驗證（11 欄全數改到、殘留 0）。純表單設定資料修正、無程式碼變更。
 
@@ -53,10 +59,6 @@ FROM form_schemas,
   jsonb_array_elements(row_->'slots') slot
 WHERE form_type = 'payment_voucher';
 ```
-
----
-
-## ✅ 已執行
 
 ### 正式機全面關閉 public 資料表 RLS（對齊 dev）
 
