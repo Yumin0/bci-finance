@@ -18,12 +18,28 @@
 ALTER TABLE temp_vouchers ADD COLUMN IF NOT EXISTS extra_data jsonb;
 ```
 
-**另需在正式站「表單設定 → 暫付款沖銷憑單」手動同步表單結構**（表單設定是資料、不隨部署同步）：
-1. 付款明細區塊刪除「會計科目」欄位（Yumin 拍板直接隱藏）
-2. 「摘要用途」那一列標記「從此列起整組可重複新增」（rowGroupStart）
-3. 「總額」欄位設為必填
+**表單設定同步（第二段 SQL，與上面一起跑）**：表單設定是 `form_schemas` 的資料、不隨部署同步。已確認正式機沖銷表單的付款明細區塊結構與 dev 改版前完全一致（同 block/row/field id），故直接以 SQL 替換該區塊：移除「會計科目」、「摘要用途」列標記群組起始（rowGroupStart）、「總額」設必填，其它區塊原封不動。
 
-（dev 已於 2026-07-14 以同樣方式調整，dev 調整前的表單 JSON 備份在開發機 scratchpad `temp_voucher_schema_backup.json`。）
+```sql
+-- 先備份（把結果存起來以便回滾）
+SELECT rows FROM form_schemas WHERE form_type = 'temp_voucher';
+
+-- 只替換付款明細區塊（block_1779545628726）
+UPDATE form_schemas
+SET rows = (
+  SELECT jsonb_agg(
+    CASE WHEN elem->>'id' = 'block_1779545628726'
+      THEN '{"id":"block_1779545628726","title":"付款明細","rows":[{"id":"row_1779545719609","cols":1,"rowGroupStart":true,"slots":[{"type":"text","label":"摘要用途","fieldId":"custom_1779545756959","required":false,"dataSource":"static","staticOptions":[]}]},{"id":"row_1779545749542","cols":3,"slots":[{"type":"number","label":"未稅金額","fieldId":"custom_1779545788642","required":false,"dataSource":"none"},{"type":"number","label":"稅額","fieldId":"custom_1779545795942","required":false,"dataSource":"none"},{"type":"number","label":"總額","fieldId":"custom_1779545814376","required":true,"dataSource":"none"}]}]}'::jsonb
+      ELSE elem
+    END
+    ORDER BY ord
+  )
+  FROM jsonb_array_elements(rows) WITH ORDINALITY AS t(elem, ord)
+)
+WHERE form_type = 'temp_voucher';
+```
+
+（dev 已於 2026-07-14 直接改資料完成同樣調整，dev 調整前的表單 JSON 備份在開發機 scratchpad `temp_voucher_schema_backup.json`。）
 
 ---
 
