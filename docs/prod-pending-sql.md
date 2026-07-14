@@ -8,18 +8,6 @@
 
 ## ⏳ 待執行
 
-### 付款分類：審核紀錄加欄位（feature/yumin-payment-category）
-
-- [ ] 尚未在正式機執行
-
-用途：付款憑單／暫付款沖銷憑單審核的群組步驟（財務人員、第三處處長）可加註「付款分類」（整批匯、單獨匯、現金…），選值存在該關的審核紀錄上。未執行前正式機的付款憑單／沖銷憑單審核送出會存檔失敗（insert 帶了不存在的欄位）。
-
-```sql
-ALTER TABLE approval_records ADD COLUMN IF NOT EXISTS payment_category text;
-```
-
-**選項資料（非 SQL）**：付款分類的選項存 `dropdown_options`（`field='payment_category'`，純 TEXT 無 CHECK 限制、不用改結構），部署後由財務到正式站「系統設定 → 支出欄位設定 → 付款分類」自行新增（例：整批匯、單獨匯、匯款、銀付、現金、薪轉、帳戶間互轉）。
-
 ### 付款憑單表單欄位代號修正＋付款方式回填（feature/yumin-payment-category）
 
 - [ ] 尚未在正式機執行
@@ -49,6 +37,18 @@ WHERE payment_method IS NULL
 ---
 
 ## ✅ 已執行
+
+### 付款分類：審核紀錄加欄位（feature/yumin-payment-category）
+
+- [x] 已在正式機執行（執行日期：2026-07-14，於合併 main 部署**前**先跑，避免部署後審核送出失敗的空窗）
+
+用途：付款憑單／暫付款沖銷憑單審核的群組步驟（財務人員、第三處處長）可加註「付款分類」，選值存在該關的審核紀錄上。
+
+```sql
+ALTER TABLE approval_records ADD COLUMN IF NOT EXISTS payment_category text;
+```
+
+**選項資料（非 SQL）**：付款分類的選項存 `dropdown_options`（`field='payment_category'`），由財務到正式站「系統設定 → 支出欄位設定 → 付款分類」自行新增（例：整批匯、單獨匯、匯款、銀付、現金、薪轉、帳戶間互轉）。
 
 ### 暫付款沖銷憑單多組明細（feature/yumin-tempvoucher-groups）
 
