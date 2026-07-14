@@ -8,9 +8,15 @@
 
 ## ⏳ 待執行
 
+目前無待執行項目。
+
+---
+
+## ✅ 已執行
+
 ### 暫付款沖銷憑單多組明細（feature/yumin-tempvoucher-groups）
 
-- [ ] 尚未在正式機執行
+- [x] 已在正式機執行（執行日期：2026-07-14，含表單設定 SQL 替換，執行後以唯讀查詢驗證三項變更皆生效）
 
 用途：沖銷憑單資料表加自訂欄位儲存空間（`extra_data`），讓多組付款明細（摘要用途／未稅金額／稅額／總額）能確實存檔。未執行前正式機建立沖銷憑單會存檔失敗。
 
@@ -39,11 +45,7 @@ SET rows = (
 WHERE form_type = 'temp_voucher';
 ```
 
-（dev 已於 2026-07-14 直接改資料完成同樣調整，dev 調整前的表單 JSON 備份在開發機 scratchpad `temp_voucher_schema_backup.json`。）
-
----
-
-## ✅ 已執行
+（dev 已於 2026-07-14 直接改資料完成同樣調整，dev 調整前的表單 JSON 備份在開發機 scratchpad `temp_voucher_schema_backup.json`；正式機改版前備份 Yumin 已於執行時留存。）
 
 ### 暫付款沖銷單號＋採購單號撞號補正（feature/yumin-voucher-serial-inherit）
 
