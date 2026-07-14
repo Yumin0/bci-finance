@@ -226,6 +226,16 @@
 
 ## 已完成
 
+**「憑證類型」全環境更名為「單據種類」（資料遷移，無程式碼變更）**（2026-07-14，Yumin）
+分支：無（純 Supabase 資料修正，不經部署）
+背景：財務反應「憑證類型」職員看不懂，先前只改了資金分配表單的欄位標籤，付款憑單表單沒跟著改，且改名前存的舊單資料 key 還是「憑證類型」，新標籤撈不到值導致顯示空白/名稱不一致。動態表單值以「欄位 label」為 key 存 `extra_data`、付款憑單帶入申請單也以 label 比對，故表單標籤與資料 key 必須一起改。
+影響範圍確認（dev/staging 與正式機兩個 Supabase 專案皆已執行，受影響資料列已先備份）：
+- [x] dev：`form_schemas` 付款憑單表單 label 更名；`funds_allocation` 22 筆＋`funds_payment` 9 筆 `extra_data` key 遷移，驗證零殘留
+- [x] 正式機：同上；`funds_allocation` 3 筆＋`funds_payment` 1 筆，驗證零殘留
+- [x] 暫付款沖銷憑單表單無此欄位，不受影響；`funds_allocation_templates` 無此 key，不受影響
+- [x] `docs/prod-pending-sql.md` 已執行區的舊 SQL 含「憑證類型」僅為歷史紀錄，待執行區為空，無回滾風險
+- [x] Playwright 實測 localhost（＝staging 同庫）：付款憑單詳細頁與資金分配編輯頁標籤顯示「單據種類」、舊單值（國內公司）正常帶出、全頁無「憑證類型」殘留
+
 **金額防呆與限制補強（核心邏輯文件第八節，Yumin 已拍板）**（2026-07-14，Yumin）
 分支：`feature/yumin-amount-guards`
 規格：`docs/core-logic/BC資金分配系統核心邏輯.md` 第八節（缺口 1〜8；缺口 7 併發超額依拍板記錄不做）。大原則：畫面照擋、存檔時後端再驗一次當最後防線；擋下訊息一律白話三段式（發生什麼→為什麼→怎麼做），且點名到具體（日期/建單人名字（本人寫「你自己」）/憑單名/採購單號/金額）。Server Action 的預期錯誤依 Next.js 文件改用回傳值 `{ error }` 帶回（正式環境 throw 訊息會被遮蔽），`submitApprovalDecision` 回傳型別改 `{ error: string | null }`、五個呼叫端全部接住。
