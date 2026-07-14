@@ -603,8 +603,6 @@ export default function AddFundsForm({
                 const newDivId = Number(v) || null
                 setDivisionId(newDivId)
                 setSectionId(null)
-                const divRoles = newDivId ? (memberRoleMap[newDivId] ?? []) : []
-                setField('apply_role', divRoles.length === 1 ? divRoles[0] : '')
               }}
               options={divisions}
               required={required}
@@ -621,10 +619,6 @@ export default function AddFundsForm({
               onChange={v => {
                 const newSecId = Number(v) || null
                 setSectionId(newSecId)
-                const secRoles = newSecId ? (memberRoleMap[newSecId] ?? []) : []
-                const divRoles = divisionId ? (memberRoleMap[divisionId] ?? []) : []
-                const roles = secRoles.length > 0 ? secRoles : divRoles
-                setField('apply_role', roles.length === 1 ? roles[0] : '')
               }}
               options={sections}
               disabled={!divisionId}
