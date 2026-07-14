@@ -238,6 +238,10 @@
 
 ## 已完成
 
+**付款憑單／暫付款沖銷憑單建立頁加「儲存草稿」按鈕**（2026-07-15，Yumin）
+分支：`feature/yumin-payment-voucher-draft`
+說明：對齊資金分配新增頁，兩個建立頁改成「儲存草稿」＋「確定送出」雙按鈕。儲存草稿只建立 draft（放寬：`createPayment`/`createTempVoucher` 加 `asDraft` 參數，草稿允許金額 0 存半成品、仍擋負數與超過剩餘/原預支上限）、確定送出跑費用檢查（付款憑單 `validateFeePositive`）後建立並接送審 action（`submitMyPayment`/`submitTempVoucher`）。既有呼叫端不受影響（新增選填參數、預設嚴格）。無資料庫結構變更。tsc/eslint 通過。
+
 **暫付款沖銷憑單審核管理頁 Tab 對齊付款憑單**（2026-07-14，Riku）
 分支：`feature/riku-voucher-review-tabs`
 說明：審核管理頁原本只有「待我審核／我的審核紀錄」兩個 Tab，改寫成 Server 元件（`review/page.tsx`）＋ `VoucherReviewClient.tsx`，Tab 結構比照付款憑單審核管理頁——課、處長審核（org_role，回溯母付款憑單申請單處/課別過濾）＋動態群組 Tab（`getTempVoucherReviewGroups`）＋我的審核紀錄，依出款帳戶（繼承母付款憑單）分區塊、年份＋週次篩選、Tab badge 只計待審筆數、群組 Tab 審核鈕只給群組成員。新增 3 個 server action（`getVouchersForOrgRoleByWeek`/`getVouchersForApprovalGroupByWeek`/`getTempVoucherReviewGroups`），擴充 `filterReached`/`getMaxRecordedSteps` 支援 `temp_voucher_id`，新增 `getAttachmentsByTempVoucherIds`。新增權限 `fv-review-div`/`fv-review-group`。列表對齊 9 欄（敘述欄與核准金額抓母付款憑單、第 8 欄「沖銷金額」為沖銷憑單自身 amount、發票憑證為沖銷憑單附件）。無資料庫結構變更（`fund_attachments.temp_voucher_id` 早已存在，僅補進 TS 型別）。

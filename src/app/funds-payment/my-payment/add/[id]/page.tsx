@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { FundsAllocation, FormBlock, FormSchemaRow, FormSlot, DropdownOption, TaxRateOption, FundAttachment } from '@/lib/types'
 import { applyTaxFormula, computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
-import { createPayment, nextPurchaseOrderNumber } from '@/app/actions/payment'
+import { createPayment, submitMyPayment, nextPurchaseOrderNumber } from '@/app/actions/payment'
+import { validateFeePositive } from '@/lib/feeValidation'
 import { taipeiToday } from '@/lib/dateUtils'
 import { getAllocationRemainingInfo, type AllocationRemainingInfo } from '@/app/actions/fund-budget'
 import { getFormSchemas } from '@/app/actions/form-schema'
@@ -97,6 +98,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   const [schema, setSchema] = useState<FormBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
@@ -738,12 +740,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
     )
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!allocationId || !record) return
-    setSubmitting(true)
-    setError(null)
-
+  // 組出送給 createPayment 的欄位資料（extraData／類型／付款方式），儲存草稿與確定送出共用
+  function buildPaymentData(): { extraData: Record<string, string>; categoryValue: string | null; paymentMethodValue: string } {
     const allSlots: NonNullable<FormSlot>[] = schema.flatMap(b =>
       b.rows.flatMap(r => r.slots.filter((s): s is NonNullable<FormSlot> => s !== null))
     )
@@ -784,22 +782,58 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
     const paymentMethodSlot = allSlots.find(isPaymentMethodSlot)
     const paymentMethodValue = (paymentMethodSlot ? fieldValues[paymentMethodSlot.fieldId] : fieldValues['payment_method']) ?? ''
 
+    return { extraData, categoryValue, paymentMethodValue }
+  }
+
+  // 建立付款憑單（草稿或送審共用）：建立→存附件；submit=true 時再送審。回傳是否成功
+  async function createAndOptionallySubmit(submit: boolean): Promise<boolean> {
+    if (!allocationId || !record) return false
+    const { extraData, categoryValue, paymentMethodValue } = buildPaymentData()
+
     // 超額檢查交給 createPayment 的存檔驗證：伺服器會回點名式訊息
     // （核准金額、底下已有哪幾張憑單各佔多少、這次最多能填多少），比前端只知道剩餘數字更清楚
+    // 儲存草稿（!submit）放寬金額下限（允許 0），送出時嚴格（必須 > 0）
     const { id: newPaymentId, error: insertError } = await createPayment(
       allocationId,
       paymentMethodValue,
       extraData,
       categoryValue,
       grandTotal,
+      !submit,
     )
-    if (insertError) { setError(insertError); setSubmitting(false); return }
+    if (insertError) { setError(insertError); return false }
 
     const allAttachments = Object.values(pendingAttachments).flat()
     if (newPaymentId && allAttachments.length > 0) {
       await saveAttachments(null, newPaymentId, allAttachments)
     }
 
+    if (submit && newPaymentId) {
+      const { error: submitError } = await submitMyPayment(newPaymentId)
+      if (submitError) { setError(submitError); return false }
+    }
+    return true
+  }
+
+  async function handleSaveDraft() {
+    if (!allocationId || !record) return
+    setSavingDraft(true)
+    setError(null)
+    const ok = await createAndOptionallySubmit(false)
+    if (!ok) { setSavingDraft(false); return }
+    router.push('/funds-payment/my-payment')
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!allocationId || !record) return
+    // 送出才跑費用檢查：付款明細每組總額必須 > 0（草稿不擋）
+    const feeError = validateFeePositive(schema, fieldValues, {}, groupInstances)
+    if (feeError) { setError(feeError); return }
+    setSubmitting(true)
+    setError(null)
+    const ok = await createAndOptionallySubmit(true)
+    if (!ok) { setSubmitting(false); return }
     router.push('/funds-payment/my-payment')
   }
 
@@ -901,8 +935,11 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
         )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? '建立中...' : '建立付款憑單'}
+          <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={submitting || savingDraft}>
+            {savingDraft ? '儲存中...' : '儲存草稿'}
+          </Button>
+          <Button type="submit" disabled={submitting || savingDraft}>
+            {submitting ? '送出中...' : '確定送出'}
           </Button>
           <Button type="button" variant="outline" onClick={() => router.back()}>取消</Button>
         </div>

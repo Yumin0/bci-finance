@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsPayment, FormBlock, FormSchemaRow, FormSlot } from '@/lib/types'
 import { getFormSchemas } from '@/app/actions/form-schema'
-import { createTempVoucher } from '@/app/actions/temp-voucher'
+import { createTempVoucher, submitTempVoucher } from '@/app/actions/temp-voucher'
 import { taipeiToday } from '@/lib/dateUtils'
 import { saveAttachments } from '@/app/actions/attachments'
 import { Button } from '@/components/ui/button'
@@ -80,6 +80,7 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
   const [schema, setSchema] = useState<FormBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
   // 群組重複資料（key = blockId）：逐組繼承自付款憑單付款明細，可增刪修改
@@ -212,13 +213,8 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
     }, 0)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!paymentId) return
-    setSubmitting(true)
-    setError(null)
-
-    // 群組資料以欄位 label 為 key 存入 extra_data.__group_{blockId}（與付款憑單同一約定）
+  // 群組資料以欄位 label 為 key 存入 extra_data.__group_{blockId}（與付款憑單同一約定）
+  function buildExtraData(): Record<string, string> {
     const extraData: Record<string, string> = {}
     for (const block of schema) {
       const groupSlots = getGroupRows(block).flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
@@ -233,15 +229,44 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
       })
       extraData[`__group_${block.id}`] = JSON.stringify(instances)
     }
+    return extraData
+  }
 
-    const { id: newVoucherId, error: saveError } = await createTempVoucher(paymentId, fieldValues, extraData)
-    if (saveError) { setError(saveError); setSubmitting(false); return }
+  // 建立沖銷憑單（草稿或送審共用）：建立→存附件；submit=true 時再送審。回傳是否成功
+  async function createAndOptionallySubmit(submit: boolean): Promise<boolean> {
+    if (!paymentId) return false
+    // 儲存草稿（!submit）放寬沖銷金額下限（允許 0），送出時嚴格（必須 > 0）
+    const { id: newVoucherId, error: saveError } = await createTempVoucher(paymentId, fieldValues, buildExtraData(), !submit)
+    if (saveError) { setError(saveError); return false }
 
     const allAttachments = Object.values(pendingAttachments).flat()
     if (newVoucherId && allAttachments.length > 0) {
       await saveAttachments(null, null, allAttachments, newVoucherId)
     }
 
+    if (submit && newVoucherId) {
+      const { error: submitError } = await submitTempVoucher(newVoucherId)
+      if (submitError) { setError(submitError); return false }
+    }
+    return true
+  }
+
+  async function handleSaveDraft() {
+    if (!paymentId) return
+    setSavingDraft(true)
+    setError(null)
+    const ok = await createAndOptionallySubmit(false)
+    if (!ok) { setSavingDraft(false); return }
+    router.push('/funds-voucher/my-voucher')
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!paymentId) return
+    setSubmitting(true)
+    setError(null)
+    const ok = await createAndOptionallySubmit(true)
+    if (!ok) { setSubmitting(false); return }
     router.push('/funds-voucher/my-voucher')
   }
 
@@ -366,8 +391,11 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
         })}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? '建立中...' : '建立暫付款沖銷憑單'}
+          <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={submitting || savingDraft}>
+            {savingDraft ? '儲存中...' : '儲存草稿'}
+          </Button>
+          <Button type="submit" disabled={submitting || savingDraft}>
+            {submitting ? '送出中...' : '確定送出'}
           </Button>
           <Button type="button" variant="outline" onClick={() => router.back()}>取消</Button>
         </div>

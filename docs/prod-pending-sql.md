@@ -8,35 +8,121 @@
 
 ## ⏳ 待執行
 
-### 付款憑單表單欄位代號修正＋付款方式回填（feature/yumin-payment-category）
+目前無待執行項目。
 
-- [ ] 尚未在正式機執行
+---
 
-用途：dev 發現付款憑單表單設定「付款方式」欄位代號掛成 `note`（備註）、「費用項目」掛成自訂代號——導致付款方式存不進結構化欄位（列表全顯示「-」、詳細頁誤顯示備註文字）、費用項目變成可選下拉而非唯讀帶入母單。dev 已修正表單設定並回填舊資料；**正式機需核對後做同樣處理**（正式機表單設定獨立，可能同樣掛錯）。
+## ✅ 已執行
+
+### 付款憑單條件欄位 showWhen 代號修正（note → payment_method）
+
+- [x] 已在正式機執行（執行日期：2026-07-15，驗證查詢 to_payment_method=11、still_note=0；改前已備份 rows）
+
+用途：2026-07-14 把付款憑單「付款方式」欄位代號從 `note` 改成 `payment_method`（修付款方式存不進結構化欄位的 bug）後，那些「條件顯示」欄位（受款銀行代碼／受款分行／受款帳戶／受款地區國別…共 11 個）的 `showWhen.fieldId` 仍指向舊代號 `note`，導致條件永遠不成立、選「銀行轉帳」＋受款人後這些欄位不再顯示（只剩沒設條件的「受款人email」會出現）。以 jsonb 改寫把付款憑單表單所有 `showWhen.fieldId = 'note'` 的欄位改成 `payment_method`。dev/staging 已於 2026-07-15 用 script 修正並驗證（11 欄全數改到、殘留 0）。純表單設定資料修正、無程式碼變更。
 
 ```sql
--- 1. 先核對正式機付款憑單表單的兩個欄位代號（唯讀查詢）
-SELECT slot->>'label' AS label, slot->>'fieldId' AS field_id
+-- 改前先 SELECT rows 備份
+SELECT rows FROM form_schemas WHERE form_type = 'payment_voucher';
+
+-- 把所有 showWhen.fieldId = 'note' 改成 payment_method
+UPDATE form_schemas
+SET rows = (
+  SELECT jsonb_agg(
+    jsonb_set(block, '{rows}', COALESCE((
+      SELECT jsonb_agg(
+        jsonb_set(row_, '{slots}', COALESCE((
+          SELECT jsonb_agg(
+            CASE
+              WHEN slot->'showWhen'->>'fieldId' = 'note'
+                THEN jsonb_set(slot, '{showWhen,fieldId}', '"payment_method"')
+              ELSE slot
+            END
+            ORDER BY slot_ord
+          )
+          FROM jsonb_array_elements(row_->'slots') WITH ORDINALITY AS s(slot, slot_ord)
+        ), '[]'::jsonb)) ORDER BY row_ord
+      )
+      FROM jsonb_array_elements(block->'rows') WITH ORDINALITY AS r(row_, row_ord)
+    ), '[]'::jsonb)) ORDER BY block_ord
+  )
+  FROM jsonb_array_elements(rows) WITH ORDINALITY AS b(block, block_ord)
+)
+WHERE form_type = 'payment_voucher';
+
+-- 驗證：to_payment_method 應為 11、still_note 應為 0
+SELECT
+  count(*) FILTER (WHERE slot->'showWhen'->>'fieldId' = 'payment_method') AS to_payment_method,
+  count(*) FILTER (WHERE slot->'showWhen'->>'fieldId' = 'note') AS still_note
 FROM form_schemas,
-     jsonb_array_elements(rows) AS block,
-     jsonb_array_elements(block->'rows') AS row_,
-     jsonb_array_elements(row_->'slots') AS slot
-WHERE form_type = 'payment_voucher'
-  AND slot->>'label' IN ('付款方式', '費用項目');
+  jsonb_array_elements(rows) block,
+  jsonb_array_elements(block->'rows') row_,
+  jsonb_array_elements(row_->'slots') slot
+WHERE form_type = 'payment_voucher';
+```
 
--- 2. 若「付款方式」fieldId 為 note、「費用項目」為 custom_*：到正式站表單設定頁把兩欄改綁
---    正確欄位代號（付款方式 → payment_method、費用項目 → expense_item），或依 dev 作法以資料修正。
+### 正式機全面關閉 public 資料表 RLS（對齊 dev）
 
--- 3. 回填舊憑單的付款方式（結構化欄位為空、extra_data 有值者）
+- [x] 已在正式機執行（執行日期：2026-07-14，執行後以 pg_tables 查詢確認 rowsecurity=true 為 0 列，角色管理新增角色實測可存）
+
+用途：正式機幾乎所有 public 資料表 RLS 開著（dev 全關），伺服器端寫入（service role）不受影響，但**瀏覽器直接寫資料庫的頁面**（帳號管理角色管理、支出欄位設定等）在正式機會被擋（`new row violates row-level security policy`）。以 DO 迴圈一次關閉所有 public 表的 RLS，對齊 dev 現況；資料庫防線改為完全依賴系統登入把關，後續安全強化已列 BACKLOG（重新啟用 RLS 或全面伺服器端寫入）。**之後在正式機新建資料表時，記得一併 DISABLE ROW LEVEL SECURITY（或再跑一次本段）。**
+
+```sql
+DO $$
+DECLARE t record;
+BEGIN
+  FOR t IN
+    SELECT tablename FROM pg_tables
+    WHERE schemaname = 'public' AND rowsecurity = true
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I DISABLE ROW LEVEL SECURITY;', t.tablename);
+  END LOOP;
+END $$;
+
+-- 驗證（應為 0 列）
+SELECT tablename FROM pg_tables
+WHERE schemaname = 'public' AND rowsecurity = true;
+```
+
+### 付款憑單表單欄位代號修正＋付款方式回填（feature/yumin-payment-category）
+
+- [x] 已在正式機執行（執行日期：2026-07-14，核對查詢確認：付款方式→payment_method、費用項目→expense_item；回填後 payment_method 為空的憑單數＝0）
+
+用途：正式機付款憑單表單「付款方式」原掛 `note`、「費用項目」原掛 `custom_pv_feeitem`（與 dev 病因相同、費用項目自訂代號不同），導致付款方式存不進結構化欄位（列表全「-」、詳細頁誤顯備註）、費用項目變可選下拉。以 jsonb 改寫修正兩個欄位代號（改前 rows 已備份），並回填舊憑單 `payment_method = extra_data->>'付款方式'`。
+
+```sql
+-- 欄位代號修正（改前先 SELECT rows 備份）
+UPDATE form_schemas
+SET rows = (
+  SELECT jsonb_agg(
+    jsonb_set(block, '{rows}', COALESCE((
+      SELECT jsonb_agg(
+        jsonb_set(row_, '{slots}', COALESCE((
+          SELECT jsonb_agg(
+            CASE
+              WHEN slot->>'label' = '付款方式' AND slot->>'fieldId' = 'note'
+                THEN jsonb_set(slot, '{fieldId}', '"payment_method"')
+              WHEN slot->>'label' = '費用項目' AND slot->>'fieldId' = 'custom_pv_feeitem'
+                THEN jsonb_set(slot, '{fieldId}', '"expense_item"')
+              ELSE slot
+            END
+            ORDER BY slot_ord
+          )
+          FROM jsonb_array_elements(row_->'slots') WITH ORDINALITY AS s(slot, slot_ord)
+        ), '[]'::jsonb)) ORDER BY row_ord
+      )
+      FROM jsonb_array_elements(block->'rows') WITH ORDINALITY AS r(row_, row_ord)
+    ), '[]'::jsonb)) ORDER BY block_ord
+  )
+  FROM jsonb_array_elements(rows) WITH ORDINALITY AS b(block, block_ord)
+)
+WHERE form_type = 'payment_voucher';
+
+-- 舊憑單付款方式回填
 UPDATE funds_payment
 SET payment_method = extra_data->>'付款方式'
 WHERE payment_method IS NULL
   AND COALESCE(extra_data->>'付款方式', '') <> '';
 ```
-
----
-
-## ✅ 已執行
 
 ### 付款分類：審核紀錄加欄位（feature/yumin-payment-category）
 

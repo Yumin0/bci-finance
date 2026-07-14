@@ -35,10 +35,17 @@ async function checkAmountWithinRemaining(
   allocationId: number,
   amount: number,
   excludePaymentId?: number,
-  viewerId?: string | null
+  viewerId?: string | null,
+  // 儲存草稿時放寬下限：允許金額為 0（半成品尚未填總額），但仍擋負數；
+  // 送出時 allowZero=false，維持「必須 > 0」的嚴格檢查
+  allowZero = false
 ): Promise<string | null> {
-  // 下限：0 或負數不可存檔（草稿也擋）。負數會讓母單剩餘金額不減反增，直接扭曲全站帳面
-  if (!(amount > 0)) {
+  // 下限：負數一律不可存檔（草稿也擋）——負數會讓母單剩餘金額不減反增，直接扭曲全站帳面
+  if (amount < 0) {
+    return `付款憑單金額不可為負數（目前為 NT$${Number(amount || 0).toLocaleString()}）。請確認付款明細每一組的「總額」都已填寫正確再儲存。`
+  }
+  // 送出時（非草稿）金額必須 > 0；儲存草稿允許 0
+  if (!allowZero && !(amount > 0)) {
     return `付款憑單金額必須大於 0（目前為 NT$${Number(amount || 0).toLocaleString()}）。請確認付款明細每一組的「總額」都已填寫正確再儲存。`
   }
   const { data: alloc } = await supabase
@@ -116,7 +123,9 @@ export async function createPayment(
   paymentMethod: string,
   extraData: Record<string, string> = {},
   category: string | null = null,
-  amount?: number
+  amount?: number,
+  // 儲存草稿時 asDraft=true：放寬金額下限（允許 0，仍擋負數與超過剩餘），送出時為 false
+  asDraft = false
 ): Promise<{ id: number | null; error: string | null }> {
   const session = await getSession()
   if (!session) return { id: null, error: '請先登入' }
@@ -133,7 +142,7 @@ export async function createPayment(
   // 未傳入金額時（例如舊呼叫端）退回分配單全額，維持相容
   const paymentAmount = amount ?? record.amount
 
-  const amountError = await checkAmountWithinRemaining(allocationId, paymentAmount, undefined, String(session.userId))
+  const amountError = await checkAmountWithinRemaining(allocationId, paymentAmount, undefined, String(session.userId), asDraft)
   if (amountError) return { id: null, error: amountError }
 
   // 根據出款帳號查找對應的付款憑單審核流程範本
