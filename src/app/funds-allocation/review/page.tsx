@@ -28,7 +28,7 @@ const TAB_PERMISSION_IDS: Partial<Record<ReviewTab, string>> = {
 
 const GROUP_NAMES: Partial<Record<ReviewTab, string>> = {
   advisory: '諮詢議會',
-  executive: '主管議會',
+  executive: '執行長',
   cfo: '財務長',
 }
 

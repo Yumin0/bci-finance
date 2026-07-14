@@ -367,20 +367,26 @@ export default function AddFundsForm({
         setField(s.fieldId, today())
       })
 
+      // 申請日期預設值：全新表單、或範本（個人/共用）／草稿未帶入日期時皆自動帶入，
+      // 讓共用範本也和新增申請單／個人範本一樣有預設申請日期
+      for (const s of allSlots) {
+        if (s.type !== 'date') continue
+        if (repeatableSlotFieldIds.has(s.fieldId) || groupSlotFieldIds.has(s.fieldId)) continue
+        if (initialValues?.[s.fieldId]) continue // 範本/草稿已有日期則不覆蓋
+        if (s.dateDefaultMode === 'nearest_cycle' && cycleConfig?.allowed_weekdays.length) {
+          const nearest = computeNearestAllowedDate(cycleConfig.allowed_weekdays)
+          if (nearest) setField(s.fieldId, nearest)
+        } else if (s.dateDefaultMode === 'fixed' && s.defaultValue) {
+          setField(s.fieldId, s.defaultValue)
+        }
+      }
+
       // 套用表單設定的欄位預設值（僅全新表單，範本/草稿已有值時不覆蓋）
       if (!initialValues) {
         for (const s of allSlots) {
           if (repeatableSlotFieldIds.has(s.fieldId) || groupSlotFieldIds.has(s.fieldId)) continue
-          if (s.type === 'date') {
-            if (s.dateDefaultMode === 'nearest_cycle' && cycleConfig?.allowed_weekdays.length) {
-              const nearest = computeNearestAllowedDate(cycleConfig.allowed_weekdays)
-              if (nearest) setField(s.fieldId, nearest)
-            } else if (s.dateDefaultMode === 'fixed' && s.defaultValue) {
-              setField(s.fieldId, s.defaultValue)
-            }
-          } else if (s.defaultValue) {
-            setField(s.fieldId, s.defaultValue)
-          }
+          if (s.type === 'date') continue // 日期預設值已於上方統一處理
+          if (s.defaultValue) setField(s.fieldId, s.defaultValue)
         }
         for (const row of allRows.filter(r => r.repeatable)) {
           const defaults: Record<string, string> = {}

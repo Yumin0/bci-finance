@@ -14,14 +14,40 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { buttonVariants } from '@/components/ui/button'
 import PageHeader from '@/app/_components/PageHeader'
 import { YearDropdown, WeekDropdown } from '@/app/_components/WeekPicker'
+import ColumnPicker from '@/app/_components/ColumnPicker'
+import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
 import ErrorDialog from '@/app/_components/ErrorDialog'
 
 export type ReviewTab = 'div' | 'advisory' | 'executive' | 'cfo' | 'history'
 
+// 審核清單可自由開關的欄位（快速審核／審核／查閱 動作欄固定顯示，不列入）
+type ReviewColKey =
+  | 'status' | 'serial' | 'division' | 'section' | 'applicant' | 'role'
+  | 'requestedAmount' | 'approvedAmount' | 'remainingAmount' | 'expense' | 'name'
+
+const REVIEW_COLUMNS: { key: ReviewColKey; label: string }[] = [
+  { key: 'status', label: '狀態' },
+  { key: 'serial', label: '單號' },
+  { key: 'division', label: '申請處別' },
+  { key: 'section', label: '申請課別' },
+  { key: 'applicant', label: '申請人' },
+  { key: 'role', label: '職務' },
+  { key: 'requestedAmount', label: '申請金額' },
+  { key: 'approvedAmount', label: '核准金額' },
+  { key: 'remainingAmount', label: '剩餘金額' },
+  { key: 'expense', label: '費用項目' },
+  { key: 'name', label: '項目' },
+]
+const REVIEW_COL_KEYS = REVIEW_COLUMNS.map(c => c.key)
+// 預設顯示：處別/課別/剩餘金額 先收起來（剩餘金額目前為佔位「-」）
+const REVIEW_DEFAULT_COLS: ReviewColKey[] = [
+  'status', 'serial', 'applicant', 'role', 'requestedAmount', 'approvedAmount', 'expense', 'name',
+]
+
 const TAB_LABELS: Record<ReviewTab, string> = {
   div: '課、處長審核',
   advisory: '諮詢議會',
-  executive: '主管議會',
+  executive: '執行長',
   cfo: '財務長',
   history: '我的審核紀錄',
 }
@@ -85,6 +111,12 @@ export default function ReviewPageClient({
   const [isPending, startTransition] = useTransition()
   const [activeTab, setActiveTab] = useState<ReviewTab>(visibleTabs[0] ?? 'history')
   const [query, setQuery] = useState('')
+  // 每個 Tab 各記各的欄位顯示設定（存 localStorage）
+  const { visibleCols, toggleCol } = useColumnVisibility<ReviewColKey>(
+    `fa-review-cols-${activeTab}`,
+    REVIEW_COL_KEYS,
+    REVIEW_DEFAULT_COLS,
+  )
 
   function handleTabChange(tab: ReviewTab) {
     setActiveTab(tab)
@@ -158,6 +190,7 @@ export default function ReviewPageClient({
               align="right"
               onChange={weekStart => router.push(`/funds-allocation/review?year=${selectedYear}&weekStart=${weekStart}`)}
             />
+            <ColumnPicker columns={REVIEW_COLUMNS} visibleCols={visibleCols} onToggle={toggleCol} />
           </div>
         )}
       </div>
@@ -174,6 +207,7 @@ export default function ReviewPageClient({
           approvedTotals={tabApprovedTotals[activeTab] ?? {}}
           showQuickActions={QUICK_ACTION_TABS.has(activeTab)}
           showBatchActions={BATCH_ACTION_TABS.has(activeTab)}
+          visibleCols={visibleCols}
           userId={userId}
           onActionCompleted={refresh}
         />
@@ -191,6 +225,7 @@ function AccountGroupedList({
   approvedTotals,
   showQuickActions,
   showBatchActions,
+  visibleCols,
   userId,
   onActionCompleted,
 }: {
@@ -202,6 +237,7 @@ function AccountGroupedList({
   approvedTotals: Record<string, number>
   showQuickActions: boolean
   showBatchActions: boolean
+  visibleCols: Set<ReviewColKey>
   userId: number
   onActionCompleted: () => void
 }) {
@@ -426,17 +462,17 @@ function AccountGroupedList({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>狀態</TableHead>
-                      <TableHead>單號</TableHead>
-                      <TableHead>申請處別</TableHead>
-                      <TableHead>申請課別</TableHead>
-                      <TableHead>申請人</TableHead>
-                      <TableHead>職務</TableHead>
-                      <TableHead>申請金額</TableHead>
-                      <TableHead>核准金額</TableHead>
-                      <TableHead>剩餘金額</TableHead>
-                      <TableHead>費用項目</TableHead>
-                      <TableHead>項目</TableHead>
+                      {visibleCols.has('status') && <TableHead>狀態</TableHead>}
+                      {visibleCols.has('serial') && <TableHead>單號</TableHead>}
+                      {visibleCols.has('division') && <TableHead>申請處別</TableHead>}
+                      {visibleCols.has('section') && <TableHead>申請課別</TableHead>}
+                      {visibleCols.has('applicant') && <TableHead>申請人</TableHead>}
+                      {visibleCols.has('role') && <TableHead>職務</TableHead>}
+                      {visibleCols.has('requestedAmount') && <TableHead>申請金額</TableHead>}
+                      {visibleCols.has('approvedAmount') && <TableHead>核准金額</TableHead>}
+                      {visibleCols.has('remainingAmount') && <TableHead>剩餘金額</TableHead>}
+                      {visibleCols.has('expense') && <TableHead>費用項目</TableHead>}
+                      {visibleCols.has('name') && <TableHead>項目</TableHead>}
                       {showQuickActions && <TableHead>快速審核</TableHead>}
                       {showBatchActions && (
                         <TableHead className="w-12 text-center">
@@ -459,36 +495,38 @@ function AccountGroupedList({
                       const isPendingHere = r.is_pending_here === true
                       return (
                         <TableRow key={r.id} className={showBatchActions && selectedIds.has(r.id) ? 'bg-primary/5' : ''}>
-                          <TableCell>
-                            <StatusBadge module="funds_allocation" status={r.status} stepName={r.step_name} labelConfig={labelConfig} />
-                          </TableCell>
-                          <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">{r.serial_number ?? '-'}</Link></TableCell>
-                          <TableCell>{r.apply_division ?? '-'}</TableCell>
-                          <TableCell>{r.apply_section ?? '-'}</TableCell>
-                          <TableCell>{r.applicant ?? r.created_by}</TableCell>
-                          <TableCell>{r.apply_role ?? '-'}</TableCell>
-                          <TableCell>{r.amount.toLocaleString()}</TableCell>
-                          <TableCell>{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>
-                          <TableCell>-</TableCell>
-                          <TableCell>{r.expense_item ?? '-'}</TableCell>
-                          <TableCell>{r.name}</TableCell>
+                          {visibleCols.has('status') && (
+                            <TableCell>
+                              <StatusBadge module="funds_allocation" status={r.status} stepName={r.step_name} labelConfig={labelConfig} />
+                            </TableCell>
+                          )}
+                          {visibleCols.has('serial') && <TableCell><Link href={`/funds-allocation/review/check/${r.id}`} className="text-sm text-primary underline underline-offset-4">{r.serial_number ?? '-'}</Link></TableCell>}
+                          {visibleCols.has('division') && <TableCell>{r.apply_division ?? '-'}</TableCell>}
+                          {visibleCols.has('section') && <TableCell>{r.apply_section ?? '-'}</TableCell>}
+                          {visibleCols.has('applicant') && <TableCell>{r.applicant ?? r.created_by}</TableCell>}
+                          {visibleCols.has('role') && <TableCell>{r.apply_role ?? '-'}</TableCell>}
+                          {visibleCols.has('requestedAmount') && <TableCell>{r.amount.toLocaleString()}</TableCell>}
+                          {visibleCols.has('approvedAmount') && <TableCell>{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>}
+                          {visibleCols.has('remainingAmount') && <TableCell>-</TableCell>}
+                          {visibleCols.has('expense') && <TableCell>{r.expense_item ?? '-'}</TableCell>}
+                          {visibleCols.has('name') && <TableCell>{r.name}</TableCell>}
                           {showQuickActions && (
                             <TableCell>
                               {isPendingHere ? (
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    onClick={() => handleApprove(r)}
-                                    disabled={actioningId === r.id}
-                                    className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                                  >
-                                    {actioningId === r.id ? '處理中…' : '核准'}
-                                  </button>
+                                <div className="flex flex-col items-stretch gap-1.5">
                                   <button
                                     onClick={() => { setRejectTarget(r); setRejectComment('') }}
                                     disabled={actioningId === r.id}
-                                    className="rounded-md border border-destructive px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                                    className="rounded-md border border-destructive px-3 py-1 text-center text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
                                   >
                                     不核准
+                                  </button>
+                                  <button
+                                    onClick={() => handleApprove(r)}
+                                    disabled={actioningId === r.id}
+                                    className="rounded-md bg-emerald-600 px-3 py-1 text-center text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                                  >
+                                    {actioningId === r.id ? '處理中…' : '核准'}
                                   </button>
                                 </div>
                               ) : (

@@ -31,7 +31,7 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
       { kind: 'item', id: 'fa-review',           label: '審核管理',     href: '/funds-allocation/review' },
       { kind: 'item', id: 'fa-review-div',       label: '課、處長審核', href: '', navHidden: true, permissionParent: 'fa-review' },
       { kind: 'item', id: 'fa-review-advisory',  label: '諮詢議會',     href: '', navHidden: true, permissionParent: 'fa-review' },
-      { kind: 'item', id: 'fa-review-executive', label: '主管議會',     href: '', navHidden: true, permissionParent: 'fa-review' },
+      { kind: 'item', id: 'fa-review-executive', label: '執行長',     href: '', navHidden: true, permissionParent: 'fa-review' },
       { kind: 'item', id: 'fa-review-cfo',       label: '財務長',       href: '', navHidden: true, permissionParent: 'fa-review' },
       { kind: 'item', id: 'fa-all',              label: '全部申請紀錄', href: '/funds-allocation/all' },
       { kind: 'item', id: 'fa-all-export',       label: '匯出 CSV',     href: '', navHidden: true },
