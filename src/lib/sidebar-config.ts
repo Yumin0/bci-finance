@@ -53,7 +53,9 @@ export const DEFAULT_SIDEBAR_CONFIG: SidebarCategory[] = [
     label: '暫付款沖銷憑單',
     entries: [
       { kind: 'item', id: 'fv-my-voucher', label: '我的暫付款沖銷憑單', href: '/funds-voucher/my-voucher' },
-      { kind: 'item', id: 'fv-review',     label: '審核管理',           href: '/funds-voucher/review' },
+      { kind: 'item', id: 'fv-review',       label: '審核管理',     href: '/funds-voucher/review' },
+      { kind: 'item', id: 'fv-review-div',   label: '課、處長審核', href: '', navHidden: true, permissionParent: 'fv-review' },
+      { kind: 'item', id: 'fv-review-group', label: '議會/群組審核', href: '', navHidden: true, permissionParent: 'fv-review' },
       { kind: 'item', id: 'fv-all',        label: '全部暫付款沖銷憑單', href: '/funds-voucher/all' },
     ],
   },

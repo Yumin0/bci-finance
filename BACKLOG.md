@@ -238,6 +238,16 @@
 
 ## 已完成
 
+**暫付款沖銷憑單審核管理頁 Tab 對齊付款憑單**（2026-07-14，Riku）
+分支：`feature/riku-voucher-review-tabs`
+說明：審核管理頁原本只有「待我審核／我的審核紀錄」兩個 Tab，改寫成 Server 元件（`review/page.tsx`）＋ `VoucherReviewClient.tsx`，Tab 結構比照付款憑單審核管理頁——課、處長審核（org_role，回溯母付款憑單申請單處/課別過濾）＋動態群組 Tab（`getTempVoucherReviewGroups`）＋我的審核紀錄，依出款帳戶（繼承母付款憑單）分區塊、年份＋週次篩選、Tab badge 只計待審筆數、群組 Tab 審核鈕只給群組成員。新增 3 個 server action（`getVouchersForOrgRoleByWeek`/`getVouchersForApprovalGroupByWeek`/`getTempVoucherReviewGroups`），擴充 `filterReached`/`getMaxRecordedSteps` 支援 `temp_voucher_id`，新增 `getAttachmentsByTempVoucherIds`。新增權限 `fv-review-div`/`fv-review-group`。列表對齊 9 欄（敘述欄與核准金額抓母付款憑單、第 8 欄「沖銷金額」為沖銷憑單自身 amount、發票憑證為沖銷憑單附件）。無資料庫結構變更（`fund_attachments.temp_voucher_id` 早已存在，僅補進 TS 型別）。
+影響範圍確認：
+- [x] /funds-voucher/review（改寫 Server 元件 + VoucherReviewClient）
+- [x] actions/approval-flow.ts（3 個新 server action + filterReached 擴充）
+- [x] actions/attachments.ts（getAttachmentsByTempVoucherIds）
+- [x] lib/sidebar-config.ts（fv-review-div / fv-review-group）
+- [x] Playwright 實測：課處長／財務人員群組／我的審核紀錄三 Tab 皆正確渲染 9 欄、分帳戶區塊、週次篩選，無 runtime error
+
 **付款分類全套＋財務付款憑單管理頁對齊筑今＋付款方式/費用項目欄位代號修正**（2026-07-14，Yumin）
 分支：`feature/yumin-payment-category`（已合併 main）
 說明（Yumin 拍板，規格見 BC 核心邏輯文件第十節）：
