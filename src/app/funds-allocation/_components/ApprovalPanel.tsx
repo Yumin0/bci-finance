@@ -27,7 +27,7 @@ const STEPS: {
   { label: '課級審核',        num: 1, decisionKey: 'step1_decision', commentKey: 'step1_comment' },
   { label: '處級審核',        num: 2, decisionKey: 'step2_decision', commentKey: 'step2_comment' },
   { label: '諮詢議會主席審核', num: 3, decisionKey: 'step3_decision', commentKey: 'step3_comment' },
-  { label: '主管議會主席審核', num: 4, decisionKey: 'step4_decision', commentKey: 'step4_comment' },
+  { label: '執行長審核', num: 4, decisionKey: 'step4_decision', commentKey: 'step4_comment' },
   { label: '財務長審核',      num: 5, decisionKey: 'step5_decision', commentKey: 'step5_comment' },
 ]
 
