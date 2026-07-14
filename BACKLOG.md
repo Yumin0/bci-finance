@@ -238,6 +238,10 @@
 SQL：dev 已執行；**正式機兩筆待執行**（approval_records 加欄＝部署前必跑、表單欄位代號核對＋payment_method 回填），見 prod-pending-sql。E2E 實測（核准選值入庫/處長承接/列表欄/沖銷預設）與 staging Yumin 驗收通過。
 注意：沖銷憑單要出現付款分類，沖銷範本需在審核流程設定加入財務群組步驟（現行 R&D 沖銷範本只有課長→財務長，無群組關）。
 
+**角色管理清單手動拖曳排序**（2026-07-14，Riku）
+分支：`feature/riku-role-sort`
+說明：帳號管理→角色管理左側角色清單每張卡片加拖曳握把 `⠿`，可手動拖曳調整順序，放開即逐筆寫回 `system_roles.sort_order`（其他電腦重載同步），失敗顯示錯誤並還原；卡片點擊進編輯／刪除不受影響（拖曳只綁握把）。沿用出款帳戶拖曳樣式。`sort_order` 欄位已存在，未動資料庫。帳號列表 Tab 的角色下拉本就依 sort_order 排序自動同步。localhost 測試通過。
+
 **暫付款沖銷憑單改版：多組明細繼承＋一單一沖銷＋核心邏輯文件重整 v7**（2026-07-14，Yumin）
 分支：`feature/yumin-tempvoucher-groups`（已合併 main）
 說明（Yumin 拍板）：
