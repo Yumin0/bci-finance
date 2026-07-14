@@ -8,7 +8,51 @@
 
 ## ⏳ 待執行
 
-目前無待執行項目。
+### 付款憑單條件欄位 showWhen 代號修正（note → payment_method）
+
+- [ ] 尚未在正式機執行
+
+用途：2026-07-14 把付款憑單「付款方式」欄位代號從 `note` 改成 `payment_method`（修付款方式存不進結構化欄位的 bug）後，那些「條件顯示」欄位（受款銀行代碼／受款分行／受款帳戶／受款地區國別…共 11 個）的 `showWhen.fieldId` 仍指向舊代號 `note`，導致條件永遠不成立、選「銀行轉帳」＋受款人後這些欄位不再顯示（只剩沒設條件的「受款人email」會出現）。以 jsonb 改寫把付款憑單表單所有 `showWhen.fieldId = 'note'` 的欄位改成 `payment_method`。dev/staging 已於 2026-07-15 用 script 修正並驗證（11 欄全數改到、殘留 0）。純表單設定資料修正、無程式碼變更。
+
+```sql
+-- 改前先 SELECT rows 備份
+SELECT rows FROM form_schemas WHERE form_type = 'payment_voucher';
+
+-- 把所有 showWhen.fieldId = 'note' 改成 payment_method
+UPDATE form_schemas
+SET rows = (
+  SELECT jsonb_agg(
+    jsonb_set(block, '{rows}', COALESCE((
+      SELECT jsonb_agg(
+        jsonb_set(row_, '{slots}', COALESCE((
+          SELECT jsonb_agg(
+            CASE
+              WHEN slot->'showWhen'->>'fieldId' = 'note'
+                THEN jsonb_set(slot, '{showWhen,fieldId}', '"payment_method"')
+              ELSE slot
+            END
+            ORDER BY slot_ord
+          )
+          FROM jsonb_array_elements(row_->'slots') WITH ORDINALITY AS s(slot, slot_ord)
+        ), '[]'::jsonb)) ORDER BY row_ord
+      )
+      FROM jsonb_array_elements(block->'rows') WITH ORDINALITY AS r(row_, row_ord)
+    ), '[]'::jsonb)) ORDER BY block_ord
+  )
+  FROM jsonb_array_elements(rows) WITH ORDINALITY AS b(block, block_ord)
+)
+WHERE form_type = 'payment_voucher';
+
+-- 驗證：to_payment_method 應為 11、still_note 應為 0
+SELECT
+  count(*) FILTER (WHERE slot->'showWhen'->>'fieldId' = 'payment_method') AS to_payment_method,
+  count(*) FILTER (WHERE slot->'showWhen'->>'fieldId' = 'note') AS still_note
+FROM form_schemas,
+  jsonb_array_elements(rows) block,
+  jsonb_array_elements(block->'rows') row_,
+  jsonb_array_elements(row_->'slots') slot
+WHERE form_type = 'payment_voucher';
+```
 
 ---
 
