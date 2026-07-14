@@ -8,35 +8,52 @@
 
 ## ⏳ 待執行
 
+目前無待執行項目。
+
+---
+
+## ✅ 已執行
+
 ### 付款憑單表單欄位代號修正＋付款方式回填（feature/yumin-payment-category）
 
-- [ ] 尚未在正式機執行
+- [x] 已在正式機執行（執行日期：2026-07-14，核對查詢確認：付款方式→payment_method、費用項目→expense_item；回填後 payment_method 為空的憑單數＝0）
 
-用途：dev 發現付款憑單表單設定「付款方式」欄位代號掛成 `note`（備註）、「費用項目」掛成自訂代號——導致付款方式存不進結構化欄位（列表全顯示「-」、詳細頁誤顯示備註文字）、費用項目變成可選下拉而非唯讀帶入母單。dev 已修正表單設定並回填舊資料；**正式機需核對後做同樣處理**（正式機表單設定獨立，可能同樣掛錯）。
+用途：正式機付款憑單表單「付款方式」原掛 `note`、「費用項目」原掛 `custom_pv_feeitem`（與 dev 病因相同、費用項目自訂代號不同），導致付款方式存不進結構化欄位（列表全「-」、詳細頁誤顯備註）、費用項目變可選下拉。以 jsonb 改寫修正兩個欄位代號（改前 rows 已備份），並回填舊憑單 `payment_method = extra_data->>'付款方式'`。
 
 ```sql
--- 1. 先核對正式機付款憑單表單的兩個欄位代號（唯讀查詢）
-SELECT slot->>'label' AS label, slot->>'fieldId' AS field_id
-FROM form_schemas,
-     jsonb_array_elements(rows) AS block,
-     jsonb_array_elements(block->'rows') AS row_,
-     jsonb_array_elements(row_->'slots') AS slot
-WHERE form_type = 'payment_voucher'
-  AND slot->>'label' IN ('付款方式', '費用項目');
+-- 欄位代號修正（改前先 SELECT rows 備份）
+UPDATE form_schemas
+SET rows = (
+  SELECT jsonb_agg(
+    jsonb_set(block, '{rows}', COALESCE((
+      SELECT jsonb_agg(
+        jsonb_set(row_, '{slots}', COALESCE((
+          SELECT jsonb_agg(
+            CASE
+              WHEN slot->>'label' = '付款方式' AND slot->>'fieldId' = 'note'
+                THEN jsonb_set(slot, '{fieldId}', '"payment_method"')
+              WHEN slot->>'label' = '費用項目' AND slot->>'fieldId' = 'custom_pv_feeitem'
+                THEN jsonb_set(slot, '{fieldId}', '"expense_item"')
+              ELSE slot
+            END
+            ORDER BY slot_ord
+          )
+          FROM jsonb_array_elements(row_->'slots') WITH ORDINALITY AS s(slot, slot_ord)
+        ), '[]'::jsonb)) ORDER BY row_ord
+      )
+      FROM jsonb_array_elements(block->'rows') WITH ORDINALITY AS r(row_, row_ord)
+    ), '[]'::jsonb)) ORDER BY block_ord
+  )
+  FROM jsonb_array_elements(rows) WITH ORDINALITY AS b(block, block_ord)
+)
+WHERE form_type = 'payment_voucher';
 
--- 2. 若「付款方式」fieldId 為 note、「費用項目」為 custom_*：到正式站表單設定頁把兩欄改綁
---    正確欄位代號（付款方式 → payment_method、費用項目 → expense_item），或依 dev 作法以資料修正。
-
--- 3. 回填舊憑單的付款方式（結構化欄位為空、extra_data 有值者）
+-- 舊憑單付款方式回填
 UPDATE funds_payment
 SET payment_method = extra_data->>'付款方式'
 WHERE payment_method IS NULL
   AND COALESCE(extra_data->>'付款方式', '') <> '';
 ```
-
----
-
-## ✅ 已執行
 
 ### 付款分類：審核紀錄加欄位（feature/yumin-payment-category）
 
