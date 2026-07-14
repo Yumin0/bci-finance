@@ -13,6 +13,7 @@ import { getPaymentOccupiedAmount } from '@/lib/fundsAllocationRemaining'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
 import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
 import AttachmentUpload from '@/app/_components/AttachmentUpload'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 import { Button } from '@/components/ui/button'
 import { formatDateTime } from '@/lib/dateUtils'
 
@@ -146,7 +147,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
     setSubmitting(true)
     setError(null)
     try {
-      await submitApprovalDecision({
+      const result = await submitApprovalDecision({
         fundsPaymentId: record.id,
         stepNumber: currentStep,
         stepName: stepDef.step_name,
@@ -156,6 +157,12 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         totalSteps: steps.length,
         approvedAmount: decision === 'approved' && approvedAmount !== '' ? Number(approvedAmount) : null,
       })
+      // 存檔驗證擋下（核准金額 0/超過剩餘額度等）：以中央彈窗顯示
+      if (result?.error) {
+        setError(result.error)
+        setSubmitting(false)
+        return
+      }
       router.push('/funds-payment/review')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '送出失敗')
@@ -175,7 +182,8 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         <h1 style={{ fontSize: 18, fontWeight: 700 }}>審核付款憑單</h1>
       </div>
 
-      {error && <p style={{ color: '#dc2626', marginBottom: 12 }}>{error}</p>}
+      {/* 審核送出被擋（核准金額驗證等）改用全站共用中央彈窗 */}
+      <ErrorDialog message={error} title="無法送出審核結果" onClose={() => setError(null)} />
 
       {remainingInfo && (
         <AllocationSummaryCard

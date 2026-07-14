@@ -28,6 +28,8 @@ export default function StatusBadge({ module, status, stepName, labelConfig }: P
 
   return (
     <span style={{
+      display: 'inline-block',
+      maxWidth: '9rem',
       fontSize: 12,
       padding: '3px 10px',
       borderRadius: 4,
@@ -35,7 +37,9 @@ export default function StatusBadge({ module, status, stepName, labelConfig }: P
       color: entry.color,
       fontWeight: 500,
       whiteSpace: 'nowrap',
-    }}>
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    }} title={label}>
       {label}
     </span>
   )
