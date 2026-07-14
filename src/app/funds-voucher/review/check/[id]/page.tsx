@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { ApprovalRecord, FormBlock, FormSlot, StepDecision } from '@/lib/types'
+import { ApprovalRecord, FormBlock, FormSchemaRow, FormSlot, StepDecision } from '@/lib/types'
 import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approval-flow'
 import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
@@ -36,6 +36,7 @@ type TempVoucher = {
   apply_role: string | null
   amount: number | null
   note: string | null
+  extra_data: Record<string, string> | null
   status: string
   current_step: number | null
   flow_template_id: number | null
@@ -57,7 +58,7 @@ function getFieldValue(slot: NonNullable<FormSlot>, record: TempVoucher): string
     amount: record.amount,
     note: record.note,
   }
-  const val = map[slot.fieldId]
+  const val = map[slot.fieldId] ?? record.extra_data?.[slot.label]
   if (val == null || val === '') return '-'
   return String(val)
 }
@@ -66,6 +67,55 @@ function renderSlot(slot: NonNullable<FormSlot>, record: TempVoucher) {
   const value = getFieldValue(slot, record)
   if (slot.type === 'textarea') return <Textarea value={value} readOnly rows={4} className={readonlyCls} />
   return <Input value={value} readOnly className={readonlyCls} />
+}
+
+// 付款明細群組：從標記 rowGroupStart 的列起整組可重複（與建立頁同一約定）
+function getGroupRows(block: FormBlock): FormSchemaRow[] {
+  const startIdx = block.rows.findIndex(r => r.rowGroupStart)
+  if (startIdx === -1) return []
+  return block.rows.slice(startIdx)
+}
+
+function getGroupData(block: FormBlock, record: TempVoucher): Record<string, string>[] | null {
+  const raw = record.extra_data?.[`__group_${block.id}`]
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) && parsed.length ? parsed : null
+  } catch { return null }
+}
+
+// 群組區塊以表格逐組唯讀顯示（欄＝群組欄位、列＝各組）
+function GroupTable({ block, record }: { block: FormBlock; record: TempVoucher }) {
+  const groupSlots = getGroupRows(block).flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+  const data = getGroupData(block, record)
+  if (!data) return null
+  return (
+    <div className="mb-4 overflow-x-auto">
+      <table className="w-full border-collapse text-[13px]">
+        <thead>
+          <tr>
+            <th className="whitespace-nowrap border-b border-border px-2.5 py-2 text-left font-medium text-muted-foreground">#</th>
+            {groupSlots.map(s => (
+              <th key={s.fieldId} className="whitespace-nowrap border-b border-border px-2.5 py-2 text-left font-medium text-muted-foreground">{s.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((inst, i) => (
+            <tr key={i}>
+              <td className="border-b border-border px-2.5 py-2 text-muted-foreground">{i + 1}</td>
+              {groupSlots.map(s => (
+                <td key={s.fieldId} className="border-b border-border px-2.5 py-2 text-foreground">
+                  {inst[s.label] != null && inst[s.label] !== '' ? (s.type === 'number' ? Number(inst[s.label]).toLocaleString() : inst[s.label]) : '-'}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 export default function VoucherReviewCheckPage({ params }: { params: Promise<{ id: string }> }) {
@@ -203,20 +253,31 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
             </CardHeader>
           )}
           <CardContent className={block.title ? '' : 'pt-4'}>
-            {block.rows.map(row => (
-              <div
-                key={row.id}
-                className="mb-5 grid gap-5"
-                style={{ gridTemplateColumns: `repeat(${row.cols}, 1fr)` }}
-              >
-                {row.slots.map((slot, idx) => slot ? (
-                  <div key={idx}>
-                    <label className="mb-1.5 block text-sm font-medium text-foreground">{slot.label}</label>
-                    {renderSlot(slot, record)}
-                  </div>
-                ) : <div key={idx} />)}
-              </div>
-            ))}
+            {/* 群組區塊（付款明細多組）：有群組資料時以表格逐組顯示，非群組列照常 */}
+            {(() => {
+              const groupRowIds = new Set(getGroupRows(block).map(r => r.id))
+              const hasGroupData = getGroupData(block, record) != null
+              const rowsToRender = hasGroupData ? block.rows.filter(r => !groupRowIds.has(r.id)) : block.rows
+              return (
+                <>
+                  {rowsToRender.map(row => (
+                    <div
+                      key={row.id}
+                      className="mb-5 grid gap-5"
+                      style={{ gridTemplateColumns: `repeat(${row.cols}, 1fr)` }}
+                    >
+                      {row.slots.map((slot, idx) => slot ? (
+                        <div key={idx}>
+                          <label className="mb-1.5 block text-sm font-medium text-foreground">{slot.label}</label>
+                          {renderSlot(slot, record)}
+                        </div>
+                      ) : <div key={idx} />)}
+                    </div>
+                  ))}
+                  {hasGroupData && <GroupTable block={block} record={record} />}
+                </>
+              )
+            })()}
           </CardContent>
         </Card>
       ))}
