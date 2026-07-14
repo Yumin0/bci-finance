@@ -143,6 +143,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   // 使用者手動改過「總額」欄位的鍵集合（不再被費用/稅額變動自動覆寫）
   const [manualTotalKeys, setManualTotalKeys] = useState<Set<string>>(new Set())
   const [remainingInfo, setRemainingInfo] = useState<AllocationRemainingInfo | null>(null)
+  // 已存在的「活的」沖銷憑單（草稿/審核中/已核准）；有值時不再顯示「建立暫付款沖銷憑單」按鈕
+  const [existingTempVoucher, setExistingTempVoucher] = useState<{ id: number; serial_number: string | null; status: string } | null>(null)
 
   function addGroupInstance(blockId: string) {
     setGroupInstances(prev => ({ ...prev, [blockId]: [...(prev[blockId] ?? [{}]), {}] }))
@@ -188,6 +190,17 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       setRecord(rec)
       setApprovalHistory((histRes.data as ApprovalRecord[]) ?? [])
       setLabelConfig(config)
+
+      // 一張付款憑單只能建一張沖銷憑單：查是否已有「活的」沖銷單（草稿/審核中/已核准；退回的不算）
+      if (rec.status === PAYMENT_STATUS.PAID && rec.category === '預支') {
+        const { data: tv } = await supabase
+          .from('temp_vouchers')
+          .select('id, serial_number, status')
+          .eq('funds_payment_id', numId)
+          .neq('status', 'rejected')
+          .limit(1)
+        if (tv && tv.length > 0) setExistingTempVoucher(tv[0] as { id: number; serial_number: string | null; status: string })
+      }
       const paymentSchema = schemas.payment_voucher
       setSchema(paymentSchema)
 
@@ -1011,9 +1024,19 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
         {record!.status === PAYMENT_STATUS.PAID && record!.category === '預支' && (
           <div style={{ marginTop: 40, paddingTop: 24, borderTop: '1px solid var(--border-color)' }}>
-            <Link href={`/funds-voucher/my-voucher/add/${record!.id}`} className={buttonVariants({ variant: 'default' })}>
-              建立暫付款沖銷憑單
-            </Link>
+            {existingTempVoucher ? (
+              // 一張付款憑單只能建一張沖銷憑單（退回的不算）：已有活的沖銷單就不顯示建立按鈕，改顯示連結
+              <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                此付款憑單已建立暫付款沖銷憑單：
+                <Link href={`/funds-voucher/my-voucher/${existingTempVoucher.id}`} style={{ color: '#2563eb', marginLeft: 4 }}>
+                  {existingTempVoucher.serial_number ?? `#${existingTempVoucher.id}`}
+                </Link>
+              </p>
+            ) : (
+              <Link href={`/funds-voucher/my-voucher/add/${record!.id}`} className={buttonVariants({ variant: 'default' })}>
+                建立暫付款沖銷憑單
+              </Link>
+            )}
           </div>
         )}
       </div>

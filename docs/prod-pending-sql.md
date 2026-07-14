@@ -8,7 +8,22 @@
 
 ## ⏳ 待執行
 
-目前無待執行項目。
+### 暫付款沖銷憑單多組明細（feature/yumin-tempvoucher-groups）
+
+- [ ] 尚未在正式機執行
+
+用途：沖銷憑單資料表加自訂欄位儲存空間（`extra_data`），讓多組付款明細（摘要用途／未稅金額／稅額／總額）能確實存檔。未執行前正式機建立沖銷憑單會存檔失敗。
+
+```sql
+ALTER TABLE temp_vouchers ADD COLUMN IF NOT EXISTS extra_data jsonb;
+```
+
+**另需在正式站「表單設定 → 暫付款沖銷憑單」手動同步表單結構**（表單設定是資料、不隨部署同步）：
+1. 付款明細區塊刪除「會計科目」欄位（Yumin 拍板直接隱藏）
+2. 「摘要用途」那一列標記「從此列起整組可重複新增」（rowGroupStart）
+3. 「總額」欄位設為必填
+
+（dev 已於 2026-07-14 以同樣方式調整，dev 調整前的表單 JSON 備份在開發機 scratchpad `temp_voucher_schema_backup.json`。）
 
 ---
 

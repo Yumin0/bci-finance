@@ -39,7 +39,8 @@ export async function nextTempVoucherSerial(fundsPaymentId: number, paymentPoNum
 
 export async function createTempVoucher(
   fundsPaymentId: number,
-  fields: Record<string, string>
+  fields: Record<string, string>,
+  extraData: Record<string, string> = {}
 ): Promise<{ id: number | null; error: string | null }> {
   const session = await getSession()
   if (!session) return { id: null, error: '請先登入' }
@@ -55,29 +56,63 @@ export async function createTempVoucher(
     return { id: null, error: '僅限「已付款」且類型為「預支」的付款憑單可建立暫付款沖銷憑單' }
   }
 
-  // 沖銷金額來源：優先用結構化 amount 欄位；表單沒有這個欄位時，依表單設定
-  // 找 label「總額」的數字欄位（現行暫付款沖銷表單的金額欄是自訂欄位「總額」，
-  // fieldId 對不到 amount，導致舊資料 amount 一直存 null——這裡一併修正，
-  // 與付款憑單「憑單金額＝總額」同一約定）
-  let amountRaw = fields['amount']
-  if (!amountRaw) {
-    const { data: schemaRow } = await supabase
-      .from('form_schemas')
-      .select('rows')
-      .eq('form_type', 'temp_voucher')
-      .maybeSingle()
-    const blocks = (schemaRow?.rows ?? []) as { rows?: { slots?: ({ fieldId: string; label: string; type: string } | null)[] }[] }[]
-    const totalSlot = blocks
-      .flatMap(b => b.rows ?? [])
-      .flatMap(r => r.slots ?? [])
-      .find(s => s?.type === 'number' && s.label === '總額')
-    if (totalSlot) amountRaw = fields[totalSlot.fieldId]
+  // 一張付款憑單只能建立一張沖銷憑單（Yumin 2026-07-14 拍板）：
+  // 草稿/審核中/已核准都算佔名額；被退回（不核准）的不算，可重新建立。
+  // 畫面按鈕已隱藏，這裡是存檔時的最後防線
+  const { data: existing } = await supabase
+    .from('temp_vouchers')
+    .select('id, serial_number, status')
+    .eq('funds_payment_id', fundsPaymentId)
+    .neq('status', 'rejected')
+    .limit(1)
+  if (existing && existing.length > 0) {
+    const ex = existing[0]
+    const statusLabel = ex.status === 'draft' ? '草稿' : ex.status === 'pending' ? '審核中' : '已核准'
+    return {
+      id: null,
+      error: `這張付款憑單已經建立過暫付款沖銷憑單（單號 ${ex.serial_number ?? `#${ex.id}`}，目前狀態：${statusLabel}），一張付款憑單只能沖銷一次，無法再建立。若要調整內容，請直接處理原本那張沖銷憑單。`,
+    }
+  }
+
+  // 沖銷金額＝付款明細各組「總額」加總（與付款憑單「憑單金額＝各組總額加總」同一約定）。
+  // 群組資料存在 extraData 的 __group_{blockId}（JSON 陣列、key 為欄位 label）；
+  // 沒有群組資料時退回舊邏輯：找表單 label「總額」的數字欄位單一值
+  let amount = 0
+  let hasGroupData = false
+  for (const [key, raw] of Object.entries(extraData)) {
+    if (!key.startsWith('__group_')) continue
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        hasGroupData = true
+        for (const inst of parsed) {
+          const v = Number(inst?.['總額'])
+          if (Number.isFinite(v)) amount += v
+        }
+      }
+    } catch { /* 忽略解析錯誤 */ }
+  }
+  if (!hasGroupData) {
+    let amountRaw = fields['amount']
+    if (!amountRaw) {
+      const { data: schemaRow } = await supabase
+        .from('form_schemas')
+        .select('rows')
+        .eq('form_type', 'temp_voucher')
+        .maybeSingle()
+      const blocks = (schemaRow?.rows ?? []) as { rows?: { slots?: ({ fieldId: string; label: string; type: string } | null)[] }[] }[]
+      const totalSlot = blocks
+        .flatMap(b => b.rows ?? [])
+        .flatMap(r => r.slots ?? [])
+        .find(s => s?.type === 'number' && s.label === '總額')
+      if (totalSlot) amountRaw = fields[totalSlot.fieldId]
+    }
+    amount = Number(amountRaw)
   }
 
   // 沖銷金額檢查：必須大於 0，且不能超過原預支憑單實際付款的金額
-  const amount = Number(amountRaw)
-  if (!amountRaw || !Number.isFinite(amount) || amount <= 0) {
-    return { id: null, error: '沖銷金額（總額）必須大於 0。請填寫這次實際要沖銷的金額再送出。' }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { id: null, error: '沖銷金額（各組總額加總）必須大於 0。請填寫這次實際要沖銷的金額再送出。' }
   }
   const paidAmount = payment.approved_amount ?? payment.amount // 已付款憑單實際撥款金額＝核准金額（舊資料無核准金額則用憑單金額）
   if (paidAmount != null && amount > paidAmount) {
@@ -99,6 +134,7 @@ export async function createTempVoucher(
       apply_role: fields['apply_role'] || null,
       amount, // 上方已驗證：> 0 且 ≤ 原預支憑單實際付款金額
       note: fields['note'] || null,
+      extra_data: Object.keys(extraData).length > 0 ? extraData : null,
       status: 'draft',
       flow_template_id: flowTemplateId,
       current_step: null,
