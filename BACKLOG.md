@@ -7,21 +7,6 @@
 
 ## 進行中
 
-**付款分類：審核步驟下拉＋後台設定＋列表欄**（Yumin）
-分支：`feature/yumin-payment-category`
-開始：2026-07-14
-說明：付款憑單/沖銷憑單審核的群組步驟（財務人員、第三處處長）可選「付款分類」，選值存審核紀錄（後面關卡承接前面最新選值、沖銷預設帶母憑單選值）；審核管理群組 Tab 列表加「付款分類」欄；支出欄位設定頁新增「付款分類」選項管理區塊（不做次帳戶）。規格見 BC 核心邏輯文件第十節。
-影響範圍確認：
-- [x] /system-settings/expense-fields（付款分類區塊）
-- [x] /funds-payment/review/check/[id]（審核頁下拉＋歷程顯示）
-- [x] /funds-voucher/review/check/[id]（審核頁下拉＋歷程顯示）
-- [x] /funds-payment/review 群組 Tab（付款分類欄）
-- [x] submitApprovalDecision（存入 approval_records.payment_category；審核紀錄存檔失敗改回中文訊息）
-- [x] 待執行 SQL 登記 docs/prod-pending-sql.md（approval_records 加欄）
-
-同分支順手修（2026-07-14 Yumin 實測發現）：付款憑單表單設定「付款方式」欄位代號掛成 note、「費用項目」掛成自訂代號 → 付款方式存不進結構化欄位（列表全「-」、詳細頁誤顯備註）、費用項目變可選下拉。已修 dev 表單設定資料＋回填 12 張舊憑單 payment_method、建立/草稿頁加 label 備援解析（isPaymentMethodSlot）；正式機核對與回填 SQL 已登記 prod-pending-sql。
-同分支加做（Yumin 指示）：財務付款憑單管理頁（/finance/payment）欄位對齊筑今——狀態＋9 欄（重用 PaymentListCells、採購單號即連結）＋付款分類＋付款執行，拿掉查閱按鈕；批次確認付款與匯出報表仍列第二批。
-
 **出款帳戶可見範圍 + 編輯／防重複／排序**（Riku）
 分支：`feature/riku-payment-account-visibility`
 開始：2026-07-13
@@ -242,6 +227,16 @@
 ---
 
 ## 已完成
+
+**付款分類全套＋財務付款憑單管理頁對齊筑今＋付款方式/費用項目欄位代號修正**（2026-07-14，Yumin）
+分支：`feature/yumin-payment-category`（已合併 main）
+說明（Yumin 拍板，規格見 BC 核心邏輯文件第十節）：
+1. **付款分類**：支出欄位設定頁新增選項管理區塊（新增/改名/刪除、防重複；不做次帳戶）；付款憑單/沖銷憑單審核走到**審核群組步驟**（財務人員、第三處處長）時可選付款分類（課處長步驟不顯示），選值存 `approval_records.payment_category`（僅核准時寫入）；後面關卡預設承接前面最新選值、沖銷憑單預設帶母付款憑單最後選值；審核管理群組 Tab 與財務付款憑單管理頁顯示「付款分類」欄（最新選值）
+2. **財務付款憑單管理頁對齊筑今**：狀態＋9 欄（重用 PaymentListCells、採購單號即連結）＋付款分類＋付款執行，拿掉查閱按鈕與申請人欄；批次確認付款與匯出報表列第二批
+3. **欄位代號修正**：付款憑單表單「付款方式」曾掛 note、「費用項目」曾掛自訂代號 → 付款方式存不進結構化欄位（列表全「-」、詳細頁誤顯備註）；已修 dev 表單設定＋回填 12 張舊憑單，建立/草稿頁加 isPaymentMethodSlot label 備援解析防再犯
+4. 審核紀錄存檔失敗改回傳中文訊息；核心邏輯文件更新（筑今 v3 三張單據關係／付款分類次帳戶、BC v8 第十節）
+SQL：dev 已執行；**正式機兩筆待執行**（approval_records 加欄＝部署前必跑、表單欄位代號核對＋payment_method 回填），見 prod-pending-sql。E2E 實測（核准選值入庫/處長承接/列表欄/沖銷預設）與 staging Yumin 驗收通過。
+注意：沖銷憑單要出現付款分類，沖銷範本需在審核流程設定加入財務群組步驟（現行 R&D 沖銷範本只有課長→財務長，無群組關）。
 
 **暫付款沖銷憑單改版：多組明細繼承＋一單一沖銷＋核心邏輯文件重整 v7**（2026-07-14，Yumin）
 分支：`feature/yumin-tempvoucher-groups`（已合併 main）
