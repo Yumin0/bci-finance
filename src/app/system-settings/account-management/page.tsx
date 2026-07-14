@@ -146,6 +146,8 @@ function RolesTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<SystemRole | 'new' | null>(null)
+  const [draggedId, setDraggedId] = useState<number | null>(null)
+  const [dragOverId, setDragOverId] = useState<number | null>(null)
 
   async function loadRoles() {
     const { data, error: e } = await supabase.from('system_roles').select('*').order('sort_order').order('id')
@@ -155,6 +157,31 @@ function RolesTab() {
   }
 
   useEffect(() => { loadRoles() }, [])
+
+  // 拖曳排序：拖到目標即時重排暫存清單，放開時逐筆寫回 sort_order（其他電腦重載同步）
+  function handleReorder(targetId: number) {
+    if (draggedId === null || draggedId === targetId) return
+    setRoles(prev => {
+      const fromIdx = prev.findIndex(r => r.id === draggedId)
+      const toIdx = prev.findIndex(r => r.id === targetId)
+      if (fromIdx < 0 || toIdx < 0) return prev
+      const next = [...prev]
+      const [moved] = next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, moved)
+      return next
+    })
+  }
+
+  async function handleDragEnd() {
+    const ordered = roles
+    setDraggedId(null); setDragOverId(null)
+    const updates = ordered.map((r, i) =>
+      supabase.from('system_roles').update({ sort_order: i }).eq('id', r.id)
+    )
+    const results = await Promise.all(updates)
+    const failed = results.find(x => x.error)
+    if (failed?.error) { setError(`排序儲存失敗：${failed.error.message}`); loadRoles() }
+  }
 
   async function handleDelete(role: SystemRole) {
     if (!confirm(`確定刪除角色「${role.name}」？已指派此角色的帳號需要重新設定。`)) return
@@ -173,22 +200,32 @@ function RolesTab() {
         <div className="w-52 shrink-0">
           <Card className="gap-0 overflow-hidden p-0">
             {roles.length === 0 && <p className="px-4 py-3 text-sm text-muted-foreground">尚無角色</p>}
-            {roles.map((role, i) => (
-              <div
-                key={role.id}
-                onClick={() => setSelected(role)}
-                className={`flex cursor-pointer items-center justify-between px-3.5 py-2.5 transition-colors ${i > 0 ? 'border-t border-border' : ''} ${selected !== 'new' && selected !== null && (selected as SystemRole).id === role.id ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
-              >
-                <div>
-                  <div className="text-sm font-medium text-foreground">{role.name}</div>
-                  {role.is_admin
-                    ? <div className="text-xs text-primary">系統管理員</div>
-                    : <div className="text-xs text-muted-foreground">{role.allowed_item_ids.length} 項功能</div>
-                  }
+            {roles.map((role, i) => {
+              const isSelected = selected !== 'new' && selected !== null && (selected as SystemRole).id === role.id
+              return (
+                <div
+                  key={role.id}
+                  onDragOver={e => { e.preventDefault(); setDragOverId(role.id); handleReorder(role.id) }}
+                  className={`flex items-center gap-2 px-3.5 py-2.5 transition-colors ${i > 0 ? 'border-t border-border' : ''} ${isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'} ${draggedId === role.id ? 'opacity-40' : ''} ${dragOverId === role.id && draggedId !== role.id ? 'ring-2 ring-inset ring-primary' : ''}`}
+                >
+                  <span
+                    draggable
+                    onDragStart={() => setDraggedId(role.id)}
+                    onDragEnd={handleDragEnd}
+                    className="cursor-grab select-none text-muted-foreground active:cursor-grabbing"
+                    title="拖曳排序"
+                  >⠿</span>
+                  <div className="flex-1 cursor-pointer" onClick={() => setSelected(role)}>
+                    <div className="text-sm font-medium text-foreground">{role.name}</div>
+                    {role.is_admin
+                      ? <div className="text-xs text-primary">系統管理員</div>
+                      : <div className="text-xs text-muted-foreground">{role.allowed_item_ids.length} 項功能</div>
+                    }
+                  </div>
+                  <button onClick={e => { e.stopPropagation(); handleDelete(role) }} className="text-xs text-destructive hover:underline">刪除</button>
                 </div>
-                <button onClick={e => { e.stopPropagation(); handleDelete(role) }} className="text-xs text-destructive hover:underline">刪除</button>
-              </div>
-            ))}
+              )
+            })}
           </Card>
           <button
             onClick={() => setSelected('new')}
