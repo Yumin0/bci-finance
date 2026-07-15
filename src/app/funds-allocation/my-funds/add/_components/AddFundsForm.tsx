@@ -232,8 +232,27 @@ export default function AddFundsForm({
       return next
     })
   }
+  // 新增一組付款明細時的預帶值：套用各群組欄位的預設值（如幣別台幣），並比照連動邏輯——
+  // 目前主要費用項目底下細項唯一時，自動帶入該細項
+  function newGroupInstanceSeed(blockId: string): Record<string, string> {
+    const block = schema.find(b => b.id === blockId)
+    const seed: Record<string, string> = {}
+    if (!block) return seed
+    const code = feeItemCode(mainFeeValue)
+    for (const slot of getGroupRows(block).flatMap(r => r.slots)) {
+      if (!slot) continue
+      if (slot.defaultValue) seed[slot.fieldId] = slot.defaultValue
+      if (code && detailFeeFieldIds.includes(slot.fieldId)) {
+        const matched = (slot.dataSource ? dynamicSelectOptions[slot.dataSource] ?? [] : [])
+          .filter(o => feeItemCode(o.label) === code)
+        if (matched.length === 1) seed[slot.fieldId] = matched[0].value
+      }
+    }
+    return seed
+  }
   function addGroupInstance(blockId: string) {
-    setGroupInstances(prev => ({ ...prev, [blockId]: [...(prev[blockId] ?? [{}]), {}] }))
+    const seed = newGroupInstanceSeed(blockId)
+    setGroupInstances(prev => ({ ...prev, [blockId]: [...(prev[blockId] ?? [{}]), seed] }))
   }
   function removeGroupInstance(blockId: string, instIdx: number) {
     setGroupInstances(prev => {
