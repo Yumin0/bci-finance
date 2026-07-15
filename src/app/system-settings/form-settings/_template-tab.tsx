@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsAllocationTemplate, OrgUnit, DropdownOption, FormBlock, FormSlot, FormSchemaRow, TaxRateOption } from '@/lib/types'
 import { allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
@@ -67,9 +67,16 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
   const [divisionId, setDivisionId] = useState<number | null>(null)
   const [sectionId, setSectionId] = useState<number | null>(null)
   const [editorValues, setEditorValues] = useState<Record<string, string>>({})
-  // 可重複列 / 群組區塊：範本只需保存「一組」預設值
+  // 可重複列：範本只需保存「一組」預設值
   const [editorRepeatable, setEditorRepeatable] = useState<Record<string, Record<string, string>>>({})
-  const [editorGroup, setEditorGroup] = useState<Record<string, Record<string, string>>>({})
+  // 群組區塊（付款明細）：比照申請表單支援整組重複，key = blockId，value = 每組欄位值陣列
+  const [editorGroup, setEditorGroup] = useState<Record<string, Record<string, string>[]>>({})
+
+  // 按「編輯／新增」後自動捲到編輯卡片（卡片固定 render 在列表最上方，避免使用者要往上滑）
+  const editCardRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (editingId !== null) editCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [editingId])
 
   useEffect(() => {
     getSharedFundTemplates().then(data => { setTemplates(data); setLoading(false) })
@@ -173,7 +180,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
     setSectionId(Number(v.apply_section) || null)
     const flat: Record<string, string> = {}
     const repeatable: Record<string, Record<string, string>> = {}
-    const group: Record<string, Record<string, string>> = {}
+    const group: Record<string, Record<string, string>[]> = {}
     for (const [key, val] of Object.entries(v)) {
       if (key === 'apply_division' || key === 'apply_section') continue
       if (key.startsWith('__repeatable_')) {
@@ -186,7 +193,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
       if (key.startsWith('__group_')) {
         try {
           const parsed = JSON.parse(val)
-          if (Array.isArray(parsed) && parsed[0]) group[key.replace('__group_', '')] = parsed[0]
+          if (Array.isArray(parsed) && parsed.length) group[key.replace('__group_', '')] = parsed
         } catch { /* 忽略解析錯誤，保留空值 */ }
         continue
       }
@@ -211,8 +218,21 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
   function setRepeatableField(rowId: string, fieldId: string, value: string) {
     setEditorRepeatable(prev => ({ ...prev, [rowId]: { ...(prev[rowId] ?? {}), [fieldId]: value } }))
   }
-  function setGroupField(blockId: string, fieldId: string, value: string) {
-    setEditorGroup(prev => ({ ...prev, [blockId]: { ...(prev[blockId] ?? {}), [fieldId]: value } }))
+  function setGroupField(blockId: string, instIdx: number, fieldId: string, value: string) {
+    setEditorGroup(prev => {
+      const insts = [...(prev[blockId] ?? [{}])]
+      insts[instIdx] = { ...(insts[instIdx] ?? {}), [fieldId]: value }
+      return { ...prev, [blockId]: insts }
+    })
+  }
+  function addGroupInstance(blockId: string) {
+    setEditorGroup(prev => ({ ...prev, [blockId]: [...(prev[blockId] ?? [{}]), {}] }))
+  }
+  function removeGroupInstance(blockId: string, instIdx: number) {
+    setEditorGroup(prev => {
+      const insts = (prev[blockId] ?? [{}]).filter((_, i) => i !== instIdx)
+      return { ...prev, [blockId]: insts.length ? insts : [{}] }
+    })
   }
 
   function buildFieldValues(): Record<string, string> {
@@ -226,8 +246,9 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
     for (const block of schema) {
       const groupRows = getGroupRows(block)
       if (!groupRows.length) continue
-      const inst = editorGroup[block.id]
-      if (inst && Object.values(inst).some(Boolean)) values[`__group_${block.id}`] = JSON.stringify([inst])
+      // 只保留有填任何值的組（整組空白的略過不存）
+      const insts = (editorGroup[block.id] ?? []).filter(inst => inst && Object.values(inst).some(Boolean))
+      if (insts.length) values[`__group_${block.id}`] = JSON.stringify(insts)
     }
     return values
   }
@@ -345,7 +366,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
 
       {/* 編輯 / 新增表單 */}
       {editingId !== null && (
-        <Card className="border-primary/50">
+        <Card ref={editCardRef} className="border-primary/50">
           <CardHeader>
             <CardTitle className="text-primary">
               {editingId === 'new' ? '新增範本' : '編輯範本'}
@@ -404,22 +425,47 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
                         )
                       })}
                       {groupRows.length > 0 && (() => {
-                        const inst = editorGroup[block.id] ?? {}
+                        const instances = editorGroup[block.id] ?? [{}]
                         return (
                           <div className="mt-3 flex flex-col gap-3">
-                            {groupRows.map(row => {
-                              const visible = row.slots.filter((s): s is NonNullable<FormSlot> => !!s && !shouldSkipSlot(s))
-                              if (!visible.length) return null
-                              return (
-                                <div key={row.id} className="grid grid-cols-2 gap-3">
-                                  {visible.map(slot => (
-                                    <FieldRow key={slot.fieldId} label={slot.label}>
-                                      {renderSlotInput(slot, inst[slot.fieldId] ?? '', v => setGroupField(block.id, slot.fieldId, v))}
-                                    </FieldRow>
-                                  ))}
+                            {instances.map((inst, instIdx) => (
+                              <div key={instIdx} className="rounded-lg border border-border p-3">
+                                <div className="mb-2 flex items-center justify-between">
+                                  <span className="text-xs font-medium text-muted-foreground">第 {instIdx + 1} 組</span>
+                                  {instances.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => removeGroupInstance(block.id, instIdx)}
+                                      className="cursor-pointer rounded-md border border-red-300 bg-card px-2 py-1 text-xs text-destructive"
+                                    >
+                                      刪除此組
+                                    </button>
+                                  )}
                                 </div>
-                              )
-                            })}
+                                <div className="flex flex-col gap-3">
+                                  {groupRows.map(row => {
+                                    const visible = row.slots.filter((s): s is NonNullable<FormSlot> => !!s && !shouldSkipSlot(s))
+                                    if (!visible.length) return null
+                                    return (
+                                      <div key={row.id} className="grid grid-cols-2 gap-3">
+                                        {visible.map(slot => (
+                                          <FieldRow key={slot.fieldId} label={slot.label}>
+                                            {renderSlotInput(slot, inst[slot.fieldId] ?? '', v => setGroupField(block.id, instIdx, slot.fieldId, v))}
+                                          </FieldRow>
+                                        ))}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => addGroupInstance(block.id)}
+                              className="cursor-pointer rounded-md border border-dashed border-border bg-transparent px-3.5 py-1.5 text-sm text-muted-foreground"
+                            >
+                              ＋ 新增此組
+                            </button>
                           </div>
                         )
                       })()}

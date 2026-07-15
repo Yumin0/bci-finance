@@ -245,6 +245,10 @@
 
 ## 已完成
 
+**範本管理付款明細支援整組重複＋按編輯自動捲動**（2026-07-15，Riku）
+分支：`feature/riku-template-group-repeat`
+說明：共用範本管理（表單設定→範本分頁 `_template-tab.tsx`）的付款明細群組原本只能存「一組」預設值，與資金分配申請表單的整組重複新增功能對不齊，導致範本無法預填多組明細。改為比照申請表單支援多組——每組以框線卡片包裝、標「第 N 組」，下方「＋ 新增此組」、兩組以上每組右上角「刪除此組」；`editorGroup` state 由單一物件改為陣列、`buildFieldValues` 存整組陣列（整組空白略過）、`openEdit` 讀回全部組（不再只取第一組），與 `__group_{blockId}` JSON 格式一致，套用範本時 AddFundsForm 即帶入全部組。另修正按「編輯／新增」需自己往上滑才看到編輯卡片：加 `editCardRef` + `scrollIntoView` 自動平滑捲到編輯卡片。範本編輯器不帶稅額自動計算（純預填值）。只動 `_template-tab.tsx`，無資料庫結構變更，tsc 通過。
+
 **付款憑單／暫付款沖銷憑單建立頁加「儲存草稿」按鈕**（2026-07-15，Yumin）
 分支：`feature/yumin-payment-voucher-draft`
 說明：對齊資金分配新增頁，兩個建立頁改成「儲存草稿」＋「確定送出」雙按鈕。儲存草稿只建立 draft（放寬：`createPayment`/`createTempVoucher` 加 `asDraft` 參數，草稿允許金額 0 存半成品、仍擋負數與超過剩餘/原預支上限）、確定送出跑費用檢查（付款憑單 `validateFeePositive`）後建立並接送審 action（`submitMyPayment`/`submitTempVoucher`）。既有呼叫端不受影響（新增選填參數、預設嚴格）。無資料庫結構變更。tsc/eslint 通過。
