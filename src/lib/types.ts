@@ -196,6 +196,7 @@ export type FundAttachment = {
   id: number
   funds_allocation_id: number | null
   funds_payment_id: number | null
+  temp_voucher_id: number | null
   slot_label: string
   file_name: string
   storage_path: string

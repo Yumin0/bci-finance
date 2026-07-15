@@ -715,7 +715,7 @@ function hasReachedStep(status: string, currentStep: number | null, stepNumber: 
 
 // 查詢多張單子各自在審核紀錄中出現過的最大步驟編號（退回單判斷「曾走到哪一步」用）
 async function getMaxRecordedSteps(
-  column: 'funds_allocation_id' | 'funds_payment_id',
+  column: 'funds_allocation_id' | 'funds_payment_id' | 'temp_voucher_id',
   ids: number[]
 ): Promise<Map<number, number>> {
   if (ids.length === 0) return new Map()
@@ -733,7 +733,7 @@ async function getMaxRecordedSteps(
 
 // 從候選單中過濾出「已走到審核人對應步驟」的單子（myStep 為該審核人/群組在範本中最早的步驟編號）
 async function filterReached<T extends { id: number; status: string; current_step: number | null }>(
-  column: 'funds_allocation_id' | 'funds_payment_id',
+  column: 'funds_allocation_id' | 'funds_payment_id' | 'temp_voucher_id',
   candidates: Array<{ row: T; myStep: number }>
 ): Promise<T[]> {
   const rejectedIds = candidates.filter(c => c.row.status === 'rejected').map(c => c.row.id)
@@ -1071,6 +1071,139 @@ export async function getPendingVouchersForReviewer(userId: number) {
       const stepDef = (r.approval_flow_templates?.approval_flow_steps ?? []).find(s => s.step_number === r.current_step)
       return { ...r, step_name: stepDef?.step_name ?? `第 ${r.current_step ?? 1} 步` }
     })
+}
+
+// ── 暫付款沖銷憑單審核管理（Tab 對齊付款憑單）────────────
+
+// 啟用中的暫付款沖銷範本實際使用到的審核群組（產生群組 Tab 用）
+export async function getTempVoucherReviewGroups(): Promise<{ id: number; name: string }[]> {
+  const { data } = await supabase
+    .from('approval_flow_steps')
+    .select('approval_group_id, approval_flow_templates!inner(form_type, is_active)')
+    .eq('reviewer_type', 'approval_group')
+    .eq('approval_flow_templates.form_type', 'temp_voucher')
+    .eq('approval_flow_templates.is_active', true)
+    .not('approval_group_id', 'is', null)
+  const ids = [...new Set((data ?? []).map((r: { approval_group_id: number }) => r.approval_group_id))]
+  if (ids.length === 0) return []
+  const { data: groups } = await supabase
+    .from('approval_groups')
+    .select('id, name')
+    .in('id', ids)
+    .order('sort_order')
+  return (groups ?? []) as { id: number; name: string }[]
+}
+
+// 沖銷憑單自己沒有出款帳戶與組織欄位，一律回溯母付款憑單（payment_account）與其申請單（處/課別）
+type VoucherPaymentRef = {
+  payment_account: string | null
+  name: string | null
+  expense_item: string | null
+  payment_method: string | null
+  approved_amount: number | null
+  amount: number | null
+  extra_data: Record<string, string> | null
+  purchase_order_number: string | null
+  funds_allocation: AllocOrgRef
+} | null
+type VoucherWeekRaw = {
+  id: number
+  status: string
+  current_step: number | null
+  created_by: string
+  applicant: string | null
+  funds_payment: VoucherPaymentRef
+  approval_flow_templates: { name: string; approval_flow_steps: StepRef[] } | null
+} & Record<string, unknown>
+
+const VOUCHER_PAYMENT_SELECT =
+  'payment_account, name, expense_item, payment_method, approved_amount, amount, extra_data, purchase_order_number, funds_allocation:funds_allocation_id(apply_division_id, apply_section_id)'
+
+// 沖銷憑單列表列的共同後製：解析申請人英文名、步驟名、is_pending_here、並攤平母付款憑單資訊
+async function mapVoucherRows(
+  filtered: VoucherWeekRaw[],
+  isPendingHereFn: (r: VoucherWeekRaw, currentStepDef: StepRef | undefined) => boolean
+) {
+  const emailMap = await resolvePendingNames(filtered as unknown as PendingRaw[])
+  return filtered.map(r => {
+    const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+    const currentStepDef = steps.find(s => s.step_number === r.current_step)
+    const id = parseInt(r.created_by, 10)
+    const email = !isNaN(id) ? emailMap.get(id) : undefined
+    return {
+      ...r,
+      applicant: email ? emailToEnglishName(email) : (r.applicant ?? r.created_by),
+      payment_account: r.funds_payment?.payment_account ?? null,
+      step_name: r.status === 'pending'
+        ? (currentStepDef?.step_name ?? `第 ${r.current_step ?? 1} 步`)
+        : undefined,
+      total_steps: steps.length,
+      is_pending_here: isPendingHereFn(r, currentStepDef),
+    }
+  })
+}
+
+export async function getVouchersForOrgRoleByWeek(userId: number, weekStart: string, weekEnd: string) {
+  const reviewerInfo = await getReviewerInfo(userId)
+  const { data } = await supabase
+    .from('temp_vouchers')
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT})), funds_payment:funds_payment_id(${VOUCHER_PAYMENT_SELECT})`)
+    .gte('date', weekStart)
+    .lte('date', weekEnd)
+    .order('date', { ascending: false })
+
+  const candidates = ((data ?? []) as unknown as VoucherWeekRaw[]).flatMap(r => {
+    const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+    const matching = steps.filter(s =>
+      s.reviewer_type === 'org_role' &&
+      stepMatchesReviewer(s, reviewerInfo, {
+        applyDivisionId: r.funds_payment?.funds_allocation?.apply_division_id,
+        applySectionId: r.funds_payment?.funds_allocation?.apply_section_id,
+      })
+    )
+    if (matching.length === 0) return []
+    return [{ row: r, myStep: Math.min(...matching.map(s => s.step_number)) }]
+  })
+
+  const filtered = await filterReached('temp_voucher_id', candidates)
+
+  return mapVoucherRows(filtered, (r, currentStepDef) =>
+    r.status === 'pending' &&
+    currentStepDef?.reviewer_type === 'org_role' &&
+    stepMatchesReviewer(currentStepDef, reviewerInfo, {
+      applyDivisionId: r.funds_payment?.funds_allocation?.apply_division_id,
+      applySectionId: r.funds_payment?.funds_allocation?.apply_section_id,
+    })
+  )
+}
+
+export async function getVouchersForApprovalGroupByWeek(userId: number | null | undefined, groupId: number, weekStart: string, weekEnd: string) {
+  // 群組 Tab 的「審核」按鈕只給實際群組成員，與審核頁 checkCanReviewStep 一致（非成員看到「查閱」）
+  const { data: groupMembers } = await supabase
+    .from('approval_group_members').select('user_id').eq('group_id', groupId)
+  const isGroupMember = userId != null && (groupMembers ?? []).some(m => Number(m.user_id) === Number(userId))
+
+  const { data } = await supabase
+    .from('temp_vouchers')
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT})), funds_payment:funds_payment_id(${VOUCHER_PAYMENT_SELECT})`)
+    .gte('date', weekStart)
+    .lte('date', weekEnd)
+    .order('date', { ascending: false })
+
+  const candidates = ((data ?? []) as unknown as VoucherWeekRaw[]).flatMap(r => {
+    const steps = r.approval_flow_templates?.approval_flow_steps ?? []
+    const matching = steps.filter(s => s.reviewer_type === 'approval_group' && s.approval_group_id === groupId)
+    if (matching.length === 0) return []
+    return [{ row: r, myStep: Math.min(...matching.map(s => s.step_number)) }]
+  })
+
+  const filtered = await filterReached('temp_voucher_id', candidates)
+
+  return mapVoucherRows(filtered, (r, currentStepDef) =>
+    isGroupMember && r.status === 'pending' &&
+    currentStepDef?.reviewer_type === 'approval_group' &&
+    currentStepDef.approval_group_id === groupId
+  )
 }
 
 // ── 查詢已被其他範本使用的出款帳號 ───────────────────

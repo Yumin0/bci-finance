@@ -80,6 +80,26 @@ export async function getAttachmentsByTempVoucherId(tempVoucherId: number): Prom
   return (data as Omit<FundAttachment, 'url'>[]).map(withPublicUrl)
 }
 
+// 一次撈多張暫付款沖銷憑單的附件，回傳「沖銷憑單 id → 附件陣列」對照表（審核管理列表「發票憑證」欄用）
+export async function getAttachmentsByTempVoucherIds(
+  tempVoucherIds: number[]
+): Promise<Record<number, FundAttachment[]>> {
+  if (tempVoucherIds.length === 0) return {}
+  const { data, error } = await supabase
+    .from('fund_attachments')
+    .select('*')
+    .in('temp_voucher_id', tempVoucherIds)
+    .order('created_at')
+  if (error || !data) return {}
+  const map: Record<number, FundAttachment[]> = {}
+  for (const row of data as Omit<FundAttachment, 'url'>[]) {
+    const withUrl = withPublicUrl(row)
+    if (withUrl.temp_voucher_id == null) continue
+    ;(map[withUrl.temp_voucher_id] ??= []).push(withUrl)
+  }
+  return map
+}
+
 export async function deleteAttachmentRecord(id: number): Promise<{ error?: string }> {
   const { error } = await supabase.from('fund_attachments').delete().eq('id', id)
   if (error) return { error: error.message }
