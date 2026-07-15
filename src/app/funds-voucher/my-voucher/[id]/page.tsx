@@ -11,8 +11,7 @@ import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+import { DetailBlock, GroupDetailTable, ReadOnlyField, detailRowGridStyle } from '@/app/_components/RecordDetailView'
 import { formatDateTime } from '@/lib/dateUtils'
 
 type TempVoucher = {
@@ -39,9 +38,6 @@ type TempVoucher = {
   approval_records: Array<{ step_name: string; decision: string }>
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
-
 function getFieldValue(slot: NonNullable<FormSlot>, record: TempVoucher): string {
   // 採購單號＝母付款憑單的採購單號（表單欄位是自訂欄位，用欄位名稱對應）
   if (slot.label === '採購單號') return record.funds_payment?.purchase_order_number ?? '-'
@@ -59,13 +55,6 @@ function getFieldValue(slot: NonNullable<FormSlot>, record: TempVoucher): string
   return String(val)
 }
 
-function renderSlot(slot: NonNullable<FormSlot>, record: TempVoucher) {
-  const value = getFieldValue(slot, record)
-  if (slot.type === 'textarea') {
-    return <Textarea value={value} readOnly rows={4} className={readonlyCls} />
-  }
-  return <Input value={value} readOnly className={readonlyCls} />
-}
 
 // 付款明細群組：從標記 rowGroupStart 的列起整組可重複（與建立頁同一約定）
 function getGroupRows(block: FormBlock): FormSchemaRow[] {
@@ -83,37 +72,12 @@ function getGroupData(block: FormBlock, record: TempVoucher): Record<string, str
   } catch { return null }
 }
 
-// 群組區塊以表格逐組唯讀顯示（欄＝群組欄位、列＝各組）
+// 群組區塊以表格逐組唯讀顯示（欄＝群組欄位、列＝各組）；表格樣式與付款憑單/資金分配共用
 function GroupTable({ block, record }: { block: FormBlock; record: TempVoucher }) {
   const groupSlots = getGroupRows(block).flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
   const data = getGroupData(block, record)
   if (!data) return null
-  return (
-    <div style={{ overflowX: 'auto', marginBottom: 16 }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontWeight: 500, whiteSpace: 'nowrap' }}>#</th>
-            {groupSlots.map(s => (
-              <th key={s.fieldId} style={{ textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontWeight: 500, whiteSpace: 'nowrap' }}>{s.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((inst, i) => (
-            <tr key={i}>
-              <td style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>{i + 1}</td>
-              {groupSlots.map(s => (
-                <td key={s.fieldId} style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-color)', color: 'var(--text-body)' }}>
-                  {inst[s.label] != null && inst[s.label] !== '' ? (s.type === 'number' ? Number(inst[s.label]).toLocaleString() : inst[s.label]) : '-'}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
+  return <GroupDetailTable slots={groupSlots} instances={data} />
 }
 
 export default function VoucherDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -216,48 +180,26 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div style={{ marginBottom: 24 }}>
-        {schema.map(block => (
-          <div key={block.id} style={{
-            marginBottom: 16,
-            border: '1px solid var(--border-color)',
-            borderRadius: 10,
-            overflow: 'hidden',
-          }}>
-            {block.title && (
-              <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
-              </div>
-            )}
-            <div style={{ padding: '20px 20px 4px' }}>
-              {/* 群組區塊（付款明細多組）：有群組資料時以表格逐組顯示，非群組列照常 */}
-              {(() => {
-                const groupRowIds = new Set(getGroupRows(block).map(r => r.id))
-                const hasGroupData = getGroupData(block, record!) != null
-                const rowsToRender = hasGroupData ? block.rows.filter(r => !groupRowIds.has(r.id)) : block.rows
-                return (
-                  <>
-                    {rowsToRender.map(row => (
-                      <div key={row.id} style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
-                        gap: 20,
-                        marginBottom: 20,
-                      }}>
-                        {row.slots.map((slot, idx) => slot ? (
-                          <div key={idx}>
-                            <label style={labelStyle}>{slot.label}</label>
-                            {renderSlot(slot, record!)}
-                          </div>
-                        ) : <div key={idx} />)}
-                      </div>
-                    ))}
-                    {hasGroupData && <GroupTable block={block} record={record!} />}
-                  </>
-                )
-              })()}
-            </div>
-          </div>
-        ))}
+        {schema.map(block => {
+          // 群組區塊（付款明細多組）：有群組資料時以表格逐組顯示，非群組列照常
+          const groupRowIds = new Set(getGroupRows(block).map(r => r.id))
+          const hasGroupData = getGroupData(block, record!) != null
+          const rowsToRender = hasGroupData ? block.rows.filter(r => !groupRowIds.has(r.id)) : block.rows
+          // 含群組/可重複列的區塊維持直式；其餘區塊橫式（標籤在左），與資金分配申請表單一致
+          const verticalLayout = block.rows.some(r => r.repeatable || r.rowGroupStart)
+          return (
+            <DetailBlock key={block.id} title={block.title}>
+              {rowsToRender.map(row => (
+                <div key={row.id} style={detailRowGridStyle(row.cols, !verticalLayout)}>
+                  {row.slots.map((slot, idx) => slot ? (
+                    <ReadOnlyField key={idx} label={slot.label} value={getFieldValue(slot, record!)} textarea={slot.type === 'textarea'} horizontal={!verticalLayout} />
+                  ) : <div key={idx} />)}
+                </div>
+              ))}
+              {hasGroupData && <GroupTable block={block} record={record!} />}
+            </DetailBlock>
+          )
+        })}
       </div>
 
       {error && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>錯誤：{error}</p>}

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { GroupDetailTable } from '@/app/_components/RecordDetailView'
 import { formatDateTime } from '@/lib/dateUtils'
 import ErrorDialog from '@/app/_components/ErrorDialog'
 
@@ -85,37 +86,12 @@ function getGroupData(block: FormBlock, record: TempVoucher): Record<string, str
   } catch { return null }
 }
 
-// 群組區塊以表格逐組唯讀顯示（欄＝群組欄位、列＝各組）
+// 群組區塊以表格逐組唯讀顯示（欄＝群組欄位、列＝各組）；表格樣式與付款憑單/資金分配共用
 function GroupTable({ block, record }: { block: FormBlock; record: TempVoucher }) {
   const groupSlots = getGroupRows(block).flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
   const data = getGroupData(block, record)
   if (!data) return null
-  return (
-    <div className="mb-4 overflow-x-auto">
-      <table className="w-full border-collapse text-[13px]">
-        <thead>
-          <tr>
-            <th className="whitespace-nowrap border-b border-border px-2.5 py-2 text-left font-medium text-muted-foreground">#</th>
-            {groupSlots.map(s => (
-              <th key={s.fieldId} className="whitespace-nowrap border-b border-border px-2.5 py-2 text-left font-medium text-muted-foreground">{s.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((inst, i) => (
-            <tr key={i}>
-              <td className="border-b border-border px-2.5 py-2 text-muted-foreground">{i + 1}</td>
-              {groupSlots.map(s => (
-                <td key={s.fieldId} className="border-b border-border px-2.5 py-2 text-foreground">
-                  {inst[s.label] != null && inst[s.label] !== '' ? (s.type === 'number' ? Number(inst[s.label]).toLocaleString() : inst[s.label]) : '-'}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
+  return <GroupDetailTable slots={groupSlots} instances={data} />
 }
 
 export default function VoucherReviewCheckPage({ params }: { params: Promise<{ id: string }> }) {
