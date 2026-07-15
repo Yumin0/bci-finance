@@ -181,15 +181,26 @@ export default function EditFundsForm({
       return { ...prev, [blockId]: instances }
     })
   }
-  // 改選費用項目（主要）時，清空編號對不上的費用項目（細項）已選值（固定欄位與群組明細都清）
+  // 改選費用項目（主要）時：清掉編號對不上的細項；若該主要底下的細項恰好只有一筆則自動帶入，多筆才留給使用者自選（固定欄位與群組明細都處理）
   function clearMismatchedDetailFees(newMainVal: string) {
     if (!detailFeeFieldIds.length) return
     const code = feeItemCode(newMainVal)
     const mismatch = (v: string | undefined) => !!v && (!code || feeItemCode(v) !== code)
+    // 各細項欄位在此主要編號下的對應選項恰好一筆時，記下要自動帶入的值
+    const soleFillByField: Record<string, string> = {}
+    if (code) {
+      for (const fid of detailFeeFieldIds) {
+        const ds = allSlots.find(s => s.fieldId === fid)?.dataSource
+        const matched = (ds ? dynamicSelectOptions[ds] ?? [] : []).filter(o => feeItemCode(o.label) === code)
+        if (matched.length === 1) soleFillByField[fid] = matched[0].value
+      }
+    }
     setFieldValues(prev => {
       const next = { ...prev }
       for (const fid of detailFeeFieldIds) {
+        if (groupSlotFieldIds.has(fid)) continue
         if (mismatch(next[fid])) next[fid] = ''
+        if (fid in soleFillByField) next[fid] = soleFillByField[fid]
       }
       return next
     })
@@ -199,7 +210,9 @@ export default function EditFundsForm({
         next[blockId] = instances.map(inst => {
           const cleared = { ...inst }
           for (const fid of detailFeeFieldIds) {
+            if (!groupSlotFieldIds.has(fid)) continue
             if (mismatch(cleared[fid])) cleared[fid] = ''
+            if (fid in soleFillByField) cleared[fid] = soleFillByField[fid]
           }
           return cleared
         })
