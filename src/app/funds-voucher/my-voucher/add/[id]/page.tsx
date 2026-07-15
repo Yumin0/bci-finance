@@ -8,6 +8,9 @@ import { FundsPayment, FormBlock, FormSchemaRow, FormSlot } from '@/lib/types'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { createTempVoucher, submitTempVoucher } from '@/app/actions/temp-voucher'
 import { taipeiToday } from '@/lib/dateUtils'
+import { paidAmountOf } from '@/lib/voucherReturnAmount'
+import VoucherReturnSummary from '@/app/funds-voucher/_components/VoucherReturnSummary'
+import PaymentSummaryCard from '@/app/funds-voucher/_components/PaymentSummaryCard'
 import { saveAttachments } from '@/app/actions/attachments'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,12 +26,31 @@ const labelStyle: React.CSSProperties = {
 const readonlyCls = 'bg-[var(--bg-page)] cursor-not-allowed'
 
 // 沖銷表單欄位 ← 付款憑單付款明細欄位的名稱對應（兩邊 label 不同）
+// 「總額」不在此表：預帶值改依實際撥款金額決定，見 buildInitGroupTotals
 const GROUP_INHERIT_LABEL_MAP: Record<string, string> = {
   '摘要用途': '摘要/用途說明',
   '未稅金額': '未稅金額',
   '稅額': '稅額',
-  // 總額也預帶原組值（2026-07-14 Yumin 拍板：最常見是全額沖銷，預帶省得重打；可改，上限驗證照舊）
-  '總額': '總額',
+}
+
+const TOTAL_LABEL = '總額'
+
+// 沖銷「總額」的預帶值：目標是讓預帶的各組總額加總 ===「母憑單實際撥款金額」。
+// 撥款金額＝審核核准金額（approved_amount），不是母憑單當初填寫的金額（amount）——
+// 只要審核有下修過，照抄原填寫值就必定超過 createTempVoucher 的上限驗證，
+// 等於預帶一個系統自己保證會擋掉的數字（2026-07-15 修正）。
+function buildInitGroupTotals(
+  paymentGroups: Record<string, string>[],
+  paidAmount: number
+): (string | null)[] {
+  const sumOriginal = paymentGroups.reduce((sum, inst) => sum + (Number(inst[TOTAL_LABEL]) || 0), 0)
+  // 原組值加總剛好等於實撥（＝審核沒調整過金額，最常見）：逐組照帶，維持逐組對應關係
+  if (paidAmount > 0 && Math.abs(sumOriginal - paidAmount) < 0.01) {
+    return paymentGroups.map(inst => inst[TOTAL_LABEL] ?? null)
+  }
+  // 金額被審核調整過：逐組原值加總已對不上實撥，第一組帶實撥全額、其餘留白，
+  // 由承辦人依實際單據自行分配（全額沖銷時不用改，這是最常見的情況）
+  return paymentGroups.map((_, idx) => (idx === 0 && paidAmount > 0 ? String(paidAmount) : null))
 }
 
 function getPrefilledValue(slot: NonNullable<FormSlot>, payment: FundsPayment): string {
@@ -122,16 +144,23 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
       }
       setFieldValues(prefilled)
 
-      // 逐組繼承付款憑單付款明細（摘要用途/未稅金額/稅額；總額留白由承辦人自填）
+      // 逐組繼承付款憑單付款明細（摘要用途/未稅金額/稅額；總額另依實撥金額決定，見 buildInitGroupTotals）
       const paymentGroups = getPaymentGroupInstances(p)
+      const paidAmount = paidAmountOf(p)
+      const initTotals = buildInitGroupTotals(paymentGroups, paidAmount)
       const initGroups: Record<string, Record<string, string>[]> = {}
       for (const block of schemas.temp_voucher) {
         const groupSlots = getGroupRows(block).flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
         if (!groupSlots.length) continue
         if (paymentGroups.length) {
-          initGroups[block.id] = paymentGroups.map(inst => {
+          initGroups[block.id] = paymentGroups.map((inst, idx) => {
             const mapped: Record<string, string> = {}
             for (const slot of groupSlots) {
+              if (slot.label === TOTAL_LABEL) {
+                const t = initTotals[idx]
+                if (t != null && t !== '') mapped[slot.fieldId] = t
+                continue
+              }
               const srcLabel = GROUP_INHERIT_LABEL_MAP[slot.label]
               const v = srcLabel ? inst[srcLabel] : undefined
               if (v != null && v !== '') mapped[slot.fieldId] = v
@@ -139,7 +168,11 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
             return mapped
           })
         } else {
-          initGroups[block.id] = [{}]
+          // 舊憑單沒有群組資料：單組，總額預帶實撥全額
+          const single: Record<string, string> = {}
+          const totalSlot = groupSlots.find(s => s.label === TOTAL_LABEL)
+          if (totalSlot && paidAmount > 0) single[totalSlot.fieldId] = String(paidAmount)
+          initGroups[block.id] = [single]
         }
       }
       setGroupInstances(initGroups)
@@ -281,6 +314,9 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
     </div>
   )
 
+  // 整張沖銷單的沖銷金額＝所有區塊各組「總額」加總（＝後端 createTempVoucher 存入 amount 的同一算法）
+  const voucherGrandTotal = schema.reduce((sum, b) => sum + blockGrandTotal(b), 0)
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -289,12 +325,12 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
         </Link>
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>建立暫付款沖銷憑單</h1>
       </div>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>
-        付款憑單 {payment.purchase_order_number ?? `#${paymentId}`}
-      </p>
 
       {/* 送出被擋（沖銷金額檢查等）改用全站共用中央彈窗 */}
       <ErrorDialog message={error} title="無法建立沖銷憑單" onClose={() => setError(null)} />
+
+      {/* 母付款憑單對照：當初預支多少、這次沖銷多少、要回存多少 */}
+      <PaymentSummaryCard payment={payment} voucherTotal={voucherGrandTotal} />
 
       <form onSubmit={handleSubmit}>
         {schema.map(block => {
@@ -323,10 +359,10 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
                   alignItems: 'center',
                 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title}</span>
-                  {groupRows.length > 0 && (
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                      沖銷金額合計 <strong style={{ color: 'var(--text-title)' }}>{grandTotal.toLocaleString()}</strong>
-                    </span>
+                  {groupRows.length > 0 && payment && (
+                    <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                      <VoucherReturnSummary paidAmount={paidAmountOf(payment)} voucherTotal={grandTotal} />
+                    </div>
                   )}
                 </div>
               )}

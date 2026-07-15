@@ -13,6 +13,9 @@ import StatusBadge from '@/app/_components/StatusBadge'
 import ReviewProgressBlock, { type ReviewStepDef } from '@/app/_components/ReviewProgressBlock'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { DetailBlock, GroupDetailTable, ReadOnlyField, detailRowGridStyle } from '@/app/_components/RecordDetailView'
+import PaymentSummaryCard, { VoucherParentPayment, VOUCHER_PARENT_PAYMENT_COLUMNS } from '@/app/funds-voucher/_components/PaymentSummaryCard'
+import VoucherReturnSummary from '@/app/funds-voucher/_components/VoucherReturnSummary'
+import { paidAmountOf, voucherAmountOf } from '@/lib/voucherReturnAmount'
 
 type TempVoucher = {
   id: number
@@ -30,7 +33,7 @@ type TempVoucher = {
   current_step: number | null
   flow_template_id: number | null
   created_at: string
-  funds_payment: { purchase_order_number: string | null } | null
+  funds_payment: VoucherParentPayment | null
   approval_flow_templates: {
     name: string
     approval_flow_steps: Array<{ id: number; step_name: string; step_number: number; reviewer_type?: string }>
@@ -100,7 +103,7 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
       const [{ data, error: fetchError }, histRes, config, schemas] = await Promise.all([
         supabase
           .from('temp_vouchers')
-          .select(`*, funds_payment:funds_payment_id(purchase_order_number), approval_flow_templates(name, approval_flow_steps(id, step_name, step_number, reviewer_type)), approval_records!temp_voucher_id(step_name, decision)`)
+          .select(`*, funds_payment:funds_payment_id(${VOUCHER_PARENT_PAYMENT_COLUMNS}), approval_flow_templates(name, approval_flow_steps(id, step_name, step_number, reviewer_type)), approval_records!temp_voucher_id(step_name, decision)`)
           .eq('id', numId)
           .single(),
         supabase
@@ -158,9 +161,11 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
     setError(null)
     const { error: updateError } = await submitTempVoucher(record.id)
     if (updateError) { setError(updateError); setSubmitting(false); return }
+    // embed 要與初次載入一致，否則送出後 funds_payment 變 undefined，
+    // 採購單號會掉成「-」、母憑單對照卡片會整塊消失
     const { data } = await supabase
       .from('temp_vouchers')
-      .select(`*, approval_flow_templates(name, approval_flow_steps(id, step_name, step_number, reviewer_type)), approval_records!temp_voucher_id(step_name, decision)`)
+      .select(`*, funds_payment:funds_payment_id(${VOUCHER_PARENT_PAYMENT_COLUMNS}), approval_flow_templates(name, approval_flow_steps(id, step_name, step_number, reviewer_type)), approval_records!temp_voucher_id(step_name, decision)`)
       .eq('id', record.id)
       .single()
     if (data) setRecord(data as TempVoucher)
@@ -176,6 +181,7 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
   )
 
   const isDraft = record!.status === 'draft'
+  const voucherTotal = voucherAmountOf(record!)
 
   return (
     <div>
@@ -195,6 +201,11 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
         </Link>
       </div>
 
+      {/* 母付款憑單對照：當初預支多少、這次沖銷多少、要回存多少 */}
+      {record!.funds_payment && (
+        <PaymentSummaryCard payment={record!.funds_payment} voucherTotal={voucherTotal} />
+      )}
+
       <div style={{ marginBottom: 24 }}>
         {schema.map(block => {
           // 群組區塊（付款明細多組）：有群組資料時以表格逐組顯示，非群組列照常
@@ -204,7 +215,13 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
           // 含群組/可重複列的區塊維持直式；其餘區塊橫式（標籤在左），與資金分配申請表單一致
           const verticalLayout = block.rows.some(r => r.repeatable || r.rowGroupStart)
           return (
-            <DetailBlock key={block.id} title={block.title}>
+            <DetailBlock
+              key={block.id}
+              title={block.title}
+              summary={hasGroupData && record!.funds_payment
+                ? <VoucherReturnSummary paidAmount={paidAmountOf(record!.funds_payment)} voucherTotal={voucherTotal} />
+                : undefined}
+            >
               {rowsToRender.map(row => (
                 <div key={row.id} style={detailRowGridStyle(row.cols, !verticalLayout)}>
                   {row.slots.map((slot, idx) => slot ? (

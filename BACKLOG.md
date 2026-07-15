@@ -7,6 +7,21 @@
 
 ## 進行中
 
+**暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
+分支：`feature/yumin-voucher-return-amount`
+開始：2026-07-15
+規格文件：[`docs/core-logic/暫付款沖銷與回存金額_待確認事項.md`](docs/core-logic/暫付款沖銷與回存金額_待確認事項.md)（第二節五項已拍板，其餘待財務確認）
+說明：① 付款憑單建單頁「總額」預帶母單剩餘額度（多組只帶第一組）；② 沖銷建單頁「總額」預帶母憑單**實際撥款金額**（修 bug：原本帶母憑單原始填寫值，只要審核下修過就必定超額被擋）；③ 超額硬擋維持不變（財務確認：不可花超過，超過請另做資金分配申請）；④ 沖銷建單／詳細／審核三頁加「預支的付款憑單」對照卡片（原本完全沒有母憑單資訊，審核人看不到當初預支多少）；⑤ 顯示「回存金額」＝實際撥款 − 各組總額加總（即時算不落地）。**全部不動資料庫、無待執行 SQL。**
+名稱約定：這個數字**一律叫「回存金額」**，不可叫「剩餘金額」（後者在全站已是「資金分配核准金額 − 憑單佔用額度」，意思完全不同，撞名會全站混淆）。
+影響範圍確認（回存金額顯示為橫切關注點）：
+- [x] /funds-voucher/my-voucher/add/[id]（建單頁：對照卡片＋回存金額＋總額預帶值）
+- [x] /funds-voucher/my-voucher/[id]（詳細頁：對照卡片＋回存金額；順修送出後 reload 漏帶 funds_payment embed 導致採購單號掉成「-」）
+- [x] /funds-voucher/review/check/[id]（審核頁：對照卡片＋回存金額）
+- [x] /funds-payment/my-payment/add/[id]（付款憑單建單頁：總額預帶剩餘額度）
+- [x] AllocationSummaryCard 3 個使用點（改用共用 SummaryCard，props 未變）
+- [x] DetailSummaryItem 既有 7 個使用點（新增選填 danger prop，不影響現有呼叫）
+- [x] npm run build 全站編譯通過（零 error 零 warning）
+
 **審核清單快速審核按鈕放大＋共用化、拿掉查閱按鈕**（Yumin）
 分支：`feature/yumin-review-quick-buttons`
 開始：2026-07-15
