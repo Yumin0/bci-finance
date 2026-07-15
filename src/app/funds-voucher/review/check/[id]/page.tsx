@@ -14,6 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { GroupDetailTable } from '@/app/_components/RecordDetailView'
 import ErrorDialog from '@/app/_components/ErrorDialog'
 import ReviewProgressBlock from '@/app/_components/ReviewProgressBlock'
+import PaymentSummaryCard, { VoucherParentPayment, VOUCHER_PARENT_PAYMENT_COLUMNS } from '@/app/funds-voucher/_components/PaymentSummaryCard'
+import VoucherReturnSummary from '@/app/funds-voucher/_components/VoucherReturnSummary'
+import { paidAmountOf, voucherAmountOf } from '@/lib/voucherReturnAmount'
 
 type StepDef = {
   id: number
@@ -41,7 +44,7 @@ type TempVoucher = {
   status: string
   current_step: number | null
   flow_template_id: number | null
-  funds_payment?: { purchase_order_number: string | null } | null
+  funds_payment?: VoucherParentPayment | null
   approval_flow_templates: { id: number; name: string; approval_flow_steps: StepDef[] } | null
 }
 
@@ -116,7 +119,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       const numId = Number(id)
 
       const [recRes, pastRes, session] = await Promise.all([
-        supabase.from('temp_vouchers').select('*, funds_payment:funds_payment_id(purchase_order_number)').eq('id', numId).single(),
+        supabase.from('temp_vouchers').select(`*, funds_payment:funds_payment_id(${VOUCHER_PARENT_PAYMENT_COLUMNS})`).eq('id', numId).single(),
         supabase.from('approval_records').select('*').eq('temp_voucher_id', numId).order('step_number'),
         getMySession(),
       ])
@@ -230,6 +233,8 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
   if (loading) return <p className="text-muted-foreground">載入中...</p>
   if (!record) return <p className="text-destructive">找不到此暫付款沖銷憑單</p>
 
+  const voucherTotal = voucherAmountOf(record)
+
   return (
     <div className="flex flex-col gap-6">
       {/* 頁面標題 */}
@@ -241,43 +246,51 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       {/* 審核送出被擋改用全站共用中央彈窗 */}
       <ErrorDialog message={error} title="無法送出審核結果" onClose={() => setError(null)} />
 
+      {/* 母付款憑單對照：審核人要看得到當初預支多少，才能判斷沖銷金額與回存金額合不合理 */}
+      {record.funds_payment && (
+        <PaymentSummaryCard payment={record.funds_payment} voucherTotal={voucherTotal} />
+      )}
+
       {/* Schema 欄位區塊 */}
-      {schema.map(block => (
-        <Card key={block.id}>
-          {block.title && (
-            <CardHeader>
-              <CardTitle>{block.title}</CardTitle>
-            </CardHeader>
-          )}
-          <CardContent className={block.title ? '' : 'pt-4'}>
-            {/* 群組區塊（付款明細多組）：有群組資料時以表格逐組顯示，非群組列照常 */}
-            {(() => {
-              const groupRowIds = new Set(getGroupRows(block).map(r => r.id))
-              const hasGroupData = getGroupData(block, record) != null
-              const rowsToRender = hasGroupData ? block.rows.filter(r => !groupRowIds.has(r.id)) : block.rows
-              return (
-                <>
-                  {rowsToRender.map(row => (
-                    <div
-                      key={row.id}
-                      className="mb-5 grid gap-5"
-                      style={{ gridTemplateColumns: `repeat(${row.cols}, 1fr)` }}
-                    >
-                      {row.slots.map((slot, idx) => slot ? (
-                        <div key={idx}>
-                          <label className="mb-1.5 block text-sm font-medium text-foreground">{slot.label}</label>
-                          {renderSlot(slot, record)}
-                        </div>
-                      ) : <div key={idx} />)}
+      {schema.map(block => {
+        // 群組區塊（付款明細多組）：有群組資料時以表格逐組顯示，非群組列照常
+        const groupRowIds = new Set(getGroupRows(block).map(r => r.id))
+        const hasGroupData = getGroupData(block, record) != null
+        const rowsToRender = hasGroupData ? block.rows.filter(r => !groupRowIds.has(r.id)) : block.rows
+        return (
+          <Card key={block.id}>
+            {block.title && (
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>{block.title}</CardTitle>
+                  {hasGroupData && record.funds_payment && (
+                    <div className="flex gap-5 text-[13px] font-normal">
+                      <VoucherReturnSummary paidAmount={paidAmountOf(record.funds_payment)} voucherTotal={voucherTotal} />
                     </div>
-                  ))}
-                  {hasGroupData && <GroupTable block={block} record={record} />}
-                </>
-              )
-            })()}
-          </CardContent>
-        </Card>
-      ))}
+                  )}
+                </div>
+              </CardHeader>
+            )}
+            <CardContent className={block.title ? '' : 'pt-4'}>
+              {rowsToRender.map(row => (
+                <div
+                  key={row.id}
+                  className="mb-5 grid gap-5"
+                  style={{ gridTemplateColumns: `repeat(${row.cols}, 1fr)` }}
+                >
+                  {row.slots.map((slot, idx) => slot ? (
+                    <div key={idx}>
+                      <label className="mb-1.5 block text-sm font-medium text-foreground">{slot.label}</label>
+                      {renderSlot(slot, record)}
+                    </div>
+                  ) : <div key={idx} />)}
+                </div>
+              ))}
+              {hasGroupData && <GroupTable block={block} record={record} />}
+            </CardContent>
+          </Card>
+        )
+      })}
 
       {/* 審核進度（比照筑今一列式排版，共用元件；沖銷群組步驟顯示付款分類、不顯示核准金額） */}
       <ReviewProgressBlock

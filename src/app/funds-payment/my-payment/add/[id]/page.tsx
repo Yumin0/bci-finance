@@ -212,22 +212,32 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       }
       const initGroups: Record<string, Record<string, string>[]> = {}
       let groupArrayIdx = 0
+      // 「總額」預帶母單目前的剩餘額度（可改小）：一張分配單能分次開多張憑單陸續扣款，
+      // 所以帶的是剩餘、不是核准金額——額度已用掉一部分時帶核准金額必定超額被擋，
+      // 等於預帶一個系統自己保證會擋掉的數字。第一張憑單時剩餘＝核准金額，結果一樣。
+      const initTotal = remaining && remaining.remaining > 0 ? String(remaining.remaining) : ''
       for (const block of paymentSchema) {
         const groupSlots = getGroupRows(block).flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
         if (!groupSlots.length) continue
         // 三個金額欄（未稅金額/稅額/總額）不從申請單帶入：付款憑單金額由承辦人依實際單據逐張填寫，
         // 與申請單的費用/稅額脫鉤（付款憑單稅務設定用全新 fieldId，這裡以 taxConfig 認出金額欄一律略過帶入）
         const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
+        const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
         const amountFieldIds = new Set(
-          [taxSelectSlot?.taxConfig?.baseFieldId, taxSelectSlot?.taxConfig?.taxAmountFieldId, taxSelectSlot?.taxConfig?.totalFieldId]
+          [taxSelectSlot?.taxConfig?.baseFieldId, taxSelectSlot?.taxConfig?.taxAmountFieldId, totalFieldId]
             .filter(Boolean) as string[]
         )
+        // 只有第一組帶剩餘額度：多組全帶的話光預帶值加總就爆掉母單額度
+        const totalForIdx = (idx: number) => (idx === 0 && totalFieldId && initTotal ? initTotal : '')
         const allocInstances = allocGroupArrays[groupArrayIdx++]
         if (allocInstances) {
-          initGroups[block.id] = allocInstances.map(inst => {
+          initGroups[block.id] = allocInstances.map((inst, idx) => {
             const mapped: Record<string, string> = {}
             for (const slot of groupSlots) {
-              if (amountFieldIds.has(slot.fieldId)) continue
+              if (amountFieldIds.has(slot.fieldId)) {
+                if (slot.fieldId === totalFieldId && totalForIdx(idx)) mapped[slot.fieldId] = initTotal
+                continue
+              }
               const v = inst[slot.label]
               if (v != null && v !== '') mapped[slot.fieldId] = v
             }
@@ -237,7 +247,10 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
           // 舊資料（無群組格式）：以一般標籤值帶入單一組
           const single: Record<string, string> = {}
           for (const slot of groupSlots) {
-            if (amountFieldIds.has(slot.fieldId)) continue
+            if (amountFieldIds.has(slot.fieldId)) {
+              if (slot.fieldId === totalFieldId && initTotal) single[slot.fieldId] = initTotal
+              continue
+            }
             const v = rec.extra_data?.[slot.label]
             if (v) single[slot.fieldId] = v
           }

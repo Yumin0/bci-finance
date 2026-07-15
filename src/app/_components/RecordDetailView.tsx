@@ -62,8 +62,11 @@ export function DetailBlock({ title, summary, children }: { title?: string | nul
 }
 
 // 標頭彙總的單項：例如「總額 100」
-export function DetailSummaryItem({ label, value }: { label: string; value: string }) {
-  return <span style={{ color: 'var(--text-muted)' }}>{label} <strong style={{ color: 'var(--text-body)' }}>{value}</strong></span>
+// danger：金額異常時以紅字顯示（例如沖銷回存金額為負＝填超過預支金額）。
+// 紅色與 SummaryCard 的 SummaryAmount 一致（#be123c，金額負數的既有慣例）——
+// 同一頁的卡片與明細標頭會同時顯示同一個數字，兩處顏色必須相同。
+export function DetailSummaryItem({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
+  return <span style={{ color: 'var(--text-muted)' }}>{label} <strong style={{ color: danger ? '#be123c' : 'var(--text-body)' }}>{value}</strong></span>
 }
 
 // 群組 / 明細表格：欄＝群組欄位 label、列＝各組資料，空值以「—」呈現。
