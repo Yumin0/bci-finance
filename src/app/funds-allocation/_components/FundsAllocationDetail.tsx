@@ -4,22 +4,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import AttachmentUpload from '@/app/_components/AttachmentUpload'
+import { DetailBlock, DetailFieldLayout, DetailSummaryItem, GroupDetailTable, ReadOnlyField, detailBlockStyle, detailRowGridStyle } from '@/app/_components/RecordDetailView'
 import { formatTaxNumber } from '@/lib/taxUtils'
 
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
-const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
-const blockStyle: React.CSSProperties = { marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }
-
-function ReadField({ label, value, textarea, required }: { label: string; value: string; textarea?: boolean; required?: boolean }) {
-  return (
-    <div>
-      <label style={labelStyle}>{label}{required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}</label>
-      {textarea
-        ? <Textarea value={value} readOnly rows={4} className={readonlyCls} />
-        : <Input value={value} readOnly className={readonlyCls} />}
-    </div>
-  )
-}
+const blockStyle = detailBlockStyle
 
 function getColumnValue(fieldId: string, dataSource: string | undefined, record: FundsAllocation): string | null {
   switch (fieldId) {
@@ -94,32 +82,7 @@ export default function FundsAllocationDetail({
     try { instances = JSON.parse(record.extra_data?.[`__repeatable_${row.id}`] ?? '[]') } catch { instances = [] }
     if (!instances.length) return null
     const slots = row.slots.filter(Boolean) as NonNullable<FormSlot>[]
-    return (
-      <div style={{ marginBottom: 20, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr>
-              {slots.map(s => (
-                <th key={s.fieldId} style={{ textAlign: 'left', padding: '6px 12px 6px 0', fontWeight: 500, color: 'var(--text-body)', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
-                  {s.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {instances.map((inst, i) => (
-              <tr key={i}>
-                {slots.map(s => (
-                  <td key={s.fieldId} style={{ padding: '8px 12px 8px 0', borderBottom: i < instances.length - 1 ? '1px solid var(--border-color)' : 'none', color: 'var(--text-body)' }}>
-                    {inst[s.label] || '—'}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
+    return <GroupDetailTable slots={slots} instances={instances} />
   }
 
   function renderGroupInstances(block: FormBlock) {
@@ -131,32 +94,7 @@ export default function FundsAllocationDetail({
     if (!instances.length || (instances.length === 1 && !Object.keys(instances[0]).length)) return null
 
     const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
-    const headers = groupSlots.map(s => s.label)
-
-    return (
-      <div style={{ marginBottom: 20, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr>
-              {headers.map(h => (
-                <th key={h} style={{ textAlign: 'left', padding: '6px 12px 6px 0', fontWeight: 500, color: 'var(--text-body)', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {instances.map((inst, i) => (
-              <tr key={i}>
-                {headers.map(h => (
-                  <td key={h} style={{ padding: '8px 12px 8px 0', borderBottom: i < instances.length - 1 ? '1px solid var(--border-color)' : 'none', color: 'var(--text-body)' }}>
-                    {inst[h] || '—'}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
+    return <GroupDetailTable slots={groupSlots} instances={instances} />
   }
 
   function computeGroupSummary(block: FormBlock): { taxBase: number; handling: number; taxAmount: number; total: number } | null {
@@ -206,71 +144,68 @@ export default function FundsAllocationDetail({
         const groupRows = getGroupRows(block)
         const preGroupRows = block.rows.filter(r => !groupRows.includes(r))
         const groupSummary = computeGroupSummary(block)
+        // 含群組/可重複列的區塊（付款明細）維持直式；其餘區塊橫式（標籤在左），與資金分配申請表單一致
+        const verticalLayout = block.rows.some(r => r.repeatable || r.rowGroupStart)
 
         return (
-          <div key={block.id} style={blockStyle}>
-            {(block.title || groupSummary) && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0', background: 'var(--bg-sidebar)' }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{block.title ?? ''}</span>
-                {groupSummary && (
-                  <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxBase)}</strong></span>
-                    <span style={{ color: 'var(--text-muted)' }}>手續費 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.handling)}</strong></span>
-                    <span style={{ color: 'var(--text-muted)' }}>稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.taxAmount)}</strong></span>
-                    <span style={{ color: 'var(--text-muted)' }}>總額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(groupSummary.total)}</strong></span>
-                  </div>
-                )}
-              </div>
+          <DetailBlock
+            key={block.id}
+            title={block.title}
+            summary={groupSummary && (
+              <>
+                <DetailSummaryItem label="費用" value={formatTaxNumber(groupSummary.taxBase)} />
+                <DetailSummaryItem label="手續費" value={formatTaxNumber(groupSummary.handling)} />
+                <DetailSummaryItem label="稅額" value={formatTaxNumber(groupSummary.taxAmount)} />
+                <DetailSummaryItem label="總額" value={formatTaxNumber(groupSummary.total)} />
+              </>
             )}
+          >
+            {preGroupRows.map(row => {
+              if (row.repeatable) return <div key={row.id}>{renderRepeatableRow(row)}</div>
 
-            <div style={{ paddingTop: 20, paddingLeft: 20, paddingBottom: 4, paddingRight: 20 }}>
-              {preGroupRows.map(row => {
-                if (row.repeatable) return <div key={row.id}>{renderRepeatableRow(row)}</div>
+              return (
+                <div key={row.id} style={detailRowGridStyle(row.cols, !verticalLayout)}>
+                  {row.slots.map((slot, idx) => {
+                    if (!slot) return <div key={idx} />
 
-                return (
-                  <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
-                    {row.slots.map((slot, idx) => {
-                      if (!slot) return <div key={idx} />
+                    if (slot.showWhen) {
+                      const controlSlot = schema.flatMap(b => b.rows.flatMap(r => r.slots)).find(s => s?.fieldId === slot.showWhen!.fieldId)
+                      const controlVal = controlSlot ? getSlotValue(controlSlot, record) : ''
+                      if (!slot.showWhen.values.includes(controlVal)) return <div key={idx} />
+                    }
 
-                      if (slot.showWhen) {
-                        const controlSlot = schema.flatMap(b => b.rows.flatMap(r => r.slots)).find(s => s?.fieldId === slot.showWhen!.fieldId)
-                        const controlVal = controlSlot ? getSlotValue(controlSlot, record) : ''
-                        if (!slot.showWhen.values.includes(controlVal)) return <div key={idx} />
-                      }
-
-                      if (slot.type === 'attachment') {
-                        const items = attachmentsBySlot[slot.label] ?? []
-                        if (!items.length) return <div key={idx} />
-                        return (
-                          <div key={idx}>
-                            <label style={labelStyle}>{slot.label}</label>
-                            <AttachmentUpload
-                              slotLabel={slot.label}
-                              attachments={items.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
-                              onAdd={() => {}} onRemove={() => {}}
-                              readOnly
-                            />
-                          </div>
-                        )
-                      }
-
+                    if (slot.type === 'attachment') {
+                      const items = attachmentsBySlot[slot.label] ?? []
+                      if (!items.length) return <div key={idx} />
                       return (
-                        <ReadField
-                          key={idx}
-                          label={slot.label}
-                          value={getSlotValue(slot, record)}
-                          required={slot.required}
-                          textarea={slot.type === 'textarea'}
-                        />
+                        <DetailFieldLayout key={idx} label={slot.label} horizontal={!verticalLayout}>
+                          <AttachmentUpload
+                            slotLabel={slot.label}
+                            attachments={items.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
+                            onAdd={() => {}} onRemove={() => {}}
+                            readOnly
+                          />
+                        </DetailFieldLayout>
                       )
-                    })}
-                  </div>
-                )
-              })}
+                    }
 
-              {renderGroupInstances(block)}
-            </div>
-          </div>
+                    return (
+                      <ReadOnlyField
+                        key={idx}
+                        label={slot.label}
+                        value={getSlotValue(slot, record)}
+                        required={slot.required}
+                        textarea={slot.type === 'textarea'}
+                        horizontal={!verticalLayout}
+                      />
+                    )
+                  })}
+                </div>
+              )
+            })}
+
+            {renderGroupInstances(block)}
+          </DetailBlock>
         )
       })}
     </div>

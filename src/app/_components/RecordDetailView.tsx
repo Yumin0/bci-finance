@@ -1,0 +1,97 @@
+import React from 'react'
+import { FormSlot } from '@/lib/types'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+
+// 三個明細頁（資金分配 / 付款憑單 / 暫付款沖銷）共用的唯讀顯示樣式與元件。
+// 改動這裡的顏色 / 間距 / 邊框，三個模組會一起連動。
+
+export const detailLabelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
+export const detailReadonlyCls = 'bg-[var(--bg-page)] cursor-default'
+export const detailBlockStyle: React.CSSProperties = { marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }
+
+// 欄位版面：horizontal＝標籤在左（固定寬）、內容在右填滿；否則標籤在上、內容在下。
+// 與資金分配申請表單同一規則（無群組區塊＝橫式、有群組區塊＝直式），children 可放輸入框或附件等。
+export function DetailFieldLayout({ label, required, horizontal, children }: { label: string; required?: boolean; horizontal?: boolean; children: React.ReactNode }) {
+  const labelNode = (
+    <label style={horizontal ? { ...detailLabelStyle, marginBottom: 0, width: 140, flexShrink: 0 } : detailLabelStyle}>
+      {label}{required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
+    </label>
+  )
+  return horizontal ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      {labelNode}
+      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+    </div>
+  ) : (
+    <div>{labelNode}{children}</div>
+  )
+}
+
+// 單一唯讀欄位：標籤 + 唯讀輸入框（或多行）
+export function ReadOnlyField({ label, value, required, textarea, horizontal }: { label: string; value: string; required?: boolean; textarea?: boolean; horizontal?: boolean }) {
+  return (
+    <DetailFieldLayout label={label} required={required} horizontal={horizontal}>
+      {textarea
+        ? <Textarea value={value} readOnly rows={4} className={detailReadonlyCls} />
+        : <Input value={value} readOnly className={detailReadonlyCls} />}
+    </DetailFieldLayout>
+  )
+}
+
+// 欄位列的 grid 樣式：橫式欄位用較寬 columnGap（對齊資金分配表單），直式用一般 gap。
+export function detailRowGridStyle(cols: number, horizontal: boolean): React.CSSProperties {
+  return horizontal
+    ? { display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, columnGap: 48, rowGap: 20, marginBottom: 32 }
+    : { display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 20, marginBottom: 20 }
+}
+
+// 區塊卡片：外框 + 標頭列（左標題、右彙總），children 為內容區
+export function DetailBlock({ title, summary, children }: { title?: string | null; summary?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div style={detailBlockStyle}>
+      {(title || summary) && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)', borderRadius: '9px 9px 0 0' }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>{title ?? ''}</span>
+          {summary && <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>{summary}</div>}
+        </div>
+      )}
+      <div style={{ padding: '20px 20px 4px' }}>{children}</div>
+    </div>
+  )
+}
+
+// 標頭彙總的單項：例如「總額 100」
+export function DetailSummaryItem({ label, value }: { label: string; value: string }) {
+  return <span style={{ color: 'var(--text-muted)' }}>{label} <strong style={{ color: 'var(--text-body)' }}>{value}</strong></span>
+}
+
+// 群組 / 明細表格：欄＝群組欄位 label、列＝各組資料，空值以「—」呈現。
+// 資金分配、付款憑單、暫付款沖銷三個明細頁共用同一表格樣式。
+export function GroupDetailTable({ slots, instances }: { slots: NonNullable<FormSlot>[]; instances: Record<string, string>[] }) {
+  const headers = slots.map(s => s.label)
+  return (
+    <div style={{ marginBottom: 20, overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr>
+            {headers.map(h => (
+              <th key={h} style={{ textAlign: 'left', padding: '6px 12px 6px 0', fontWeight: 500, color: 'var(--text-body)', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {instances.map((inst, i) => (
+            <tr key={i}>
+              {headers.map(h => (
+                <td key={h} style={{ padding: '8px 12px 8px 0', borderBottom: i < instances.length - 1 ? '1px solid var(--border-color)' : 'none', color: 'var(--text-body)' }}>
+                  {inst[h] || '—'}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}

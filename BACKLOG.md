@@ -7,6 +7,19 @@
 
 ## 進行中
 
+**明細頁共用元件：付款明細表格 + 欄位區塊渲染**（Yumin）
+分支：`feature/yumin-shared-detail-components`
+開始：2026-07-15
+說明：抽出共用唯讀顯示元件 `_components/RecordDetailView.tsx`（`ReadOnlyField`／`DetailFieldLayout`／`DetailBlock`／`DetailSummaryItem`／`GroupDetailTable`／`detailRowGridStyle`），三個明細頁改用同一套樣式，改顏色/間距一次到位連動。暫付款沖銷明細表格原本樣式不同（muted 標頭＋#序號欄），統一為付款憑單/資金分配樣式（text-body 標頭、空值「—」、拿掉 # 欄）。欄位版面比照資金分配申請表單：**無群組區塊＝橫式（標籤在左固定寬 140、內容填滿、columnGap 48）、有群組/可重複列的區塊（付款明細）＝直式（標籤在上）**，三個明細頁一致。審核區塊共用化列為後續階段。
+※ 與 Riku `feature/riku-ui-consistency`（付款憑單詳細頁、審核操作頁）重疊，已知會，Yumin 與 Riku 協調。
+影響範圍確認（共用明細顯示為橫切關注點）：
+- [x] /funds-allocation/review/check/[id]（FundsAllocationDetail 唯讀顯示）
+- [x] /funds-payment/my-payment/[id]（FundsPaymentDetail）
+- [x] /funds-payment/review/check/[id]（FundsPaymentDetail）
+- [x] /funds-voucher/my-voucher/[id]（沖銷明細頁，本次主要目標）
+- [x] /funds-voucher/review/check/[id]（沖銷審核頁的明細表格）
+- [x] npm run build 全站編譯通過
+
 **出款帳戶可見範圍 + 編輯／防重複／排序**（Riku）
 分支：`feature/riku-payment-account-visibility`
 開始：2026-07-13
