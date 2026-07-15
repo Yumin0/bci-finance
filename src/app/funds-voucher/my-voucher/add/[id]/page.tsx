@@ -11,7 +11,8 @@ import { taipeiToday } from '@/lib/dateUtils'
 import { paidAmountOf } from '@/lib/voucherReturnAmount'
 import VoucherReturnSummary from '@/app/funds-voucher/_components/VoucherReturnSummary'
 import PaymentSummaryCard from '@/app/funds-voucher/_components/PaymentSummaryCard'
-import { saveAttachments } from '@/app/actions/attachments'
+import { saveAttachments, getVoucherInheritedAttachments } from '@/app/actions/attachments'
+import { firstAttachmentSlotLabel as firstAttachmentSlotLabelOf } from '@/lib/attachmentSlots'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -109,12 +110,21 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
   // 群組重複資料（key = blockId）：逐組繼承自付款憑單付款明細，可增刪修改
   const [groupInstances, setGroupInstances] = useState<Record<string, Record<string, string>[]>>({})
   const [pendingAttachments, setPendingAttachments] = useState<Record<string, AttachmentItem[]>>({})
+  // 上游附件（申請單＋母付款憑單，預支時傳的所有單據），唯讀帶入第一個附件欄位供對照
+  const [parentAttachments, setParentAttachments] = useState<AttachmentItem[]>([])
 
   useEffect(() => {
     async function load() {
       const { id } = await params
       const numId = Number(id)
       setPaymentId(numId)
+
+      getVoucherInheritedAttachments(numId).then(({ fromAllocation, fromPayment }) =>
+        setParentAttachments([
+          ...fromAllocation.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label, tag: '來自申請單' })),
+          ...fromPayment.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label, tag: '來自付款憑單' })),
+        ])
+      )
 
       const [{ data, error: fetchError }, schemas] = await Promise.all([
         supabase.from('funds_payment').select('*').eq('id', numId).single(),
@@ -209,6 +219,8 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
         <AttachmentUpload
           slotLabel={slot.label}
           attachments={items}
+          lockedItems={slot.label === firstAttachmentSlotLabelOf(schema) ? parentAttachments : undefined}
+          lockedTag="來自付款憑單"
           onAdd={item => setPendingAttachments(prev => ({ ...prev, [slot.label]: [...(prev[slot.label] ?? []), item] }))}
           onRemove={item => setPendingAttachments(prev => ({ ...prev, [slot.label]: (prev[slot.label] ?? []).filter(a => a.storagePath !== item.storagePath) }))}
         />
@@ -370,7 +382,7 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
                 {normalRows.map(row => (
                   <div key={row.id} style={detailRowGridStyle(row.cols, horizontal)}>
                     {row.slots.map((slot, idx) => slot ? (
-                      <DetailFieldLayout key={idx} label={slot.label} required={slot.required} horizontal={horizontal}>
+                      <DetailFieldLayout key={idx} label={slot.label} required={slot.required} horizontal={horizontal} hint={slot.hint}>
                         {renderInput(slot, fieldValues[slot.fieldId] ?? '', v => setField(slot.fieldId, v))}
                       </DetailFieldLayout>
                     ) : <div key={idx} />)}

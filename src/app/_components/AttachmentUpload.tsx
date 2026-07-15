@@ -10,6 +10,7 @@ export type AttachmentItem = {
   fileType: string
   url: string
   slotLabel: string
+  tag?: string  // 帶入附件的來源標籤（覆寫 lockedTag，用於同一格混合多個來源，如「來自申請單」＋「來自付款憑單」）
 }
 
 type UploadingFile = {
@@ -25,6 +26,10 @@ type Props = {
   onAdd: (item: AttachmentItem) => void
   onRemove: (item: AttachmentItem) => void
   readOnly?: boolean
+  // 上游單據帶進來的附件：顯示在同一格最上方，可預覽但不可刪（例：付款憑單顯示資金分配申請單的附件）。
+  // 讓「母單有什麼、我還缺什麼」在同一個位置看得完，職員只有一個地方能傳檔。
+  lockedItems?: AttachmentItem[]
+  lockedTag?: string
 }
 
 const ACCEPTED = '.pdf,.jpg,.jpeg,.png'
@@ -42,7 +47,7 @@ function friendlyError(status: number, body: string): string {
   return '上傳失敗，請稍後再試'
 }
 
-export default function AttachmentUpload({ slotLabel, attachments, onAdd, onRemove, readOnly }: Props) {
+export default function AttachmentUpload({ slotLabel, attachments, onAdd, onRemove, readOnly, lockedItems, lockedTag }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([])
   const [preview, setPreview] = useState<AttachmentItem | null>(null)
@@ -105,11 +110,51 @@ export default function AttachmentUpload({ slotLabel, attachments, onAdd, onRemo
     onRemove(item)
   }
 
-  const hasContent = attachments.length > 0 || uploadingFiles.length > 0
+  const locked = lockedItems ?? []
+  const hasContent = attachments.length > 0 || uploadingFiles.length > 0 || locked.length > 0
 
   return (
     <div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: hasContent ? 10 : 0 }}>
+        {/* 上游單據帶入的附件：可預覽、不可刪，以標籤標示來源 */}
+        {locked.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {locked.map((item, i) => (
+              <div
+                key={`locked-${i}`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '5px 10px',
+                  border: '1px dashed var(--border-color)',
+                  borderRadius: 6,
+                  background: 'var(--bg-page)',
+                  fontSize: 13,
+                  maxWidth: 300,
+                }}
+              >
+                <span style={{ flexShrink: 0 }}>{ICON[item.fileType] ?? '📎'}</span>
+                <button
+                  type="button"
+                  onClick={() => setPreview(item)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-muted)', fontSize: 13, padding: 0,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160,
+                    textAlign: 'left',
+                  }}
+                >
+                  {item.fileName}
+                </button>
+                {(item.tag ?? lockedTag) && (
+                  <span style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: 4, padding: '1px 5px' }}>
+                    {item.tag ?? lockedTag}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* 已完成的附件 */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {attachments.map((item, i) => (

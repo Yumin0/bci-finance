@@ -7,6 +7,23 @@
 
 ## 進行中
 
+**附件欄位：說明提示 + 母單附件帶入欄位 + 修三頁附件顯示 bug**（Yumin）
+分支：`feature/yumin-attachment-hints`
+開始：2026-07-16
+說明：① `FormSlot` 新增 `hint`（欄位說明小字），表單設定頁每個欄位可填一行提示，顯示在填寫頁欄位上方——附件欄位用來列各階段常見應附單據（資金分配：CSW/合約/報價單、Invoice/發票、刷卡明細；付款憑單：Invoice/發票、刷卡明細、匯出付款憑單html；暫付款沖銷：紙本發票收據）；② 母單（上游單據）附件改為顯示在填寫頁「第一個附件欄位」內（唯讀灰底不可刪；付款憑單標「來自申請單」、暫付款沖銷帶兩層——申請單附件標「來自申請單」＋母付款憑單附件標「來自付款憑單」，`getVoucherInheritedAttachments` 一次撈兩層，沖銷建立/詳細/審核三頁皆帶；沖銷詳細頁草稿狀態附件欄位可直接補傳/刪除，上傳即存檔），移除付款憑單建立頁/草稿編輯頁/審核頁底部重複的「附件」卡片（原本「本憑單附件」與表單附件欄位功能重複，職員會傳錯位置）；付款憑單表單並刪除與「上傳單據」重複的「補充單據資料」附件欄位（Yumin 確認，表單設定變更；舊檔由歸位規則自動收進「上傳單據」顯示）；③ 修三個 bug：付款憑單草稿編輯頁 attachment 欄位渲染成文字框（漏抄建立頁的 attachment 分支）、草稿存檔把 attachment 欄位當文字寫進 extra_data 污染、FundsPaymentDetail／沖銷詳細頁／沖銷審核頁完全看不到附件（審核人看不到職員上傳的單據）；④ 抽共用 `lib/attachmentSlots.ts`（附件欄位與 slot_label 對應規則，對不上的舊檔收進第一格）＋ `RecordDetailView` 的 `FieldHint`／`DetailAttachmentField`。
+dev 資料庫遷移已執行（2026-07-16，Yumin 確認）：填入三張表單附件 hint、刪付款憑單「補充單據資料」欄位、清掉 15 張憑單 extra_data 的附件欄位殘留 key。正式機需同步（見 prod-pending-sql）。
+影響範圍確認（附件顯示為橫切關注點）：
+- [x] /funds-payment/my-payment/add/[id]（建立頁：母單附件入欄位、hint、移除底部卡片）
+- [x] /funds-payment/my-payment/[id]（草稿編輯頁：修文字框 bug、修存檔污染、母單附件入欄位、hint、移除底部卡片；已送出走 FundsPaymentDetail）
+- [x] /funds-payment/review/check/[id]（審核頁：FundsPaymentDetail 顯示附件、移除底部卡片）
+- [x] /funds-voucher/my-voucher/add/[id]（沖銷建立頁：hint）
+- [x] /funds-voucher/my-voucher/[id]（沖銷詳細頁：修看不到附件 bug）
+- [x] /funds-voucher/review/check/[id]（沖銷審核頁：修看不到附件 bug）
+- [x] /funds-allocation/my-funds/add、edit/[id]（資金分配新增/編輯：hint）
+- [x] FundsAllocationDetail（已正確處理 attachment，未受影響）
+- [x] Playwright 實測：建立頁上傳按鈕（非文字框）、母單附件帶入標「來自申請單」、底部卡片消失、無 console error
+- [x] npm run build 全站編譯通過
+
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
 分支：`feature/yumin-voucher-return-amount`
 開始：2026-07-15

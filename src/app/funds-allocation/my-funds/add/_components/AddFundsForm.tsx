@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
+import { FieldHint } from '@/app/_components/RecordDetailView'
 import ErrorDialog from '@/app/_components/ErrorDialog'
 import ConfirmDialog from '@/app/_components/ConfirmDialog'
 import { saveAttachments } from '@/app/actions/attachments'
@@ -1220,15 +1221,18 @@ export default function AddFundsForm({
                           {computedTotalHints[slot.fieldId] && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4, fontWeight: 400 }}>{computedTotalHints[slot.fieldId]}</span>}
                         </label>
                       )
+                      // 有說明小字時橫式改頂端對齊：小字會把內容撐高，垂直置中會讓標籤對不上輸入框
+                      const hasHint = !!slot.hint?.trim()
                       return verticalLayout ? (
                         <div key={idx}>
                           {labelNode}
+                          <FieldHint hint={slot.hint} />
                           {renderField(slot)}
                         </div>
                       ) : (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                          {labelNode}
-                          <div style={{ flex: 1, minWidth: 0 }}>{renderField(slot)}</div>
+                        <div key={idx} style={{ display: 'flex', alignItems: hasHint ? 'flex-start' : 'center', gap: 16 }}>
+                          {hasHint ? <div style={{ paddingTop: 8 }}>{labelNode}</div> : labelNode}
+                          <div style={{ flex: 1, minWidth: 0 }}><FieldHint hint={slot.hint} />{renderField(slot)}</div>
                         </div>
                       )
                     })}

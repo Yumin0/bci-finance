@@ -721,6 +721,22 @@ export default function FormSettingsClient({
                 </div>
               )}
 
+              {/* 說明小字：顯示在填寫頁的欄位上方，用來提示該欄位要填/附什麼 */}
+              <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
+                <p style={{ ...panelLabel, marginBottom: 6 }}>說明小字</p>
+                <textarea
+                  value={selectedSlot.hint ?? ''}
+                  onChange={e => updateSlot(selectedBlock.id, selectedRow.id, selection.slotIdx, {
+                    hint: e.target.value.trim() ? e.target.value : undefined,
+                  })}
+                  rows={2}
+                  placeholder="例：常見應附：Invoice、發票 ／ 刷卡明細"
+                  style={{ ...panelInput, resize: 'vertical' }} />
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '6px 0 0' }}>
+                  顯示在申請人填寫時的欄位上方，純提示不影響必填。
+                </p>
+              </div>
+
               {/* 預設值：新增申請單時自動帶入 */}
               {selectedSlot.type !== 'attachment' && selectedSlot.type !== 'readonly' && (
                 <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg-sidebar)', borderRadius: 6, border: '1px solid var(--border-color)' }}>

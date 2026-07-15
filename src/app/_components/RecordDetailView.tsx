@@ -1,7 +1,8 @@
 import React from 'react'
-import { FormSlot } from '@/lib/types'
+import { FormSlot, FundAttachment } from '@/lib/types'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 
 // 三個明細頁（資金分配 / 付款憑單 / 暫付款沖銷）共用的唯讀顯示樣式與元件。
 // 改動這裡的顏色 / 間距 / 邊框，三個模組會一起連動。
@@ -10,21 +11,74 @@ export const detailLabelStyle: React.CSSProperties = { display: 'block', fontSiz
 export const detailReadonlyCls = 'bg-[var(--bg-page)] cursor-default'
 export const detailBlockStyle: React.CSSProperties = { marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }
 
+// 欄位說明小字（form_slots.hint）：顯示在填寫頁欄位內容上方，純提示。
+// 附件欄位用來列出該階段常見應附單據，讓職員知道要傳什麼、缺什麼。唯讀明細頁不顯示。
+export function FieldHint({ hint }: { hint?: string }) {
+  if (!hint?.trim()) return null
+  return (
+    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px', whiteSpace: 'pre-line', lineHeight: 1.6 }}>
+      {hint}
+    </p>
+  )
+}
+
 // 欄位版面：horizontal＝標籤在左（固定寬）、內容在右填滿；否則標籤在上、內容在下。
 // 與資金分配申請表單同一規則（無群組區塊＝橫式、有群組區塊＝直式），children 可放輸入框或附件等。
-export function DetailFieldLayout({ label, required, horizontal, children }: { label: string; required?: boolean; horizontal?: boolean; children: React.ReactNode }) {
+export function DetailFieldLayout({ label, required, horizontal, hint, children }: { label: string; required?: boolean; horizontal?: boolean; hint?: string; children: React.ReactNode }) {
   const labelNode = (
     <label style={horizontal ? { ...detailLabelStyle, marginBottom: 0, width: 140, flexShrink: 0 } : detailLabelStyle}>
       {label}{required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
     </label>
   )
+  // 有說明小字時，橫式欄位改為頂端對齊：小字會把內容撐高，垂直置中會讓標籤浮在中間對不上輸入框
+  const hasHint = !!hint?.trim()
   return horizontal ? (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-      {labelNode}
-      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+    <div style={{ display: 'flex', alignItems: hasHint ? 'flex-start' : 'center', gap: 16 }}>
+      {hasHint ? <div style={{ width: 140, flexShrink: 0, paddingTop: 8 }}>{labelNode}</div> : labelNode}
+      <div style={{ flex: 1, minWidth: 0 }}><FieldHint hint={hint} />{children}</div>
     </div>
   ) : (
-    <div>{labelNode}{children}</div>
+    <div>{labelNode}<FieldHint hint={hint} />{children}</div>
+  )
+}
+
+// 唯讀附件欄位：標籤 + 該欄位的附件（可預覽、不可增刪）。
+// lockedItems 放上游單據帶入的附件（例：付款憑單顯示資金分配申請單的附件）；
+// 每個帶入附件可自帶 tag 標示來源（同一格混多層來源時用，如「來自申請單」＋「來自付款憑單」）。
+// 三個明細/審核頁共用，確保審核人在任何一頁都看得到職員上傳的單據。
+export type TaggedAttachment = FundAttachment & { tag?: string }
+
+export function DetailAttachmentField({
+  label, horizontal, attachments, lockedItems, lockedTag,
+}: {
+  label: string
+  horizontal?: boolean
+  attachments: FundAttachment[]
+  lockedItems?: TaggedAttachment[]
+  lockedTag?: string
+}) {
+  const toItem = (a: TaggedAttachment): AttachmentItem => ({
+    id: a.id, fileName: a.file_name, storagePath: a.storage_path,
+    fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label, tag: a.tag,
+  })
+  const items = attachments.map(toItem)
+  const locked = (lockedItems ?? []).map(toItem)
+  return (
+    <DetailFieldLayout label={label} horizontal={horizontal}>
+      {items.length === 0 && locked.length === 0 ? (
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, padding: '8px 0' }}>—</p>
+      ) : (
+        <AttachmentUpload
+          slotLabel={label}
+          attachments={items}
+          lockedItems={locked.length ? locked : undefined}
+          lockedTag={lockedTag}
+          onAdd={() => {}}
+          onRemove={() => {}}
+          readOnly
+        />
+      )}
+    </DetailFieldLayout>
   )
 }
 

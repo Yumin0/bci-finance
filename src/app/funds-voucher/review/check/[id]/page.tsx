@@ -3,7 +3,10 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { ApprovalRecord, FormBlock, FormSchemaRow, FormSlot, StepDecision } from '@/lib/types'
+import { ApprovalRecord, FormBlock, FormSchemaRow, FormSlot, FundAttachment, StepDecision } from '@/lib/types'
+import { getAttachmentsByTempVoucherId, getVoucherInheritedAttachments } from '@/app/actions/attachments'
+import { attachmentsForSlot, firstAttachmentSlotLabel } from '@/lib/attachmentSlots'
+import AttachmentUpload from '@/app/_components/AttachmentUpload'
 import { submitApprovalDecision, checkCanReviewStep, getPaymentCategoryOptions, getLatestPaymentCategories } from '@/app/actions/approval-flow'
 import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
@@ -67,7 +70,26 @@ function getFieldValue(slot: NonNullable<FormSlot>, record: TempVoucher): string
   return String(val)
 }
 
-function renderSlot(slot: NonNullable<FormSlot>, record: TempVoucher) {
+function renderSlot(slot: NonNullable<FormSlot>, record: TempVoucher, schema: FormBlock[], attachments: FundAttachment[], parentAttachments: (FundAttachment & { tag?: string })[]) {
+  // 附件欄位：顯示職員上傳的單據（原本掉到最後的 Input 分支，審核人整頁看不到任何附件）；
+  // 第一個附件欄位另帶入上游附件（申請單＋母付款憑單，各自標來源）供對照
+  if (slot.type === 'attachment') {
+    const toItem = (a: FundAttachment & { tag?: string }) => ({
+      id: a.id, fileName: a.file_name, storagePath: a.storage_path,
+      fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label, tag: a.tag,
+    })
+    const items = attachmentsForSlot(schema, attachments, slot.label).map(toItem)
+    const locked = slot.label === firstAttachmentSlotLabel(schema) ? parentAttachments.map(toItem) : []
+    if (!items.length && !locked.length) return <p className="m-0 py-2 text-[13px] text-muted-foreground">—</p>
+    return (
+      <AttachmentUpload
+        slotLabel={slot.label}
+        attachments={items}
+        lockedItems={locked.length ? locked : undefined}
+        onAdd={() => {}} onRemove={() => {}} readOnly
+      />
+    )
+  }
   const value = getFieldValue(slot, record)
   if (slot.type === 'textarea') return <Textarea value={value} readOnly rows={4} className={readonlyCls} />
   return <Input value={value} readOnly className={readonlyCls} />
@@ -112,11 +134,15 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
   const [categoryOptions, setCategoryOptions] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [attachments, setAttachments] = useState<FundAttachment[]>([])
+  const [parentAttachments, setParentAttachments] = useState<(FundAttachment & { tag?: string })[]>([])
 
   useEffect(() => {
     async function load() {
       const { id } = await params
       const numId = Number(id)
+
+      getAttachmentsByTempVoucherId(numId).then(setAttachments)
 
       const [recRes, pastRes, session] = await Promise.all([
         supabase.from('temp_vouchers').select(`*, funds_payment:funds_payment_id(${VOUCHER_PARENT_PAYMENT_COLUMNS})`).eq('id', numId).single(),
@@ -128,6 +154,12 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
       const voucher = recRes.data as TempVoucher
+      getVoucherInheritedAttachments(voucher.funds_payment_id).then(({ fromAllocation, fromPayment }) =>
+        setParentAttachments([
+          ...fromAllocation.map(a => ({ ...a, tag: '來自申請單' })),
+          ...fromPayment.map(a => ({ ...a, tag: '來自付款憑單' })),
+        ])
+      )
       const past = (pastRes.data as ApprovalRecord[]) ?? []
       setPastRecords(past)
 
@@ -281,7 +313,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
                   {row.slots.map((slot, idx) => slot ? (
                     <div key={idx}>
                       <label className="mb-1.5 block text-sm font-medium text-foreground">{slot.label}</label>
-                      {renderSlot(slot, record)}
+                      {renderSlot(slot, record, schema, attachments, parentAttachments)}
                     </div>
                   ) : <div key={idx} />)}
                 </div>

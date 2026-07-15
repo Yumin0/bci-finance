@@ -8,6 +8,34 @@
 
 ## ⏳ 待執行
 
+### 附件欄位 hint（說明提示，表單設定，非 SQL）
+
+- [ ] 正式機尚未設定三張表單附件欄位的 hint
+
+用途：新功能替各表單附件欄位加「說明小字」（`form_slots.hint`），列出該階段常見應附單據，提醒職員要傳什麼。**程式碼已支援 hint 顯示，但實際提示文字存在表單設定（form_schemas jsonb），dev/staging 與正式機兩個 Supabase 獨立，不會自動同步。** 到正式站 **表單設定（`/system-settings/form-settings`）**，替下列三張表單的附件欄位在「說明小字」欄填入內容（或直接跑下方 SQL）：
+
+- 資金分配（`funds_allocation`）「資料附件」：`常見應附：核准的 CSW、合約、報價單 ／ Invoice、發票 ／ 刷卡明細（依實際情況檢附，非每筆都需全附）`
+- 付款憑單（`payment_voucher`）「上傳單據」：`常見應附：Invoice、發票 ／ 刷卡明細 ／ 匯出付款憑單 html（依實際情況檢附，非每筆都需全附；申請單已附的單據會顯示在此欄位上方）`
+- 暫付款沖銷（`temp_voucher`）「上傳單據」：`常見應附：紙本發票收據`
+
+同時需在正式站表單設定**刪除付款憑單的「補充單據資料」附件欄位**（與「上傳單據」功能重複，2026-07-16 Yumin 拍板只留一個附件欄位＋提示清單；之前傳到該欄位的舊檔會由程式的歸位規則自動收進「上傳單據」欄位顯示，不會消失）。刪除前照慣例掃一次該欄位 fieldId 有無被其他欄位的 `showWhen` 綁定（dev 掃過無依賴）。
+
+注意：正式站附件欄位的 label 若與 dev 不同（dev 為上述名稱），需對應調整。dev/staging 已於 2026-07-16 由遷移腳本完成（填 hint＋刪欄位＋清 extra_data 殘留）。
+
+### 付款憑單 extra_data 附件欄位殘留清理（資料清理，非結構變更）
+
+- [ ] 正式機視情況執行
+
+用途：修正「付款憑單草稿存檔把附件欄位當文字寫進 `funds_payment.extra_data`」的 bug（本次已修）。修正前存過的草稿，其 extra_data 會殘留 `"上傳單據": ""`、`"補充單據資料": ""` 之類的空值 key（附件檔案本身存在 `fund_attachments`，不受影響，只是 extra_data 多了無意義的空欄）。正式機若有修正前建立的付款憑單草稿，可跑清理把這些附件 label 的 key 從 extra_data 移除；沒有的話可略過。dev/staging 由 `migrate-tmp.mjs` 一併清理。
+
+```sql
+-- 移除 funds_payment.extra_data 裡「附件欄位 label」對應的 key（附件欄位 label 依正式站表單設定為準，
+-- 例：上傳單據、補充單據資料）。逐個 label 執行，或用你偏好的 jsonb 寫法一次移除。
+UPDATE funds_payment
+SET extra_data = extra_data - '上傳單據' - '補充單據資料'
+WHERE extra_data ?| array['上傳單據','補充單據資料'];
+```
+
 ### 正式站費用項目資料尚未建立（費用類型設定，非 SQL，資料輸入）
 
 - [ ] 正式機尚未建立費用項目資料

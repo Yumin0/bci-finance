@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsAllocation, FormBlock, FormSchemaRow, FormSlot, DropdownOption, TaxRateOption, FundAttachment } from '@/lib/types'
 import { applyTaxFormula, computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
@@ -12,6 +12,7 @@ import { taipeiToday } from '@/lib/dateUtils'
 import { getAllocationRemainingInfo, type AllocationRemainingInfo } from '@/app/actions/fund-budget'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getAttachmentsByAllocationId, saveAttachments } from '@/app/actions/attachments'
+import { firstAttachmentSlotLabel as firstAttachmentSlotLabelOf } from '@/lib/attachmentSlots'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,7 +20,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
 import ErrorDialog from '@/app/_components/ErrorDialog'
-import { DetailFieldLayout, detailRowGridStyle } from '@/app/_components/RecordDetailView'
+import { DetailFieldLayout, FieldHint, detailRowGridStyle } from '@/app/_components/RecordDetailView'
 
 
 // fieldId-based: known default fieldIds that are direct allocation columns → always readonly
@@ -105,6 +106,13 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
   const [allocationAttachments, setAllocationAttachments] = useState<FundAttachment[]>([])
   const [pendingAttachments, setPendingAttachments] = useState<Record<string, AttachmentItem[]>>({})
+
+  // 申請單附件唯讀帶入第一個附件欄位（要換位置就在表單設定調欄位順序）
+  const allocationAttachmentItems: AttachmentItem[] = useMemo(
+    () => allocationAttachments.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label })),
+    [allocationAttachments]
+  )
+  const firstAttachmentSlotLabel = useMemo(() => firstAttachmentSlotLabelOf(schema), [schema])
   const [dropdownOptions, setDropdownOptions] = useState<Record<string, DropdownOption[]>>({})
   const [dynamicSelectOptions, setDynamicSelectOptions] = useState<Record<string, { value: string; label: string }[]>>({})
   const [payeeFullRecords, setPayeeFullRecords] = useState<Record<string, Array<{ label: string; searchKey: string; fieldValuesByLabel: Record<string, string> }>>>({})
@@ -618,6 +626,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
         <AttachmentUpload
           slotLabel={slot.label}
           attachments={items}
+          lockedItems={slot.label === firstAttachmentSlotLabel ? allocationAttachmentItems : undefined}
+          lockedTag="來自申請單"
           onAdd={item => setPendingAttachments(prev => ({ ...prev, [slot.label]: [...(prev[slot.label] ?? []), item] }))}
           onRemove={item => setPendingAttachments(prev => ({ ...prev, [slot.label]: (prev[slot.label] ?? []).filter(a => a.storagePath !== item.storagePath) }))}
         />
@@ -913,7 +923,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
                       // 橫式（無群組區塊）用共用 DetailFieldLayout；直式（群組區塊）維持原本含總額提示的排版
                       if (horizontal) {
                         return (
-                          <DetailFieldLayout key={idx} label={slot.label} required={required} horizontal>
+                          <DetailFieldLayout key={idx} label={slot.label} required={required} horizontal hint={slot.hint}>
                             {renderField(slot, record)}
                           </DetailFieldLayout>
                         )
@@ -925,6 +935,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
                             {required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
                             {computedTotalHints[slot.fieldId] && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4, fontWeight: 400 }}>{computedTotalHints[slot.fieldId]}</span>}
                           </label>
+                          <FieldHint hint={slot.hint} />
                           {renderField(slot, record)}
                         </div>
                       )
@@ -937,21 +948,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
           )
         })}
 
-        {allocationAttachments.length > 0 && (
-          <div style={{ marginBottom: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
-            <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>附件</span>
-            </div>
-            <div style={{ padding: '16px 20px' }}>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>來自資金分配申請單的附件</p>
-              <AttachmentUpload
-                slotLabel="inherited"
-                attachments={allocationAttachments.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
-                onAdd={() => {}} onRemove={() => {}} readOnly
-              />
-            </div>
-          </div>
-        )}
+        {/* 申請單附件顯示在第一個附件欄位內（唯讀帶入），不再是底部的獨立區塊——
+            讓「母單有什麼、我還缺什麼」在同一格看得完，且只有一個地方能傳檔 */}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={submitting || savingDraft}>

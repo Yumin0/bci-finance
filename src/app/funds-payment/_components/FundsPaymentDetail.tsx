@@ -1,6 +1,7 @@
-import { FundsPayment, FormBlock, FormSchemaRow, FormSlot } from '@/lib/types'
+import { FundsPayment, FormBlock, FormSchemaRow, FormSlot, FundAttachment } from '@/lib/types'
 import { formatTaxNumber } from '@/lib/taxUtils'
-import { DetailBlock, DetailSummaryItem, GroupDetailTable, ReadOnlyField, detailRowGridStyle } from '@/app/_components/RecordDetailView'
+import { DetailAttachmentField, DetailBlock, DetailSummaryItem, GroupDetailTable, ReadOnlyField, detailRowGridStyle } from '@/app/_components/RecordDetailView'
+import { attachmentsForSlot, firstAttachmentSlotLabel } from '@/lib/attachmentSlots'
 
 function getFieldValue(slot: NonNullable<FormSlot>, record: FundsPayment): string {
   const map: Record<string, unknown> = {
@@ -57,7 +58,19 @@ function parseGroupInstances(record: FundsPayment, blockId: string): Record<stri
   return instances
 }
 
-export default function FundsPaymentDetail({ record, schema }: { record: FundsPayment; schema: FormBlock[] }) {
+export default function FundsPaymentDetail({
+  record,
+  schema,
+  attachments = [],
+  inheritedAttachments = [],
+}: {
+  record: FundsPayment
+  schema: FormBlock[]
+  attachments?: FundAttachment[]              // 本憑單自己的附件
+  inheritedAttachments?: FundAttachment[]     // 來自資金分配申請單的附件（唯讀帶入）
+}) {
+  const firstAttachLabel = firstAttachmentSlotLabel(schema)
+
   function renderGroupInstances(block: FormBlock) {
     const groupRows = getGroupRows(block)
     if (!groupRows.length) return null
@@ -119,9 +132,24 @@ export default function FundsPaymentDetail({ record, schema }: { record: FundsPa
           >
             {preGroupRows.map(row => (
               <div key={row.id} style={detailRowGridStyle(row.cols, !verticalLayout)}>
-                {row.slots.map((slot, idx) => slot ? (
-                  <ReadOnlyField key={idx} label={slot.label} value={getFieldValue(slot, record)} textarea={slot.type === 'textarea'} horizontal={!verticalLayout} />
-                ) : <div key={idx} />)}
+                {row.slots.map((slot, idx) => {
+                  if (!slot) return <div key={idx} />
+                  if (slot.type === 'attachment') {
+                    return (
+                      <DetailAttachmentField
+                        key={idx}
+                        label={slot.label}
+                        horizontal={!verticalLayout}
+                        attachments={attachmentsForSlot(schema, attachments, slot.label)}
+                        lockedItems={slot.label === firstAttachLabel ? inheritedAttachments : undefined}
+                        lockedTag="來自申請單"
+                      />
+                    )
+                  }
+                  return (
+                    <ReadOnlyField key={idx} label={slot.label} value={getFieldValue(slot, record)} textarea={slot.type === 'textarea'} horizontal={!verticalLayout} />
+                  )
+                })}
               </div>
             ))}
             {renderGroupInstances(block)}

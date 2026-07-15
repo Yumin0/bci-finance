@@ -12,7 +12,6 @@ import { getAllocationRemainingInfo, type AllocationRemainingInfo } from '@/app/
 import { getPaymentOccupiedAmount } from '@/lib/fundsAllocationRemaining'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
 import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
-import AttachmentUpload from '@/app/_components/AttachmentUpload'
 import ErrorDialog from '@/app/_components/ErrorDialog'
 import ReviewProgressBlock from '@/app/_components/ReviewProgressBlock'
 
@@ -206,37 +205,13 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         />
       )}
 
-      <FundsPaymentDetail record={record} schema={schema} />
-
-      {(allocationAttachments.length > 0 || paymentAttachments.length > 0) && (
-        <div style={{ marginBottom: 24, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
-          <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>附件</span>
-          </div>
-          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {allocationAttachments.length > 0 && (
-              <div>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>來自資金分配申請單的附件</p>
-                <AttachmentUpload
-                  slotLabel="inherited"
-                  attachments={allocationAttachments.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
-                  onAdd={() => {}} onRemove={() => {}} readOnly
-                />
-              </div>
-            )}
-            {paymentAttachments.length > 0 && (
-              <div>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>付款憑單附件</p>
-                <AttachmentUpload
-                  slotLabel="payment"
-                  attachments={paymentAttachments.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
-                  onAdd={() => {}} onRemove={() => {}} readOnly
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* 附件顯示在表單各自的附件欄位內（原本底部另有一個獨立附件區塊，已移除） */}
+      <FundsPaymentDetail
+        record={record}
+        schema={schema}
+        attachments={paymentAttachments}
+        inheritedAttachments={allocationAttachments}
+      />
 
       {/* 審核進度（比照筑今一列式排版，共用元件；付款群組步驟顯示付款分類） */}
       <ReviewProgressBlock

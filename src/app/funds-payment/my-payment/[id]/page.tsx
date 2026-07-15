@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsPayment, ApprovalRecord, FormBlock, FormSchemaRow, FormSlot, DropdownOption, FundAttachment, TaxRateOption } from '@/lib/types'
 import { applyTaxFormula, computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
@@ -16,6 +16,8 @@ import { getFormSchemas } from '@/app/actions/form-schema'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import { getAttachmentsByAllocationId, getAttachmentsByPaymentId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
+import { attachmentSlotLabels as attachmentSlotLabelsOf, firstAttachmentSlotLabel as firstAttachmentSlotLabelOf } from '@/lib/attachmentSlots'
+import { FieldHint } from '@/app/_components/RecordDetailView'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
 import StatusBadge from '@/app/_components/StatusBadge'
 import ReviewProgressBlock, { type ReviewStepDef } from '@/app/_components/ReviewProgressBlock'
@@ -165,9 +167,30 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
   // 附件
   const [inheritedAttachments, setInheritedAttachments] = useState<FundAttachment[]>([])
-  const [ownAttachments, setOwnAttachments] = useState<AttachmentItem[]>([])
+  const [ownAttachmentRows, setOwnAttachmentRows] = useState<FundAttachment[]>([])
   const [newPaymentAttachments, setNewPaymentAttachments] = useState<AttachmentItem[]>([])
   const [deletedPaymentAttachmentIds, setDeletedPaymentAttachmentIds] = useState<number[]>([])
+
+  const toItem = (a: FundAttachment): AttachmentItem => ({
+    id: a.id, fileName: a.file_name, storagePath: a.storage_path,
+    fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label,
+  })
+  const ownAttachments: AttachmentItem[] = useMemo(() => ownAttachmentRows.map(toItem), [ownAttachmentRows])
+  const inheritedAttachmentItems: AttachmentItem[] = useMemo(() => inheritedAttachments.map(toItem), [inheritedAttachments])
+
+  // 申請單附件帶入的位置＝表單第一個附件欄位（要換位置就在表單設定調欄位順序）
+  const attachmentSlotLabels = useMemo(() => attachmentSlotLabelsOf(schema), [schema])
+  const firstAttachmentSlotLabel = useMemo(() => firstAttachmentSlotLabelOf(schema), [schema])
+
+  // 該附件欄位要顯示的本憑單附件。舊憑單的檔案存在寫死的 slot_label='payment'（底部附件區塊時代），
+  // 表單裡沒有這個欄位，會對不到而看不見 → 一律收進第一個附件欄位（與 attachmentsForSlot 同規則）。
+  function ownItemsForSlot(label: string): AttachmentItem[] {
+    const isFirst = label === firstAttachmentSlotLabel
+    return [...ownAttachments, ...newPaymentAttachments].filter(a =>
+      !deletedPaymentAttachmentIds.includes(a.id ?? -1) &&
+      (a.slotLabel === label || (isFirst && !attachmentSlotLabels.has(a.slotLabel)))
+    )
+  }
 
   function setField(fieldId: string, value: string) {
     setFieldValues(prev => ({ ...prev, [fieldId]: value }))
@@ -447,9 +470,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       if (rec.funds_allocation_id) {
         getAttachmentsByAllocationId(rec.funds_allocation_id).then(setInheritedAttachments)
       }
-      getAttachmentsByPaymentId(numId).then(items => {
-        setOwnAttachments(items.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label })))
-      })
+      getAttachmentsByPaymentId(numId).then(setOwnAttachmentRows)
 
       setLoading(false)
     }
@@ -676,6 +697,22 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       )
     }
 
+    if (type === 'attachment') {
+      return (
+        <AttachmentUpload
+          slotLabel={slot.label}
+          attachments={ownItemsForSlot(slot.label)}
+          lockedItems={slot.label === firstAttachmentSlotLabel ? inheritedAttachmentItems : undefined}
+          lockedTag="來自申請單"
+          onAdd={item => setNewPaymentAttachments(prev => [...prev, item])}
+          onRemove={item => {
+            if (item.id) setDeletedPaymentAttachmentIds(prev => [...prev, item.id!])
+            else setNewPaymentAttachments(prev => prev.filter(a => a.storagePath !== item.storagePath))
+          }}
+        />
+      )
+    }
+
     if (type === 'textarea') {
       return (
         <Textarea
@@ -810,6 +847,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     const extraData: Record<string, string> = {}
     for (const slot of allSlots) {
       if (groupSlotFieldIds.has(slot.fieldId)) continue
+      // 附件欄位的檔案存在 fund_attachments（以 slot_label 對應），不是 extra_data 的文字值
+      if (slot.type === 'attachment') continue
       if (slot.type === 'readonly' || ALLOCATION_READONLY_FIELDS.has(slot.fieldId) || ALLOCATION_READONLY_LABELS.has(slot.label) || isPaymentMethodSlot(slot)) continue
       // 類型存入 funds_payment.category 結構化欄位，不重複存進動態欄位資料
       if (isCategorySlot(slot)) continue
@@ -988,6 +1027,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                                 {slot.label}
                                 {computedTotalHints[slot.fieldId] && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4, fontWeight: 400 }}>{computedTotalHints[slot.fieldId]}</span>}
                               </label>
+                              <FieldHint hint={slot.hint} />
                               {renderDraftField(slot)}
                             </div>
                           ) : <div key={idx} />
@@ -1001,7 +1041,12 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
             })}
           </div>
         ) : (
-          <FundsPaymentDetail record={record!} schema={schema} />
+          <FundsPaymentDetail
+            record={record!}
+            schema={schema}
+            attachments={ownAttachmentRows}
+            inheritedAttachments={inheritedAttachments}
+          />
         )}
 
         {/* 儲存/送出被擋（費用檢查、超額等）改用全站共用中央彈窗 */}
@@ -1018,42 +1063,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           </div>
         )}
 
-        {/* 附件區塊 */}
-        {(inheritedAttachments.length > 0 || ownAttachments.length > 0 || newPaymentAttachments.length > 0 || isDraft) && (
-          <div style={{ marginTop: 16, border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
-            <div style={{ padding: '10px 20px', background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border-color)' }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-title)' }}>附件</span>
-            </div>
-            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {inheritedAttachments.length > 0 && (
-                <div>
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>來自申請單的附件</p>
-                  <AttachmentUpload
-                    slotLabel="inherited"
-                    attachments={inheritedAttachments.map(a => ({ id: a.id, fileName: a.file_name, storagePath: a.storage_path, fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label }))}
-                    onAdd={() => {}} onRemove={() => {}} readOnly
-                  />
-                </div>
-              )}
-              <div>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>本憑單附件</p>
-                <AttachmentUpload
-                  slotLabel="payment"
-                  attachments={[
-                    ...ownAttachments.filter(a => !deletedPaymentAttachmentIds.includes(a.id ?? -1)),
-                    ...newPaymentAttachments,
-                  ]}
-                  readOnly={!isDraft}
-                  onAdd={item => setNewPaymentAttachments(prev => [...prev, item])}
-                  onRemove={item => {
-                    if (item.id) setDeletedPaymentAttachmentIds(prev => [...prev, item.id!])
-                    else setNewPaymentAttachments(prev => prev.filter(a => a.storagePath !== item.storagePath))
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* 附件已改為顯示在表單各自的附件欄位內（草稿：renderDraftField；已送出：FundsPaymentDetail），
+            不再有底部的獨立附件區塊——原本它的「本憑單附件」與表單「上傳單據」欄位重複，職員會傳錯位置 */}
 
         {record!.status === PAYMENT_STATUS.PAID && record!.category === '預支' && (
           <div style={{ marginTop: 40, paddingTop: 24, borderTop: '1px solid var(--border-color)' }}>

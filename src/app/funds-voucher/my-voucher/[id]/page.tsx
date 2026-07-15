@@ -4,15 +4,18 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { ApprovalRecord, FormBlock, FormSchemaRow, FormSlot } from '@/lib/types'
+import { ApprovalRecord, FormBlock, FormSchemaRow, FormSlot, FundAttachment } from '@/lib/types'
 import { getFormSchemas } from '@/app/actions/form-schema'
+import { getAttachmentsByTempVoucherId, getVoucherInheritedAttachments, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
+import { attachmentsForSlot, firstAttachmentSlotLabel } from '@/lib/attachmentSlots'
+import AttachmentUpload from '@/app/_components/AttachmentUpload'
 import { submitTempVoucher } from '@/app/actions/temp-voucher'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import ReviewProgressBlock, { type ReviewStepDef } from '@/app/_components/ReviewProgressBlock'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { DetailBlock, GroupDetailTable, ReadOnlyField, detailRowGridStyle } from '@/app/_components/RecordDetailView'
+import { DetailAttachmentField, DetailBlock, DetailFieldLayout, GroupDetailTable, ReadOnlyField, detailRowGridStyle } from '@/app/_components/RecordDetailView'
 import PaymentSummaryCard, { VoucherParentPayment, VOUCHER_PARENT_PAYMENT_COLUMNS } from '@/app/funds-voucher/_components/PaymentSummaryCard'
 import VoucherReturnSummary from '@/app/funds-voucher/_components/VoucherReturnSummary'
 import { paidAmountOf, voucherAmountOf } from '@/lib/voucherReturnAmount'
@@ -94,11 +97,16 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [attachments, setAttachments] = useState<FundAttachment[]>([])
+  // 上游附件（申請單＋母付款憑單，預支時傳的所有單據），唯讀帶入第一個附件欄位供對照
+  const [parentAttachments, setParentAttachments] = useState<(FundAttachment & { tag?: string })[]>([])
 
   useEffect(() => {
     async function load() {
       const { id } = await params
       const numId = Number(id)
+
+      getAttachmentsByTempVoucherId(numId).then(setAttachments)
 
       const [{ data, error: fetchError }, histRes, config, schemas] = await Promise.all([
         supabase
@@ -116,7 +124,15 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
       ])
 
       if (fetchError || !data) { setNotFound(true) }
-      else { setRecord(data as TempVoucher) }
+      else {
+        setRecord(data as TempVoucher)
+        getVoucherInheritedAttachments((data as TempVoucher).funds_payment_id).then(({ fromAllocation, fromPayment }) =>
+          setParentAttachments([
+            ...fromAllocation.map(a => ({ ...a, tag: '來自申請單' })),
+            ...fromPayment.map(a => ({ ...a, tag: '來自付款憑單' })),
+          ])
+        )
+      }
       const histRecords = (histRes.data as ApprovalRecord[]) ?? []
       setApprovalHistory(histRecords)
       setLabelConfig(config)
@@ -224,9 +240,53 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
             >
               {rowsToRender.map(row => (
                 <div key={row.id} style={detailRowGridStyle(row.cols, !verticalLayout)}>
-                  {row.slots.map((slot, idx) => slot ? (
-                    <ReadOnlyField key={idx} label={slot.label} value={getFieldValue(slot, record!)} textarea={slot.type === 'textarea'} horizontal={!verticalLayout} />
-                  ) : <div key={idx} />)}
+                  {row.slots.map((slot, idx) => {
+                    if (!slot) return <div key={idx} />
+                    if (slot.type === 'attachment') {
+                      const locked = slot.label === firstAttachmentSlotLabel(schema) ? parentAttachments : undefined
+                      // 草稿狀態可直接補傳/刪除本沖銷單的附件（上傳即存檔，此頁沒有另外的儲存鈕）
+                      if (isDraft) {
+                        return (
+                          <DetailFieldLayout key={idx} label={slot.label} horizontal={!verticalLayout} hint={slot.hint}>
+                            <AttachmentUpload
+                              slotLabel={slot.label}
+                              attachments={attachmentsForSlot(schema, attachments, slot.label).map(a => ({
+                                id: a.id, fileName: a.file_name, storagePath: a.storage_path,
+                                fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label,
+                              }))}
+                              lockedItems={locked?.map(a => ({
+                                id: a.id, fileName: a.file_name, storagePath: a.storage_path,
+                                fileType: a.file_type, url: a.url ?? '', slotLabel: a.slot_label, tag: a.tag,
+                              }))}
+                              onAdd={async item => {
+                                await saveAttachments(null, null, [{
+                                  slotLabel: item.slotLabel, fileName: item.fileName,
+                                  storagePath: item.storagePath, fileType: item.fileType,
+                                }], record!.id)
+                                getAttachmentsByTempVoucherId(record!.id).then(setAttachments)
+                              }}
+                              onRemove={async item => {
+                                if (item.id) await deleteAttachmentRecord(item.id)
+                                getAttachmentsByTempVoucherId(record!.id).then(setAttachments)
+                              }}
+                            />
+                          </DetailFieldLayout>
+                        )
+                      }
+                      return (
+                        <DetailAttachmentField
+                          key={idx}
+                          label={slot.label}
+                          horizontal={!verticalLayout}
+                          attachments={attachmentsForSlot(schema, attachments, slot.label)}
+                          lockedItems={locked}
+                        />
+                      )
+                    }
+                    return (
+                      <ReadOnlyField key={idx} label={slot.label} value={getFieldValue(slot, record!)} textarea={slot.type === 'textarea'} horizontal={!verticalLayout} />
+                    )
+                  })}
                 </div>
               ))}
               {hasGroupData && <GroupTable block={block} record={record!} />}

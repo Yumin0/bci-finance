@@ -227,6 +227,7 @@ export type FormSlot = {
   taxConfig?: { baseFieldId: string; totalFieldId: string; taxAmountFieldId?: string }
   defaultValue?: string
   dateDefaultMode?: 'fixed' | 'nearest_cycle'
+  hint?: string  // 欄位說明小字，顯示於填寫頁欄位上方（附件欄位用來列出該階段常見應附單據）
 } | null
 
 export type FormSchemaRow = {

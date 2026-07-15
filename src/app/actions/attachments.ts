@@ -70,6 +70,23 @@ export async function saveAttachments(
   return {}
 }
 
+// 暫付款沖銷頁帶入的上游附件：母付款憑單自己的附件＋再往上一層資金分配申請單的附件
+// （沖銷時要對照預支當時傳的所有單據，兩層都要看得到）
+export async function getVoucherInheritedAttachments(
+  paymentId: number
+): Promise<{ fromAllocation: FundAttachment[]; fromPayment: FundAttachment[] }> {
+  const { data: payment } = await supabase
+    .from('funds_payment')
+    .select('funds_allocation_id')
+    .eq('id', paymentId)
+    .single()
+  const [fromPayment, fromAllocation] = await Promise.all([
+    getAttachmentsByPaymentId(paymentId),
+    payment?.funds_allocation_id ? getAttachmentsByAllocationId(payment.funds_allocation_id) : Promise.resolve([]),
+  ])
+  return { fromAllocation, fromPayment }
+}
+
 export async function getAttachmentsByTempVoucherId(tempVoucherId: number): Promise<FundAttachment[]> {
   const { data, error } = await supabase
     .from('fund_attachments')
