@@ -12,10 +12,9 @@ import EditFundsForm from '@/app/funds-allocation/my-funds/edit/[id]/_components
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import { getAttachmentsByAllocationId } from '@/app/actions/attachments'
-import { Button } from '@/components/ui/button'
-import { formatDateTime } from '@/lib/dateUtils'
 import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
 import ErrorDialog from '@/app/_components/ErrorDialog'
+import ReviewProgressBlock from '@/app/_components/ReviewProgressBlock'
 
 type StepDef = {
   id: number
@@ -211,125 +210,29 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         />
       )}
 
-      {/* 審核進度與操作區 */}
-      <div style={{ marginBottom: 32, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12, padding: '20px 24px' }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>審核進度</h2>
-
-        {steps.map((step, idx) => {
-          const past = pastRecords.find(r => r.step_number === step.step_number)
-          const isActive = step.step_number === currentStep && record.status === 'pending'
-          const isDone = !!past
-          const isLast = idx === steps.length - 1
-
-          return (
-            <div key={step.step_number} style={{
-              padding: '14px 0',
-              borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
-              opacity: !isDone && !isActive ? 0.4 : 1,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: isActive && canReview ? 14 : 0 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0, minWidth: 20 }}>
-                  {step.step_number}.
-                </span>
-                <strong style={{ fontSize: 14, flexShrink: 0 }}>
-                  {step.step_name}
-                  {isDone && past.reviewer_id && reviewerNames[past.reviewer_id] && (
-                    <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>
-                      · {reviewerNames[past.reviewer_id]}
-                    </span>
-                  )}
-                </strong>
-                <span style={{ flex: 1, fontSize: 14, color: 'var(--text-body)', textAlign: 'center' }}>
-                  {isDone && past.comment ? past.comment : ''}
-                </span>
-                {isDone && past.decision === 'approved' && past.approved_amount != null && (
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
-                    核准金額：{past.approved_amount.toLocaleString()} 元
-                  </span>
-                )}
-                {isDone && (
-                  <span style={{
-                    fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, flexShrink: 0,
-                    background: past.decision === 'approved' ? '#dcfce7' : '#fee2e2',
-                    color: past.decision === 'approved' ? '#16a34a' : '#dc2626',
-                  }}>
-                    {past.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
-                  </span>
-                )}
-                {isActive && !isDone && (
-                  <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#dbeafe', color: '#2563eb', flexShrink: 0 }}>
-                    待審核
-                  </span>
-                )}
-                {isDone && past.reviewed_at && (
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>{formatDateTime(past.reviewed_at)}</span>
-                )}
-              </div>
-              {isActive && canReview && (
-                <div style={{ marginLeft: 30, display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', paddingTop: 8, flexShrink: 0 }}>
-                    {(['approved', 'rejected'] as const).map(val => (
-                      <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="decision"
-                          value={val}
-                          checked={decision === val}
-                          onChange={() => setDecision(val)}
-                        />
-                        {val === 'approved' ? '核准' : '不核准'}
-                      </label>
-                    ))}
-                  </div>
-                  <textarea
-                    placeholder="評論（選填）"
-                    rows={3}
-                    value={comment}
-                    onChange={e => setComment(e.target.value)}
-                    style={{
-                      flex: 1, minWidth: 160, padding: '8px 10px', borderRadius: 6,
-                      border: '1px solid var(--btn-border)', fontSize: 14,
-                      resize: 'vertical', boxSizing: 'border-box',
-                      background: 'var(--bg-card)', color: 'var(--text-body)',
-                    }}
-                  />
-                  <input
-                    type="number"
-                    value={approvedAmount}
-                    onChange={e => setApprovedAmount(e.target.value)}
-                    onWheel={e => e.currentTarget.blur()}
-                    min={0}
-                    placeholder="核准金額"
-                    style={{
-                      width: 130, padding: '8px 10px', borderRadius: 6,
-                      border: '1px solid var(--btn-border)', fontSize: 14,
-                      background: 'var(--bg-card)', color: 'var(--text-body)', flexShrink: 0,
-                    }}
-                  />
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={!decision || submitting}
-                    style={{ flexShrink: 0 }}
-                    className={decision && !submitting ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : ''}
-                  >
-                    {submitting ? '送出中...' : '確定送出'}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )
-        })}
-
-        {record.status === 'approved' && (
-          <p style={{ marginTop: 12, color: '#16a34a', fontWeight: 600, fontSize: 14 }}>✓ 此申請已全數核准</p>
-        )}
-        {record.status === 'paid' && (
-          <p style={{ marginTop: 12, color: '#16a34a', fontWeight: 600, fontSize: 14 }}>✓ 此申請已全數核准，額度已用完（已付款）</p>
-        )}
-        {record.status === 'rejected' && (
-          <p style={{ marginTop: 12, color: '#dc2626', fontWeight: 600, fontSize: 14 }}>✗ 此申請已被拒絕</p>
-        )}
-      </div>
+      {/* 審核進度與操作區（比照筑今一列式排版，共用元件） */}
+      <ReviewProgressBlock
+        steps={steps}
+        pastRecords={pastRecords}
+        currentStep={currentStep}
+        status={record.status}
+        canReview={canReview}
+        decision={decision}
+        onDecisionChange={setDecision}
+        comment={comment}
+        onCommentChange={setComment}
+        submitting={submitting}
+        onSubmit={handleSubmit}
+        showApprovedAmount
+        approvedAmount={approvedAmount}
+        onApprovedAmountChange={setApprovedAmount}
+        reviewerNames={reviewerNames}
+        completionMessages={{
+          approved: '✓ 此申請已全數核准',
+          paid: '✓ 此申請已全數核准，額度已用完（已付款）',
+          rejected: '✗ 此申請已被拒絕',
+        }}
+      />
     </div>
   )
 }

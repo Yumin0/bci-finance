@@ -7,6 +7,18 @@
 
 ## 進行中
 
+**審核區塊共用化：比照筑今一列式排版**（Yumin）
+分支：`feature/yumin-review-block-shared`
+開始：2026-07-15
+說明：三個審核操作頁（資金分配／付款憑單／暫付款沖銷）的「審核進度」區塊改為比照筑今系統——每一個階段的審核（課級、處級…）都是同一組欄位的**一列橫向排版**（階段名｜不核准○核准○｜評論｜核准金額｜確定送出），已完成的階段顯示已選(反灰)結果、未來階段整列反灰空白、僅進行中階段可操作。抽出共用元件 `_components/ReviewProgressBlock.tsx`，三頁改用同一套；付款憑單／暫付款沖銷的審核群組步驟（第三處支出課、第三處處長）該列多一個「付款分類」下拉（資金分配不顯示、暫付款沖銷不顯示核准金額欄）。各頁保留自己的送出/驗證邏輯（approvedAmountCap、付款分類承接等）。
+影響範圍確認（審核區塊為橫切關注點）：
+- [x] /funds-allocation/review/check/[id]（showApprovedAmount，無付款分類）
+- [x] /funds-payment/review/check/[id]（showApprovedAmount＋群組步驟付款分類）
+- [x] /funds-voucher/review/check/[id]（無核准金額，群組步驟付款分類）
+- [x] /funds-allocation/my-funds/edit/[id]（EditFundsForm 申請人視角審核進度，改用 ReviewProgressBlock 的 readOnly 模式：radio 置中、右側核准金額）
+- [x] npm run build 全站編譯通過
+- ※ 比照筑今：拿掉「待審核」字樣、僅進行中階段名深色其餘灰字、評論框與核准金額同高垂直置中
+
 **明細頁共用元件：付款明細表格 + 欄位區塊渲染**（Yumin）
 分支：`feature/yumin-shared-detail-components`
 開始：2026-07-15

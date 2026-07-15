@@ -12,8 +12,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { GroupDetailTable } from '@/app/_components/RecordDetailView'
-import { formatDateTime } from '@/lib/dateUtils'
 import ErrorDialog from '@/app/_components/ErrorDialog'
+import ReviewProgressBlock from '@/app/_components/ReviewProgressBlock'
 
 type StepDef = {
   id: number
@@ -279,86 +279,28 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
         </Card>
       ))}
 
-      {/* 審核進度 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>審核進度</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col divide-y divide-border">
-          {steps.map(step => {
-            const past = pastRecords.find(r => r.step_number === step.step_number)
-            const isActive = step.step_number === currentStep && record.status === 'pending'
-            const isDone = !!past
-
-            return (
-              <div key={step.step_number} className={`py-4 ${!isDone && !isActive ? 'opacity-40' : ''}`}>
-                <div className="mb-2 grid items-start gap-3" style={{ gridTemplateColumns: '160px 1fr' }}>
-                  <strong className="text-sm">{step.step_number}. {step.step_name}</strong>
-                  {isDone && (
-                    <span className={`text-sm font-medium ${past.decision === 'approved' ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
-                      {past.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
-                      {past.payment_category && <span className="ml-2 text-xs font-normal text-muted-foreground">付款分類：{past.payment_category}</span>}
-                      {past.reviewed_at && <span className="ml-2 text-xs font-normal text-muted-foreground">{formatDateTime(past.reviewed_at)}</span>}
-                      {past.comment && <span className="mt-1 block text-xs font-normal text-muted-foreground">{past.comment}</span>}
-                    </span>
-                  )}
-                  {isActive && !isDone && <span className="text-sm font-medium text-primary">待審核</span>}
-                </div>
-
-                {isActive && canReview && (
-                  <div className="flex flex-col gap-3 pt-1">
-                    <div className="flex gap-5">
-                      {(['approved', 'rejected'] as const).map(val => (
-                        <label key={val} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-                          <input type="radio" name="decision" value={val} checked={decision === val} onChange={() => setDecision(val)} />
-                          {val === 'approved' ? '核准' : '不核准'}
-                        </label>
-                      ))}
-                    </div>
-                    <Textarea
-                      placeholder="評論（選填）"
-                      rows={3}
-                      value={comment}
-                      onChange={e => setComment(e.target.value)}
-                    />
-                    {showPaymentCategory && (
-                      <div className="flex items-center gap-2">
-                        <span className="shrink-0 text-[13px] text-muted-foreground">付款分類</span>
-                        <select
-                          value={paymentCategory}
-                          onChange={e => setPaymentCategory(e.target.value)}
-                          className="h-9 w-48 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                        >
-                          <option value="">（未選擇）</option>
-                          {/* 承接的舊選值若已被財務從選項清單移除，仍保留可見避免被靜默清掉 */}
-                          {paymentCategory && !categoryOptions.includes(paymentCategory) && (
-                            <option value={paymentCategory}>{paymentCategory}</option>
-                          )}
-                          {categoryOptions.map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                    <div>
-                      <Button
-                        onClick={handleSubmit}
-                        disabled={!decision || submitting}
-                        className={decision && !submitting ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : ''}
-                      >
-                        {submitting ? '送出中...' : '確定送出'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-
-          {record.status === 'approved' && <p className="pt-4 font-semibold text-green-600 dark:text-green-400">✓ 此憑單已全數核准</p>}
-          {record.status === 'rejected' && <p className="pt-4 font-semibold text-destructive">✗ 此憑單已被拒絕</p>}
-        </CardContent>
-      </Card>
+      {/* 審核進度（比照筑今一列式排版，共用元件；沖銷群組步驟顯示付款分類、不顯示核准金額） */}
+      <ReviewProgressBlock
+        steps={steps}
+        pastRecords={pastRecords}
+        currentStep={currentStep}
+        status={record.status}
+        canReview={canReview}
+        decision={decision}
+        onDecisionChange={setDecision}
+        comment={comment}
+        onCommentChange={setComment}
+        submitting={submitting}
+        onSubmit={handleSubmit}
+        enablePaymentCategory
+        paymentCategory={paymentCategory}
+        onPaymentCategoryChange={setPaymentCategory}
+        categoryOptions={categoryOptions}
+        completionMessages={{
+          approved: '✓ 此憑單已全數核准',
+          rejected: '✗ 此憑單已被拒絕',
+        }}
+      />
     </div>
   )
 }
