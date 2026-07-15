@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsAllocation, ApprovalRecord, StepDecision, FormBlock, FundAttachment } from '@/lib/types'
 import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approval-flow'
@@ -55,8 +55,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   const [changeLogOpen, setChangeLogOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
-  useEffect(() => {
-    async function load() {
+  const load = useCallback(async () => {
       const { id } = await params
       const numId = Number(id)
 
@@ -118,11 +117,13 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
       setApprovedAmount(String(allocation.approved_amount ?? allocation.amount ?? ''))
       getAttachmentsByAllocationId(numId).then(setAttachments)
       setLoading(false)
-    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params])
+
+  useEffect(() => {
     load()
     getFormSchemas().then(s => setSchema(s.funds_allocation))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, refreshKey])
+  }, [load])
 
   const steps = record?.approval_flow_templates?.approval_flow_steps
     ?.slice()
@@ -198,7 +199,7 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
           labelConfig={labelConfig}
           isCurrentReviewer
           hideApprovalPanel
-          onSaveSuccess={() => setRefreshKey(k => k + 1)}
+          onSaveSuccess={async () => { await load(); setRefreshKey(k => k + 1) }}
         />
       ) : (
         <FundsAllocationDetail

@@ -256,6 +256,10 @@
 
 ## 已完成
 
+**審核頁儲存變更後畫面即時刷新**（2026-07-15，Riku）
+分支：`feature/riku-review-save-refresh`
+說明：資金分配審核頁（`/funds-allocation/review/check/[id]`）審核人編輯欄位按「儲存變更」後，畫面未即時更新（資料實際已存、變更歷程可證），需手動重新整理才正確。根因：`onSaveSuccess` 先 bump `refreshKey` 讓 `EditFundsForm` 立即用「還沒重抓的舊 record」重建，重抓 record 的 `useEffect` 是非同步晚一步完成，且 `EditFundsForm` 欄位值初始化綁 `[record.id]`（存檔前後不變）故不再同步，於是畫面卡在舊值。修法：把 `load()` 抽成可重複呼叫（`useCallback`），`onSaveSuccess` 改為先 `await load()`（更新 record 與核准金額預填）再 bump `refreshKey`，確保表單重建時吃到新資料。只動審核頁一個檔，不碰共用元件。Playwright 實測：改費用 10000→8000 存檔後未重新整理，畫面即顯示 8000／稅額 2000／總額 10000／上方費用項目與核准金額預填同步更新，DB 一致。tsc 通過。
+
 **付款憑單／暫付款沖銷申請人檢視頁審核進度改用共用 ReviewProgressBlock**（2026-07-15，Yumin）
 分支：`feature/yumin-applicant-review-block`
 說明：付款憑單詳細頁（`funds-payment/my-payment/[id]`）與暫付款沖銷詳細頁（`funds-voucher/my-voucher/[id]`）的申請人檢視原本是純文字「審核歷程」列表（只列已完成紀錄、無未來階段），改為共用 `_components/ReviewProgressBlock.tsx` 的 `readOnly` 一列式排版（比照資金分配編輯頁）：完整顯示所有審核階段、已完成階段顯示核准/不核准 radio＋審核人/時間、未來階段反灰。付款憑單顯示核准金額欄（`showApprovedAmount`）、沖銷不顯示。查詢多帶 `approval_flow_steps` 的 `id`/`reviewer_type`、新增依 `reviewer_id` 撈 `app_users` 審核人名，草稿狀態不顯示。此為第 28 行「明細頁共用元件」任務註明的「審核區塊共用化後續階段」的申請人檢視收尾。
