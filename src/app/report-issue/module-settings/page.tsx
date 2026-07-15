@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
+import { useConfirm } from '@/app/_components/useConfirm'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -17,6 +18,7 @@ const arrowCls = (disabled: boolean) =>
   }`
 
 export default function IssueModuleSettingsPage() {
+  const [confirm, confirmDialog] = useConfirm()
   const [options, setOptions] = useState<ModuleOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,7 +55,7 @@ export default function IssueModuleSettingsPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('確定要刪除此模組選項嗎？')) return
+    if (!(await confirm({ message: '確定要刪除此模組選項嗎？', danger: true, confirmText: '刪除' }))) return
     setError(null)
     const { error: e } = await supabase.from('issue_module_options').delete().eq('id', id)
     if (e) { setError(e.message); return }
@@ -73,6 +75,7 @@ export default function IssueModuleSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {confirmDialog}
       <div>
         <PageHeader title="影響模組自定義" action={<Button onClick={openAdd}>＋ 新增</Button>} />
         <p className="mt-1 text-sm text-muted-foreground">

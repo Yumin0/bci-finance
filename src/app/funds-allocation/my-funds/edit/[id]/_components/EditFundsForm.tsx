@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import ErrorDialog from '@/app/_components/ErrorDialog'
+import { useConfirm } from '@/app/_components/useConfirm'
 import { getAttachmentsByAllocationId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
 import { deleteFundsAllocation, updateFundsAllocation } from '@/app/actions/funds-allocation'
 import { getAllocationRemainingInfo } from '@/app/actions/fund-budget'
@@ -68,6 +69,7 @@ export default function EditFundsForm({
   const [submitting, setSubmitting] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
   const [changeLogOpen, setChangeLogOpen] = useState(false)
 
   // 另存為我的範本（任何狀態的申請單皆可，僅申請人本人）
@@ -1175,7 +1177,7 @@ export default function EditFundsForm({
   }
 
   async function handleDelete() {
-    if (!confirm('確定要刪除此單據嗎？此操作無法復原。')) return
+    if (!(await confirm({ message: '確定要刪除此單據嗎？此操作無法復原。', danger: true, confirmText: '刪除' }))) return
     setSubmitting(true)
     const { error: deleteError } = await deleteFundsAllocation(record.id)
     if (deleteError) { setError(deleteError); setSubmitting(false); return }
@@ -1289,6 +1291,7 @@ export default function EditFundsForm({
 
       {/* 儲存/送出被擋（費用檢查等）改用全站共用中央彈窗：按鈕在長表單底部，頁頂紅字看不到 */}
       <ErrorDialog message={error} title="無法儲存或送出" onClose={() => setError(null)} />
+      {confirmDialog}
 
       <form onSubmit={isDraft ? handleSubmitFromDraft : handleSaveChanges}>
         {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (

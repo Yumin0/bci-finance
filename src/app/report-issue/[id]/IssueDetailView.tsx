@@ -6,6 +6,7 @@ import { DevTracker, IssueStatus, IssueType, AppUser } from '@/lib/types'
 import { saveHtml, updateIssueStatus, updateIssueType, assignIssue } from '@/app/actions/dev-tracker'
 import { formatDate } from '@/lib/dateUtils'
 import { Button } from '@/components/ui/button'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -217,6 +218,7 @@ function ContentEditor({
   const [saving, setSaving] = useState(false)
   const [saveOk, setSaveOk] = useState<boolean | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   useEffect(() => {
     if (editorRef.current) {
@@ -242,7 +244,7 @@ function ContentEditor({
         `<img src="${json.url}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;cursor:zoom-in;" /><br>`,
       )
     } else {
-      alert('上傳失敗：' + (json.error ?? '未知錯誤'))
+      setUploadError('上傳失敗：' + (json.error ?? '未知錯誤'))
     }
   }
 
@@ -281,6 +283,7 @@ function ContentEditor({
 
   return (
     <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <ErrorDialog message={uploadError} title="上傳失敗" onClose={() => setUploadError(null)} />
       {/* 標頭 */}
       <div style={{ borderLeft: `4px solid ${accentColor}`, paddingLeft: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-title)' }}>{title}</div>

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import PageHeader from '@/app/_components/PageHeader'
 import OrgApprovalTabNav from '@/app/_components/OrgApprovalTabNav'
+import { useConfirm } from '@/app/_components/useConfirm'
 import {
   createTemplate, updateTemplateName, toggleTemplateActive, deleteTemplate,
   saveTemplateSteps, saveTemplatePaymentAccounts, getUsedPaymentAccountIds,
@@ -51,6 +52,7 @@ type GroupMember = {
 type AccountOption = { id: number; name: string; email: string }
 
 function GroupsTab() {
+  const [confirm, confirmDialog] = useConfirm()
   const [groups, setGroups] = useState<ApprovalGroup[]>([])
   const [selectedGroup, setSelectedGroup] = useState<ApprovalGroup | null>(null)
   const [members, setMembers] = useState<GroupMember[]>([])
@@ -129,7 +131,7 @@ function GroupsTab() {
   }
 
   async function handleDeleteGroup(group: ApprovalGroup) {
-    if (!confirm(`確定刪除群組「${group.name}」？已使用此群組的審核步驟將失效。`)) return
+    if (!(await confirm({ message: `確定刪除群組「${group.name}」？已使用此群組的審核步驟將失效。`, danger: true, confirmText: '刪除' }))) return
     setError(null)
     try {
       await deleteApprovalGroup(group.id)
@@ -185,6 +187,7 @@ function GroupsTab() {
 
   return (
     <div className="flex items-start gap-6">
+      {confirmDialog}
       {/* 左側：群組列表 */}
       <div className="w-56 shrink-0">
         {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
@@ -315,6 +318,7 @@ function GroupsTab() {
 // ── 審核流程範本 Tab ──────────────────────────────────────────────────────────
 
 function TemplatesTab() {
+  const [confirm, confirmDialog] = useConfirm()
   const [creatingForType, setCreatingForType] = useState<FormType>('funds_allocation')
   const [templates, setTemplates] = useState<ApprovalFlowTemplate[]>([])
   const [systemRoles, setSystemRoles] = useState<SystemRole[]>([])
@@ -441,7 +445,7 @@ function TemplatesTab() {
   }
 
   async function handleDelete(template: ApprovalFlowTemplate) {
-    if (!confirm(`確定要刪除「${template.name}」嗎？此操作無法復原。`)) return
+    if (!(await confirm({ message: `確定要刪除「${template.name}」嗎？此操作無法復原。`, danger: true, confirmText: '刪除' }))) return
     await deleteTemplate(template.id)
     if (selectedTemplate?.id === template.id) setSelectedTemplate(null)
     await loadData()
@@ -482,6 +486,7 @@ function TemplatesTab() {
 
   return (
     <div className="flex items-start gap-6">
+      {confirmDialog}
       {/* 左側：範本列表 */}
       <div className="flex w-72 shrink-0 flex-col gap-5">
         {FORM_SECTIONS.map(({ type, label }) => {

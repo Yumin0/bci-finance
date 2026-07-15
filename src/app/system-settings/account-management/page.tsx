@@ -7,6 +7,7 @@ import { DEFAULT_SIDEBAR_CONFIG } from '@/lib/sidebar-config'
 import type { SystemRole } from '@/lib/types'
 import { getAccountsForManagement, updateAccountRole } from '@/app/actions/account'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { useConfirm } from '@/app/_components/useConfirm'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -142,6 +143,7 @@ function RoleForm({ role, onSave, onCancel }: {
 // ── RolesTab ──────────────────────────────────────────────────────────────────
 
 function RolesTab() {
+  const [confirm, confirmDialog] = useConfirm()
   const [roles, setRoles] = useState<SystemRole[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -184,7 +186,7 @@ function RolesTab() {
   }
 
   async function handleDelete(role: SystemRole) {
-    if (!confirm(`確定刪除角色「${role.name}」？已指派此角色的帳號需要重新設定。`)) return
+    if (!(await confirm({ message: `確定刪除角色「${role.name}」？已指派此角色的帳號需要重新設定。`, danger: true, confirmText: '刪除' }))) return
     const { error: e } = await supabase.from('system_roles').delete().eq('id', role.id)
     if (e) { setError(`無法刪除：${e.message}`); return }
     if (selected !== 'new' && selected !== null && (selected as SystemRole).id === role.id) setSelected(null)
@@ -195,6 +197,7 @@ function RolesTab() {
 
   return (
     <>
+      {confirmDialog}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex items-start gap-6">
         <div className="w-52 shrink-0">

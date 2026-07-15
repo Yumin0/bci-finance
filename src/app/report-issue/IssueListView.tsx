@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import ErrorDialog from '@/app/_components/ErrorDialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import PageHeader from '@/app/_components/PageHeader'
 
@@ -55,6 +56,7 @@ export default function IssueListView({
   const [isPending, startFormTransition] = useTransition()
   const [, startStatusTransition] = useTransition()
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -135,7 +137,7 @@ export default function IssueListView({
       editorRef.current?.focus()
       document.execCommand('insertHTML', false, `<img src="${json.url}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;" /><br>`)
     } else {
-      alert('上傳失敗：' + (json.error ?? '未知錯誤'))
+      setUploadError('上傳失敗：' + (json.error ?? '未知錯誤'))
     }
   }
 
@@ -161,6 +163,7 @@ export default function IssueListView({
 
   return (
     <div className="flex flex-col gap-6">
+      <ErrorDialog message={uploadError} title="上傳失敗" onClose={() => setUploadError(null)} />
       <PageHeader
         title="問題回報 / 開發追蹤"
         action={

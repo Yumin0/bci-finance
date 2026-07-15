@@ -13,6 +13,7 @@ import {
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import PageHeader from '@/app/_components/PageHeader'
 import OrgApprovalTabNav from '@/app/_components/OrgApprovalTabNav'
+import { useConfirm } from '@/app/_components/useConfirm'
 import {
   addUserPosition, removeUserPosition,
   insertOrgUnit, updateOrgUnit, deleteOrgUnit, reorderOrgUnits, moveOrgUnit, updateOrgUnitsExpanded,
@@ -72,6 +73,7 @@ function RoleRow({
   role: OrgUnitRole; unit: OrgUnit; roleTypes: RoleType[]; users: AppUser[]
   positions: UserPosition[]; indent: number; onRefresh: () => void; onDelete: () => void
 }) {
+  const [confirm, confirmDialog] = useConfirm()
   const [adding, setAdding] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -91,7 +93,7 @@ function RoleRow({
   }
 
   async function handleRemove(positionId: number) {
-    if (!confirm('確定移除此職位指派？')) return
+    if (!(await confirm({ message: '確定移除此職位指派？', danger: true, confirmText: '移除' }))) return
     const err = await removeUserPosition(positionId)
     if (err) { setError(err); return }
     onRefresh()
@@ -99,6 +101,7 @@ function RoleRow({
 
   return (
     <div className="flex flex-wrap items-center gap-2.5 py-1 text-sm" style={{ paddingLeft: indent + 28 }}>
+      {confirmDialog}
       <span className="whitespace-nowrap text-foreground">{displayName}</span>
       <button onClick={onDelete} className={btnDelete}>刪除</button>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -177,6 +180,7 @@ function MembersSection({
 }: {
   unit: OrgUnit; members: OrgUnitMember[]; users: AppUser[]; roleTypes: RoleType[]; indent: number; onRefresh: () => void
 }) {
+  const [confirm, confirmDialog] = useConfirm()
   const [adding, setAdding] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState('')
   const [selectedRoleTypeId, setSelectedRoleTypeId] = useState('')
@@ -195,7 +199,7 @@ function MembersSection({
   }
 
   async function handleRemove(memberId: number) {
-    if (!confirm('確定移除此負責人？')) return
+    if (!(await confirm({ message: '確定移除此負責人？', danger: true, confirmText: '移除' }))) return
     const err = await removeOrgUnitMember(memberId)
     if (err) { setError(err); return }
     onRefresh()
@@ -203,6 +207,7 @@ function MembersSection({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 py-1 text-sm" style={{ paddingLeft: indent + 28 }}>
+      {confirmDialog}
       {unitMembers.map(m => (
         <MemberChip key={m.id} m={m} roleTypes={roleTypes} onRemove={() => handleRemove(m.id)} onRefresh={onRefresh} />
       ))}
@@ -262,6 +267,7 @@ function OrgTreeNode({
   const [childName, setChildName] = useState('')
   const [addingChild, setAddingChild] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
 
   const sizeCls = depthSizeClass(depth)
   const children = allUnits.filter(u => u.parent_id === unit.id).sort((a, b) => a.sort_order - b.sort_order)
@@ -278,7 +284,7 @@ function OrgTreeNode({
   }
 
   async function handleDelete() {
-    if (!confirm(`確定刪除「${unit.name}」？若有子節點或職位將無法刪除。`)) return
+    if (!(await confirm({ message: `確定刪除「${unit.name}」？若有子節點或職位將無法刪除。`, danger: true, confirmText: '刪除' }))) return
     setError(null)
     const err = await deleteOrgUnit(unit.id)
     if (err) { setError(err); return }
@@ -297,7 +303,7 @@ function OrgTreeNode({
   }
 
   async function handleDeleteRole(roleId: number) {
-    if (!confirm('確定刪除此職位？已指派的人員也會一併移除。')) return
+    if (!(await confirm({ message: '確定刪除此職位？已指派的人員也會一併移除。', danger: true, confirmText: '刪除' }))) return
     setError(null)
     const err = await deleteOrgUnitRole(roleId)
     if (err) { setError(err); return }
@@ -380,6 +386,7 @@ function OrgTreeNode({
 
   return (
     <>
+      {confirmDialog}
       <div
         draggable
         onDragStart={() => drag.onDragStart(unit.id)}
@@ -497,6 +504,7 @@ function ArrangeModal({ units, drag, onClose, onSavedExpand }: { units: OrgUnit[
 // ── RoleTypesPanel ────────────────────────────────────────────────────────────
 
 function RoleTypeRow({ r, onRefresh, onError }: { r: RoleType; onRefresh: () => void; onError: (msg: string) => void }) {
+  const [confirm, confirmDialog] = useConfirm()
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(r.name)
 
@@ -508,7 +516,7 @@ function RoleTypeRow({ r, onRefresh, onError }: { r: RoleType; onRefresh: () => 
   }
 
   async function handleDelete() {
-    if (!confirm('確定刪除此職稱？所有使用此職稱的職位與人員指派也會一併移除。')) return
+    if (!(await confirm({ message: '確定刪除此職稱？所有使用此職稱的職位與人員指派也會一併移除。', danger: true, confirmText: '刪除' }))) return
     const err = await deleteRoleType(r.id)
     if (err) { onError(err); return }
     onRefresh()
@@ -530,6 +538,7 @@ function RoleTypeRow({ r, onRefresh, onError }: { r: RoleType; onRefresh: () => 
 
   return (
     <TableRow>
+      {confirmDialog}
       <TableCell className="text-sm">{r.name}</TableCell>
       <TableCell className="whitespace-nowrap">
         <button onClick={() => setIsEditing(true)} className="mr-2 text-xs text-foreground hover:underline">編輯</button>

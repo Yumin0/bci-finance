@@ -67,7 +67,7 @@
 ```
 src/
 ├── app/
-│   ├── _components/       # 全局共享組件（SidebarLayout、ThemeProvider、HomeTabView、StatusBadge、WeekPicker、WeekFilterBar、ColumnPicker、useColumnVisibility、OrgScopeTree、AllocationSummaryCard、ErrorDialog、RecordDetailView、QuickReviewButtons 等）
+│   ├── _components/       # 全局共享組件（SidebarLayout、ThemeProvider、HomeTabView、StatusBadge、WeekPicker、WeekFilterBar、ColumnPicker、useColumnVisibility、OrgScopeTree、AllocationSummaryCard、ErrorDialog、ConfirmDialog、useConfirm、RecordDetailView、QuickReviewButtons 等）
 │   ├── actions/           # Server Actions（auth、payment、temp-voucher、account、sidebar-config、dev-tracker、form-schema、status-labels、payee、fee、fund-templates、application-cycle、notifications）
 │   ├── api/               # API Routes（upload-image、upload-attachment、attachment 代理）
 │   ├── funds-allocation/

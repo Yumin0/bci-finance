@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useConfirm } from '@/app/_components/useConfirm'
 
 const OPS = ['+', '-', '*', '/'] as const
 const OP_DISPLAY: Record<string, string> = { '+': '＋', '-': '－', '*': '×', '/': '÷' }
 const selectCls = 'rounded-md border border-input bg-transparent px-2 py-1 text-sm outline-none focus:border-ring dark:bg-input/30'
 
 export default function TaxTab() {
+  const [confirm, confirmDialog] = useConfirm()
   const [options, setOptions] = useState<TaxRateOption[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<number | 'new' | null>(null)
@@ -78,7 +80,7 @@ export default function TaxTab() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('確定要刪除此稅額選項嗎？')) return
+    if (!(await confirm({ message: '確定要刪除此稅額選項嗎？', danger: true, confirmText: '刪除' }))) return
     const { error } = await deleteTaxRateOption(id)
     if (error) { setMsg({ text: `刪除失敗：${error}`, ok: false }); return }
     setOptions(prev => prev.filter(o => o.id !== id))
@@ -90,6 +92,7 @@ export default function TaxTab() {
 
   return (
     <div className="flex max-w-xl flex-col gap-5">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">設定填表時「稅額選擇」下拉選單的選項與對應計算公式。</p>
         {msg && (

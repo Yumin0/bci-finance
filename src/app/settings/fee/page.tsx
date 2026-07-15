@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { useConfirm } from '@/app/_components/useConfirm'
 import type { FeeCategory, FeeSubcategory, FeeCategoryField, PayeeFieldType, FeeRecord } from '@/lib/types'
 import {
   getFeeCategories,
@@ -515,6 +516,7 @@ function SubcategorySection({
 
 // ---- 主頁面 ----
 export default function FeeSettingsPage() {
+  const [confirm, confirmDialog] = useConfirm()
   const [categories, setCategories] = useState<FeeCategory[]>([])
   const [subcategories, setSubcategories] = useState<FeeSubcategory[]>([])
   const [fields, setFields] = useState<FeeCategoryField[]>([])
@@ -596,7 +598,7 @@ export default function FeeSettingsPage() {
 
   async function handleDeleteCategory() {
     if (!activeCat) return
-    if (!confirm(`確定要刪除「${activeCat.name}」類別嗎？此類別下的所有子類別、欄位與費用項目資料也會一併刪除。`)) return
+    if (!(await confirm({ message: `確定要刪除「${activeCat.name}」類別嗎？此類別下的所有子類別、欄位與費用項目資料也會一併刪除。`, danger: true, confirmText: '刪除' }))) return
     const res = await deleteFeeCategory(activeCat.id)
     if (res.error) { setError(res.error); return }
     setShowCategorySettings(false)
@@ -616,7 +618,7 @@ export default function FeeSettingsPage() {
   }
 
   async function handleDeleteSubcategory(sub: FeeSubcategory) {
-    if (!confirm(`確定要刪除子類別「${sub.name}」嗎？此子類別下的費用項目子類別欄位也會被清除。`)) return
+    if (!(await confirm({ message: `確定要刪除子類別「${sub.name}」嗎？此子類別下的費用項目子類別欄位也會被清除。`, danger: true, confirmText: '刪除' }))) return
     const res = await deleteFeeSubcategory(sub.id)
     if (res.error) { setError(res.error); return }
     await load(activeId ?? undefined)
@@ -631,7 +633,7 @@ export default function FeeSettingsPage() {
   }
 
   async function handleDeleteField(field: FeeCategoryField) {
-    if (!confirm(`確定要刪除欄位「${field.label}」嗎？`)) return
+    if (!(await confirm({ message: `確定要刪除欄位「${field.label}」嗎？`, danger: true, confirmText: '刪除' }))) return
     const res = await deleteFeeCategoryField(field.id)
     if (res.error) { setError(res.error); return }
     await load(activeId ?? undefined)
@@ -648,7 +650,7 @@ export default function FeeSettingsPage() {
 
   async function handleDeleteRecord(record: FeeRecord) {
     const firstName = activeFields[0] ? record.field_values[String(activeFields[0].id)] : ''
-    if (!confirm(`確定要刪除「${firstName || '此費用項目'}」嗎？`)) return
+    if (!(await confirm({ message: `確定要刪除「${firstName || '此費用項目'}」嗎？`, danger: true, confirmText: '刪除' }))) return
     const res = await deleteFeeRecord(record.id)
     if (res.error) { setError(res.error); return }
     if (activeId) await loadRecords(activeId)
@@ -660,6 +662,7 @@ export default function FeeSettingsPage() {
 
   return (
     <div>
+      {confirmDialog}
       {/* 頁首 */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
