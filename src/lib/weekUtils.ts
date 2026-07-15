@@ -55,9 +55,16 @@ export function getWeeksForYear(year: number): Date[] {
   return weeks
 }
 
-/** Current week start (Taiwan time approximation using local clock) */
+/** 台北時區的「今天」（本地 Date，時刻為 00:00）。
+ *  Server Component 的時鐘是 UTC：台北 00:00–08:00 期間 new Date() 還停在前一天，
+ *  週四凌晨開審核管理會整週預設錯到上一週、新單全被過濾掉。一律以台北日曆日計算。 */
+function todayTaipei(): Date {
+  return fromDateStr(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }))
+}
+
+/** Current week start（依台北時區的今天） */
 export function getCurrentWeekStart(): Date {
-  return getWeekStart(new Date())
+  return getWeekStart(todayTaipei())
 }
 
 /** Sentinel value meaning "no week filter" (全部週次) */
@@ -79,6 +86,6 @@ export function getDefaultWeekForYear(year: number, maxFutureWeeks = 4): Date {
 }
 
 export function getAvailableYears(): number[] {
-  const y = new Date().getFullYear()
+  const y = todayTaipei().getFullYear()
   return [y - 1, y, y + 1]
 }

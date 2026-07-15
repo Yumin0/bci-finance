@@ -24,6 +24,19 @@ dev 資料庫遷移已執行（2026-07-16，Yumin 確認）：填入三張表單
 - [x] Playwright 實測：建立頁上傳按鈕（非文字框）、母單附件帶入標「來自申請單」、底部卡片消失、無 console error
 - [x] npm run build 全站編譯通過
 
+**審核管理預設週次時區 bug：UTC 伺服器凌晨差一天**（Yumin，staging 測試時發現順修）
+分支：`feature/yumin-attachment-hints`（隨附件功能同分支）
+開始：2026-07-16
+說明：三個審核管理頁（資金分配/付款憑單/沖銷）是 Server Component，預設週次用 `getCurrentWeekStart()`＝`new Date()` 伺服器本地時間（Vercel＝UTC）計算。台北比 UTC 快 8 小時，每天台北 00:00–08:00 期間伺服器還停在「昨天」；週四（週起始日）凌晨開審核管理，預設週會錯落到上一週、新單全被過濾掉看不見（我的付款憑單等列表頁是 client 端算週次用瀏覽器台北時間，正確，兩頁對不起來）。修正：`weekUtils` 的 `getCurrentWeekStart` / `getAvailableYears` 改以台北時區日曆日計算（`toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })`）。WeekPicker 為 client 元件不受影響。
+影響範圍確認（weekUtils 為共用，橫切關注點）：
+- [x] /funds-allocation/review（server 端預設週次）
+- [x] /funds-payment/review（server 端預設週次，bug 發現處）
+- [x] /funds-voucher/review（server 端預設週次）
+- [x] /finance/funds（用 getAvailableYears）
+- [x] WeekFilterBar / WeekPicker（client 端，瀏覽器台北時間本就正確，行為不變）
+- [x] node 模擬 UTC 2026-07-15T20:00（台北 07-16 週四凌晨）：舊邏輯回 07/09（錯）、新邏輯回 07/16（對）
+- [x] npm run build 通過
+
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
 分支：`feature/yumin-voucher-return-amount`
 開始：2026-07-15
