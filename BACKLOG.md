@@ -256,6 +256,19 @@
 
 ## 已完成
 
+**資金分配「費用項目（主要）」欄位代號撞名 amount 修正**（2026-07-15，Riku）
+分支：`feature/riku-fee-item-fieldid`
+說明：資金分配表單「費用項目（主要）」下拉的欄位代號被誤設為 `amount`，與存「金額／總額」的 `amount` 撞名——載入時被填成單子總額數字（畫面顯示成數字而非費用項目）、存檔時使用者選的值又被付款明細總額覆蓋、選的值永遠存不進去。修法：把該欄 fieldId 改為專屬 `custom_expense_item_main`（純表單設定變更、**無程式碼變更**），`custom_` 既有機制自動把值存進 `extra_data['費用項目']`、載入正確顯示、也繼續驅動「費用項目（細項）」連動篩選；數字總額 `amount` 照舊由付款明細加總算出、列表「費用項目」欄仍以細項（`expense_item`）為準。dev/staging 共用同一 Supabase 故 script 一改即同步（staging 可直接測）；正式站為獨立專案，同一 fieldId 變更 SQL 已登記 `docs/prod-pending-sql.md` 待執行。掃過三種 form_type，僅資金分配有此撞名。舊申請單（改前建立）此欄會顯示空白（該值以前從沒存下來），必填故編輯舊單需補選一次。Playwright 實測：主要下拉正確顯示費用項目、改費用存檔後主要值不被總額覆蓋、DB `extra_data[費用項目]` 正確保存。
+影響範圍確認（表單欄位代號 + 主要/細項連動為橫切關注點）：
+- [x] /funds-allocation/my-funds/add（新增頁：選主要→存 extra_data、連動細項）
+- [x] /funds-allocation/my-funds/edit/[id]（編輯頁：正確顯示、改費用不覆蓋主要）
+- [x] /funds-allocation/review/check/[id]（審核頁編輯：同編輯頁，實測通過）
+- [x] 範本存/套用（field_values 以 fieldId 為 key 通用存取，新範本存 custom_expense_item_main、舊範本此欄空白）
+- [x] 列表「費用項目」欄（讀 expense_item=細項，不受影響）
+- [x] showWhen 掃描（無欄位以 amount 為觸發，安全）
+- [x] 其他 form_type 掃描（payment_voucher/temp_voucher 無 amount 撞名）
+- [x] docs/prod-pending-sql.md 登記正式站 fieldId 變更 SQL
+
 **審核頁儲存變更後畫面即時刷新**（2026-07-15，Riku）
 分支：`feature/riku-review-save-refresh`
 說明：資金分配審核頁（`/funds-allocation/review/check/[id]`）審核人編輯欄位按「儲存變更」後，畫面未即時更新（資料實際已存、變更歷程可證），需手動重新整理才正確。根因：`onSaveSuccess` 先 bump `refreshKey` 讓 `EditFundsForm` 立即用「還沒重抓的舊 record」重建，重抓 record 的 `useEffect` 是非同步晚一步完成，且 `EditFundsForm` 欄位值初始化綁 `[record.id]`（存檔前後不變）故不再同步，於是畫面卡在舊值。修法：把 `load()` 抽成可重複呼叫（`useCallback`），`onSaveSuccess` 改為先 `await load()`（更新 record 與核准金額預填）再 bump `refreshKey`，確保表單重建時吃到新資料。只動審核頁一個檔，不碰共用元件。Playwright 實測：改費用 10000→8000 存檔後未重新整理，畫面即顯示 8000／稅額 2000／總額 10000／上方費用項目與核准金額預填同步更新，DB 一致。tsc 通過。

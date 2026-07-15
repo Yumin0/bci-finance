@@ -8,7 +8,61 @@
 
 ## ⏳ 待執行
 
-目前無待執行項目。
+### 資金分配「費用項目（主要）」欄位代號修正（amount → custom_expense_item_main）
+
+- [ ] 正式機尚未執行
+
+用途：資金分配表單「費用項目（主要）」下拉的欄位代號原本被設成 `amount`，與系統存「金額／總額」的 `amount` 撞名，導致：載入時這個下拉被填成單子的總額數字（畫面顯示成一串數字而非費用項目）、存檔時使用者選的費用項目又被付款明細總額覆蓋掉、選的值永遠存不進去。把它改成專屬代號 `custom_expense_item_main` 後脫離撞名，選的費用項目改存進 `extra_data['費用項目']`、畫面正常顯示、也繼續驅動「費用項目（細項）」的連動篩選；數字總額 `amount` 欄照舊由付款明細加總算出。**無程式碼變更**（純表單設定，`custom_` 開頭欄位既有機制自動存/讀 extra_data）。dev/staging 已於 2026-07-15 用 script 改好並以 Playwright 驗證（改費用存檔後主要值不再被蓋、正確顯示）。
+
+注意：改代號後，**改代號前建立的舊申請單**其「費用項目（主要）」會顯示空白（該值以前從沒被存下來），因該欄為必填，審核人若去編輯舊單需補選一次才可存檔；正式機若已有真實舊單、且不希望審核人被擋，可考慮之後再補一版回填。改前先確認正式站該欄現況（代號是否仍為 `amount`、label 是否為 `費用項目`），若正式站表單設定代號已不同需自行對應調整 WHEN 條件。
+
+```sql
+-- 改前先 SELECT rows 備份
+SELECT rows FROM form_schemas WHERE form_type = 'funds_allocation';
+
+-- 確認正式站現況：應查到 1 筆 fieldId=amount 且 label=費用項目
+SELECT count(*) FROM form_schemas f,
+  jsonb_array_elements(f.rows) block,
+  jsonb_array_elements(block->'rows') row_,
+  jsonb_array_elements(row_->'slots') slot
+WHERE f.form_type = 'funds_allocation'
+  AND slot->>'fieldId' = 'amount' AND slot->>'label' = '費用項目';
+
+-- 將該欄 fieldId 從 amount 改為 custom_expense_item_main
+UPDATE form_schemas
+SET rows = (
+  SELECT jsonb_agg(
+    jsonb_set(block, '{rows}', COALESCE((
+      SELECT jsonb_agg(
+        jsonb_set(row_, '{slots}', COALESCE((
+          SELECT jsonb_agg(
+            CASE
+              WHEN slot->>'fieldId' = 'amount' AND slot->>'label' = '費用項目'
+                THEN jsonb_set(slot, '{fieldId}', '"custom_expense_item_main"')
+              ELSE slot
+            END
+            ORDER BY slot_ord
+          )
+          FROM jsonb_array_elements(row_->'slots') WITH ORDINALITY AS s(slot, slot_ord)
+        ), '[]'::jsonb))
+        ORDER BY row_ord
+      )
+      FROM jsonb_array_elements(block->'rows') WITH ORDINALITY AS r(row_, row_ord)
+    ), '[]'::jsonb))
+    ORDER BY block_ord
+  )
+  FROM jsonb_array_elements(rows) WITH ORDINALITY AS b(block, block_ord)
+)
+WHERE form_type = 'funds_allocation';
+
+-- 驗證：應為 0（已無殘留 amount 的費用項目欄位）
+SELECT count(*) FROM form_schemas f,
+  jsonb_array_elements(f.rows) block,
+  jsonb_array_elements(block->'rows') row_,
+  jsonb_array_elements(row_->'slots') slot
+WHERE f.form_type = 'funds_allocation'
+  AND slot->>'fieldId' = 'amount' AND slot->>'label' = '費用項目';
+```
 
 ---
 
