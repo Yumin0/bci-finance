@@ -135,16 +135,19 @@ export default function ReviewProgressBlock({
               {/* 階段名（僅進行中深色，已核准／尚未輪到皆灰字；比照筑今，不再顯示「待審核」字樣） */}
               <div style={{ width: 150, flexShrink: 0 }}>
                 <strong style={{ fontSize: 14, color: isActive ? 'var(--text-title)' : 'var(--text-muted)' }}>{step.step_number}. {step.step_name}</strong>
-                {readOnly && reviewerName && (
-                  <span style={{ display: 'block', marginTop: 2, fontSize: 12, color: 'var(--text-muted)' }}>· {reviewerName}</span>
-                )}
               </div>
 
               {readOnly ? (
                 <>
-                  {/* 申請人唯讀檢視：不核准/核准置中放大、核准金額靠最右（比照筑今申請人檢視） */}
-                  <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 56 }}>
+                  {/* 申請人唯讀檢視：四個固定欄位對齊——階段名｜不核准/核准｜審核人＋評論｜核准金額 */}
+                  <div style={{ width: 220, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
                     {radios}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 160, fontSize: 13, color: 'var(--text-body)', whiteSpace: 'pre-line' }}>
+                    {reviewerName && <span style={{ color: 'var(--text-muted)' }}>{reviewerName}　</span>}
+                    {isDone && rowComment && (
+                      <><span style={{ color: 'var(--text-muted)' }}>評論：</span>{rowComment}</>
+                    )}
                   </div>
                   {showApprovedAmount && (
                     <div style={{ width: 120, flexShrink: 0, textAlign: 'right' }}>
