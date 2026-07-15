@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import PageHeader from '@/app/_components/PageHeader'
 import { OrgScopeTree, unitLabel } from '@/app/_components/OrgScopeTree'
+import { useConfirm } from '@/app/_components/useConfirm'
 
 // 去頭尾空白、不分大小寫，用於出款帳戶名稱防重複比對
 function normalizeLabel(s: string): string {
@@ -82,6 +83,7 @@ function PaymentCategorySection({
   isDuplicate: (field: DropdownField, label: string, excludeId?: number) => boolean
   onReload: () => Promise<void>
 }) {
+  const [confirm, confirmDialog] = useConfirm()
   const [newLabel, setNewLabel] = useState('')
   const [sectionError, setSectionError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -112,7 +114,7 @@ function PaymentCategorySection({
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('確定要刪除此付款分類嗎？已加註在憑單審核紀錄上的舊資料不受影響。')) return
+    if (!(await confirm({ message: '確定要刪除此付款分類嗎？已加註在憑單審核紀錄上的舊資料不受影響。', danger: true, confirmText: '刪除' }))) return
     setSectionError(null)
     const { error: e } = await supabase.from('dropdown_options').delete().eq('id', id)
     if (e) { setSectionError(e.message); return }
@@ -121,6 +123,7 @@ function PaymentCategorySection({
 
   return (
     <Card>
+      {confirmDialog}
       <CardHeader>
         <CardTitle>付款分類</CardTitle>
       </CardHeader>
@@ -197,6 +200,7 @@ function PaymentCategorySection({
 }
 
 export default function ExpenseFieldsPage() {
+  const [confirm, confirmDialog] = useConfirm()
   const [dropdownOptions, setDropdownOptions] = useState<DropdownOption[]>([])
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
   const [loading, setLoading] = useState(true)
@@ -284,7 +288,7 @@ export default function ExpenseFieldsPage() {
   }
 
   async function handleDeleteAccount(id: number) {
-    if (!confirm('確定要刪除此選項嗎？')) return
+    if (!(await confirm({ message: '確定要刪除此選項嗎？', danger: true, confirmText: '刪除' }))) return
     setError(null)
     const { error: e } = await supabase.from('dropdown_options').delete().eq('id', id)
     if (e) { setError(e.message); return }
@@ -345,6 +349,7 @@ export default function ExpenseFieldsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {confirmDialog}
       <div>
         <PageHeader title="支出欄位設定" />
         <p className="mt-1 text-sm text-muted-foreground">管理資金分配申請單中各下拉選單的選項，以及財務審核用的付款分類。</p>
@@ -359,7 +364,7 @@ export default function ExpenseFieldsPage() {
           onNewLabelChange={setNewInstitution}
           onAdd={handleAddInstitution}
           onDelete={async id => {
-            if (!confirm('確定要刪除此選項嗎？')) return
+            if (!(await confirm({ message: '確定要刪除此選項嗎？', danger: true, confirmText: '刪除' }))) return
             setError(null)
             const { error: e } = await supabase.from('dropdown_options').delete().eq('id', id)
             if (e) { setError(e.message); return }

@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import ErrorDialog from '@/app/_components/ErrorDialog'
+import ConfirmDialog from '@/app/_components/ConfirmDialog'
 import { saveAttachments } from '@/app/actions/attachments'
 import { saveUserFundTemplate, updateUserFundTemplate, deleteUserFundTemplate } from '@/app/actions/fund-templates'
 import DateCyclePicker from '@/app/_components/DateCyclePicker'
@@ -55,6 +56,7 @@ export default function AddFundsForm({
   const [saveAsName, setSaveAsName] = useState('')
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [deletingTemplate, setDeletingTemplate] = useState(false)
+  const [askDeleteTemplate, setAskDeleteTemplate] = useState(false)
 
   // Data source state
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([])
@@ -1093,7 +1095,6 @@ export default function AddFundsForm({
 
   async function handleDeleteTemplate() {
     if (!editTemplate) return
-    if (!confirm(`確定要刪除範本「${editTemplate.name}」嗎？刪除後無法復原。`)) return
     setDeletingTemplate(true); setError(null)
     const { error: deleteError } = await deleteUserFundTemplate(editTemplate.id)
     setDeletingTemplate(false)
@@ -1136,6 +1137,15 @@ export default function AddFundsForm({
         message={error ? (getChineseHint(error) ?? error) : null}
         title="無法送出"
         onClose={() => setError(null)}
+      />
+      <ConfirmDialog
+        open={askDeleteTemplate}
+        danger
+        title="刪除範本"
+        message={editTemplate ? `確定要刪除範本「${editTemplate.name}」嗎？刪除後無法復原。` : ''}
+        confirmText="刪除"
+        onConfirm={() => { setAskDeleteTemplate(false); handleDeleteTemplate() }}
+        onCancel={() => setAskDeleteTemplate(false)}
       />
 
       <form onSubmit={handleSubmit}>
@@ -1251,7 +1261,7 @@ export default function AddFundsForm({
             <Button
               type="button"
               variant="outline"
-              onClick={handleDeleteTemplate}
+              onClick={() => setAskDeleteTemplate(true)}
               disabled={deletingTemplate || savingTemplate}
               style={{ color: '#dc2626', borderColor: '#fca5a5' }}
             >

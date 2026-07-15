@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { useConfirm } from '@/app/_components/useConfirm'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import PageHeader from '@/app/_components/PageHeader'
@@ -285,6 +286,7 @@ function RecordModal({
 
 // ---- 主頁面 ----
 export default function PayeeSettingsPage() {
+  const [confirm, confirmDialog] = useConfirm()
   const [categories, setCategories] = useState<PayeeCategory[]>([])
   const [fields, setFields] = useState<PayeeCategoryField[]>([])
   const [records, setRecords] = useState<PayeeRecord[]>([])
@@ -345,7 +347,7 @@ export default function PayeeSettingsPage() {
 
   async function handleDeleteCategory() {
     if (!activeCat) return
-    if (!confirm(`確定要刪除「${activeCat.name}」類別嗎？此類別下的所有欄位與付款對象資料也會一併刪除。`)) return
+    if (!(await confirm({ message: `確定要刪除「${activeCat.name}」類別嗎？此類別下的所有欄位與付款對象資料也會一併刪除。`, danger: true, confirmText: '刪除' }))) return
     const res = await deletePayeeCategory(activeCat.id)
     if (res.error) { setError(res.error); return }
     setShowCategorySettings(false)
@@ -361,7 +363,7 @@ export default function PayeeSettingsPage() {
   }
 
   async function handleDeleteField(field: PayeeCategoryField) {
-    if (!confirm(`確定要刪除欄位「${field.label}」嗎？`)) return
+    if (!(await confirm({ message: `確定要刪除欄位「${field.label}」嗎？`, danger: true, confirmText: '刪除' }))) return
     const res = await deletePayeeCategoryField(field.id)
     if (res.error) { setError(res.error); return }
     await load(activeId ?? undefined)
@@ -378,7 +380,7 @@ export default function PayeeSettingsPage() {
 
   async function handleDeleteRecord(record: PayeeRecord) {
     const firstName = activeFields[0] ? record.field_values[String(activeFields[0].id)] : ''
-    if (!confirm(`確定要刪除「${firstName || '此付款對象'}」嗎？`)) return
+    if (!(await confirm({ message: `確定要刪除「${firstName || '此付款對象'}」嗎？`, danger: true, confirmText: '刪除' }))) return
     const res = await deletePayeeRecord(record.id)
     if (res.error) { setError(res.error); return }
     if (activeId) await loadRecords(activeId)
@@ -388,6 +390,7 @@ export default function PayeeSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {confirmDialog}
       <div>
         <PageHeader
           title="付款對象設定"

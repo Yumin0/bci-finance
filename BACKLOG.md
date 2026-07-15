@@ -280,6 +280,20 @@
 
 ## 已完成
 
+**原生 confirm/alert 全站改為系統彈窗**（2026-07-15，Riku）
+分支：`feature/riku-confirm-dialog`
+說明：全站所有刪除／移除確認、上傳失敗提示原本用瀏覽器原生 `confirm()`／`alert()`（與網址列同源、抽離系統視覺、不跟隨深淺色主題），改為系統中央彈窗。新增共用元件 `_components/ConfirmDialog.tsx`（比照 ErrorDialog 視覺、`document.body` portal、刪除類 `danger` 紅色確定鈕）＋`_components/useConfirm.tsx`（Promise 版 hook，`if (!(await confirm(...))) return`）；上傳失敗兩處改用既有 `ErrorDialog`。共 24 處。
+影響範圍確認（原生彈窗取代為橫切關注點，grep `confirm(`／`alert(` 全站清空、僅剩註解）：
+- [x] /system-settings/org-structure（移除職位指派／負責人、刪除節點／職位／職稱，共 5）
+- [x] /settings/fee（類別／子類別／欄位／費用項目，共 4）
+- [x] /system-settings/payee-settings（類別／欄位／付款對象，共 3）
+- [x] /system-settings/expense-fields（付款分類、選項 ×2，共 3）
+- [x] /system-settings/approval-flows（群組、範本，共 2）
+- [x] /system-settings/account-management（角色）、form-settings/_tax-tab（稅額選項）、report-issue/module-settings（模組選項）
+- [x] /funds-allocation/my-funds/add（刪除範本）、edit/[id]（刪除單據）
+- [x] /report-issue 列表與詳細頁上傳失敗提示（改用 ErrorDialog）
+- [x] npx tsc --noEmit 零錯誤
+
 **費用項目（主要）底下細項唯一時自動帶入細項**（2026-07-15，Riku）
 分支：`feature/riku-fee-detail-autofill`
 說明：資金分配申請新增/編輯頁，選「費用項目（主要）」後，若該主要編號底下對應的「費用項目（細項）」恰好只有一筆，就自動帶入那一筆（使用者不必再點）；有多筆時維持原本只列出符合編號的選項、交給使用者自選。改在觸發連動的 `clearMismatchedDetailFees`（選主要時呼叫）內計算：先清掉編號對不上的舊細項，再對每個細項欄位算出符合主要編號的選項，剛好一筆就填入。固定欄位與付款明細群組欄位分開處理（依欄位屬於固定區或群組區，避免污染群組 extra_data）；只在「改選主要」時觸發，載入既有單子不覆蓋原值。使用者已先在費用類型設定補上 `3.1 應收帳款支出` 的細項，故目前全部主要編號都至少對應一筆（原本 3.1 無細項會導致必填細項無選項卡送出）。
