@@ -7,6 +7,16 @@
 
 ## 進行中
 
+**組織架構編輯課別/處別按保存沒反應（層級誤設必填）**（Riku）
+分支：`feature/riku-org-edit-save`
+開始：2026-07-14
+說明：組織架構節點編輯的存檔函式把「層級」欄位設為必填（`!editLevel.trim()` 就 return），但層級是純顯示用的選填自由文字標籤，多數節點留空，導致編輯留空層級的課別/處別按保存直接靜默 return、畫面無反應也無錯誤。修正為只檢查名稱必填。
+
+**新增申請單：選申請課別/處別會把已選職務清空**（Riku）
+分支：`feature/riku-role-cascade`
+開始：2026-07-14
+說明：新增資金分配申請單頁「職務」下拉選項值已改為「組織單位＋職稱」組合字，但「申請處別/課別」onChange 仍留舊邏輯，會用純職稱字串反向覆寫職務——格式對不上導致一選課別就把職務清空（多角色課別直接清空、單角色也塞入對不到選項的值）。修正：移除申請處別/課別 onChange 反向覆寫職務的那段（改處別仍清空已選課別）。設計維持單向「選職務→自動帶入處/課」。編輯頁為另一種設計（處/課驅動職務、選項為純職稱），格式一致故不動。
+
 **明細頁共用元件：付款明細表格 + 欄位區塊渲染**（Yumin）
 分支：`feature/yumin-shared-detail-components`
 開始：2026-07-15
@@ -91,10 +101,10 @@
 - **修法方向**：把該欄位改掛自訂欄位代號（表單設定重新加入欄位、或 SQL 直接改 `form_schemas` jsonb 的 fieldId），改完值會存進 `extra_data`；需同步檢查共用範本（含筑今匯入的 23 個）的 `field_values` 是否有以 `amount` 為 key 存主要值，有的話要一起搬 key
 - **備註**：細項連動已對此防呆——主要值不在選項清單中時退回顯示全部選項，不會鎖死
 
-#### ~~[支出欄位設定 RLS 寫入修復]~~ ✅ 已解（2026-07-14，Yumin）
-- 根因＝正式機 Supabase 幾乎所有 public 資料表 RLS 開著、dev 全關，凡是瀏覽器直接寫資料庫的頁面（支出欄位設定、帳號管理角色管理…）在正式機都會撞 RLS 錯誤
-- 2026-07-14 於正式機以 DO 迴圈一次 DISABLE 所有 public 表的 RLS，對齊 dev（SQL 存查見 docs/prod-pending-sql.md）；角色管理新增角色實測可存
-- 後續補強見「低優先／未來探索」的資料庫安全強化項目
+#### [支出欄位設定 RLS 寫入修復]
+- **問題**：`/system-settings/expense-fields` 新增／刪除選項時出現 RLS 錯誤（`new row violates row-level security policy for table "dropdown_options"`）
+- **原因**：頁面直接用 `supabase`（一般客戶端）執行 INSERT/DELETE，被 Supabase RLS 擋住
+- **解法**：與組織架構頁相同，將寫入操作移至 Server Actions，改用 `supabaseAdmin`（service role key）
 
 #### ~~[（稅收）費用自動計算]~~（Riku）✅ 已完成（2026-06-02）
 
@@ -178,10 +188,6 @@
 
 ### 🟢 低優先 / 未來探索
 
-#### [資料庫安全強化：重新啟用 RLS 或全面伺服器端寫入]
-- 現況：dev 與正式機所有 public 表 RLS 皆已關閉（2026-07-14 正式機對齊 dev），資料庫防線完全依賴系統登入把關；前端公開金鑰理論上可繞過網頁直接呼叫資料庫 API，正式機為真實財務資料
-- 方向：把仍在瀏覽器直接讀寫 supabase 的頁面全面改走 Server Actions（supabaseAdmin），完成後重新開啟 RLS 並以「全部拒絕」為預設
-
 #### [站外通知（推播）]（Riku）
 - **目標**：在現有站內通知基礎上，支援站外推播，讓使用者不開瀏覽器也能收到通知
 - **備選方案**：
@@ -252,6 +258,26 @@
 **付款憑單／暫付款沖銷憑單建立頁加「儲存草稿」按鈕**（2026-07-15，Yumin）
 分支：`feature/yumin-payment-voucher-draft`
 說明：對齊資金分配新增頁，兩個建立頁改成「儲存草稿」＋「確定送出」雙按鈕。儲存草稿只建立 draft（放寬：`createPayment`/`createTempVoucher` 加 `asDraft` 參數，草稿允許金額 0 存半成品、仍擋負數與超過剩餘/原預支上限）、確定送出跑費用檢查（付款憑單 `validateFeePositive`）後建立並接送審 action（`submitMyPayment`/`submitTempVoucher`）。既有呼叫端不受影響（新增選填參數、預設嚴格）。無資料庫結構變更。tsc/eslint 通過。
+
+**審核區塊共用化：抽 ReviewProgressBlock，比照筑今一列式排版**（2026-07-15，Yumin）
+分支：`feature/yumin-review-block-shared`
+說明：三個審核操作頁（資金分配／付款憑單／暫付款沖銷 review/check）的「審核進度」動作區塊統一改用共用元件 `_components/ReviewProgressBlock.tsx`，比照筑今一列式排版——每個階段一列（階段名｜不核准○核准○｜評論(＋付款分類)｜核准金額｜確定送出），已完成階段顯示已選(反灰)結果＋審核人/時間、未來階段整列反灰、僅進行中可操作；評論框與核准金額同高(56px)、整列垂直置中；不核准/核准比照筑今順序；僅進行中階段名深色、其餘灰字，不再顯示「待審核」字樣。props 切換 `showApprovedAmount`（資金分配／付款憑單）與 `enablePaymentCategory`（付款憑單／沖銷的審核群組步驟顯示付款分類）。申請人自行查看審核進度（EditFundsForm 面板）改用 `readOnly` 模式：整列唯讀、不核准/核准置中、右側顯示核准金額、無評論框無送出鈕（比照筑今申請人檢視）。各頁保留自己的送出/驗證邏輯。無資料庫結構變更，npm run build 通過。
+影響範圍確認（審核區塊為橫切關注點）：
+- [x] /funds-allocation/review/check/[id]（showApprovedAmount，無付款分類）
+- [x] /funds-payment/review/check/[id]（showApprovedAmount＋群組步驟付款分類）
+- [x] /funds-voucher/review/check/[id]（無核准金額，群組步驟付款分類）
+- [x] /funds-allocation/my-funds/edit/[id]（EditFundsForm 申請人視角，readOnly 模式）
+- [x] staging Yumin 驗收通過
+
+**暫付款沖銷憑單審核管理頁 Tab 對齊付款憑單**（2026-07-14，Riku）
+分支：`feature/riku-voucher-review-tabs`
+說明：審核管理頁原本只有「待我審核／我的審核紀錄」兩個 Tab，改寫成 Server 元件（`review/page.tsx`）＋ `VoucherReviewClient.tsx`，Tab 結構比照付款憑單審核管理頁——課、處長審核（org_role，回溯母付款憑單申請單處/課別過濾）＋動態群組 Tab（`getTempVoucherReviewGroups`）＋我的審核紀錄，依出款帳戶（繼承母付款憑單）分區塊、年份＋週次篩選、Tab badge 只計待審筆數、群組 Tab 審核鈕只給群組成員。新增 3 個 server action（`getVouchersForOrgRoleByWeek`/`getVouchersForApprovalGroupByWeek`/`getTempVoucherReviewGroups`），擴充 `filterReached`/`getMaxRecordedSteps` 支援 `temp_voucher_id`，新增 `getAttachmentsByTempVoucherIds`。新增權限 `fv-review-div`/`fv-review-group`。列表對齊 9 欄（敘述欄與核准金額抓母付款憑單、第 8 欄「沖銷金額」為沖銷憑單自身 amount、發票憑證為沖銷憑單附件）。無資料庫結構變更（`fund_attachments.temp_voucher_id` 早已存在，僅補進 TS 型別）。
+影響範圍確認：
+- [x] /funds-voucher/review（改寫 Server 元件 + VoucherReviewClient）
+- [x] actions/approval-flow.ts（3 個新 server action + filterReached 擴充）
+- [x] actions/attachments.ts（getAttachmentsByTempVoucherIds）
+- [x] lib/sidebar-config.ts（fv-review-div / fv-review-group）
+- [x] Playwright 實測：課處長／財務人員群組／我的審核紀錄三 Tab 皆正確渲染 9 欄、分帳戶區塊、週次篩選，無 runtime error
 
 **付款分類全套＋財務付款憑單管理頁對齊筑今＋付款方式/費用項目欄位代號修正**（2026-07-14，Yumin）
 分支：`feature/yumin-payment-category`（已合併 main）
