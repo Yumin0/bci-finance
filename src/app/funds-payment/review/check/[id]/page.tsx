@@ -14,8 +14,7 @@ import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDeta
 import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
 import AttachmentUpload from '@/app/_components/AttachmentUpload'
 import ErrorDialog from '@/app/_components/ErrorDialog'
-import { Button } from '@/components/ui/button'
-import { formatDateTime } from '@/lib/dateUtils'
+import ReviewProgressBlock from '@/app/_components/ReviewProgressBlock'
 
 type StepDef = {
   id: number
@@ -239,94 +238,31 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         </div>
       )}
 
-      <div style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>審核進度</h2>
-
-        {steps.map(step => {
-          const past = pastRecords.find(r => r.step_number === step.step_number)
-          const isActive = step.step_number === currentStep && record.status === 'pending'
-          const isDone = !!past
-
-          return (
-            <div key={step.step_number} style={{ padding: '16px 0', borderBottom: '1px solid var(--border-color)', opacity: !isDone && !isActive ? 0.4 : 1 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, alignItems: 'start', marginBottom: isActive ? 10 : 0 }}>
-                <strong style={{ fontSize: 14 }}>{step.step_number}. {step.step_name}</strong>
-                {isDone && (
-                  <span style={{ fontSize: 13, color: past.decision === 'approved' ? '#16a34a' : '#dc2626', fontWeight: 500 }}>
-                    {past.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
-                    {past.decision === 'approved' && past.approved_amount != null && (
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>核准金額：{past.approved_amount.toLocaleString()} 元</span>
-                    )}
-                    {past.payment_category && (
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>付款分類：{past.payment_category}</span>
-                    )}
-                    {past.reviewed_at && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>{formatDateTime(past.reviewed_at)}</span>}
-                    {past.comment && <span style={{ display: 'block', color: 'var(--text-muted)', fontWeight: 400, fontSize: 12, marginTop: 2 }}>{past.comment}</span>}
-                  </span>
-                )}
-                {isActive && !isDone && <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 500 }}>待審核</span>}
-              </div>
-
-              {isActive && canReview && (
-                <div>
-                  <div style={{ display: 'flex', gap: 20, marginBottom: 10 }}>
-                    {(['approved', 'rejected'] as const).map(val => (
-                      <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
-                        <input type="radio" name="decision" value={val} checked={decision === val} onChange={() => setDecision(val)} />
-                        {val === 'approved' ? '核准' : '不核准'}
-                      </label>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                    <textarea
-                      placeholder="評論（選填）" rows={3} value={comment}
-                      onChange={e => setComment(e.target.value)}
-                      style={{ flex: 1, minWidth: 160, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--btn-border)', fontSize: 14, resize: 'vertical', boxSizing: 'border-box', background: 'var(--bg-page)' }}
-                    />
-                    <input
-                      type="number"
-                      value={approvedAmount}
-                      onChange={e => setApprovedAmount(e.target.value)}
-                      onWheel={e => e.currentTarget.blur()}
-                      min={0}
-                      placeholder="核准金額"
-                      style={{ width: 130, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--btn-border)', fontSize: 14, background: 'var(--bg-page)', color: 'var(--text-body)', flexShrink: 0 }}
-                    />
-                  </div>
-                  {showPaymentCategory && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-                      <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>付款分類</span>
-                      <select
-                        value={paymentCategory}
-                        onChange={e => setPaymentCategory(e.target.value)}
-                        style={{ width: 180, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--btn-border)', fontSize: 14, background: 'var(--bg-page)', color: 'var(--text-body)' }}
-                      >
-                        <option value="">（未選擇）</option>
-                        {/* 承接的舊選值若已被財務從選項清單移除，仍保留可見避免被靜默清掉 */}
-                        {paymentCategory && !categoryOptions.includes(paymentCategory) && (
-                          <option value={paymentCategory}>{paymentCategory}</option>
-                        )}
-                        {categoryOptions.map(opt => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div style={{ marginTop: 12 }}>
-                    <Button onClick={handleSubmit} disabled={!decision || submitting}
-                      className={decision && !submitting ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : ''}>
-                      {submitting ? '送出中...' : '確定送出'}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
-
-        {record.status === 'approved' && <p style={{ marginTop: 16, color: '#16a34a', fontWeight: 600 }}>✓ 此憑單已全數核准</p>}
-        {record.status === 'rejected' && <p style={{ marginTop: 16, color: '#dc2626', fontWeight: 600 }}>✗ 此憑單已被拒絕</p>}
-      </div>
+      {/* 審核進度（比照筑今一列式排版，共用元件；付款群組步驟顯示付款分類） */}
+      <ReviewProgressBlock
+        steps={steps}
+        pastRecords={pastRecords}
+        currentStep={currentStep}
+        status={record.status}
+        canReview={canReview}
+        decision={decision}
+        onDecisionChange={setDecision}
+        comment={comment}
+        onCommentChange={setComment}
+        submitting={submitting}
+        onSubmit={handleSubmit}
+        showApprovedAmount
+        approvedAmount={approvedAmount}
+        onApprovedAmountChange={setApprovedAmount}
+        enablePaymentCategory
+        paymentCategory={paymentCategory}
+        onPaymentCategoryChange={setPaymentCategory}
+        categoryOptions={categoryOptions}
+        completionMessages={{
+          approved: '✓ 此憑單已全數核准',
+          rejected: '✗ 此憑單已被拒絕',
+        }}
+      />
     </div>
   )
 }

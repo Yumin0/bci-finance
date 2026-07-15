@@ -10,8 +10,8 @@ import { allDivisionOptions, allSectionOptions, isAccountVisibleToUser } from '@
 import { validateFeePositive } from '@/lib/feeValidation'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { type StatusLabelConfig } from '@/lib/status-label-config'
-import { formatDateTime } from '@/lib/dateUtils'
 import StatusBadge from '@/app/_components/StatusBadge'
+import ReviewProgressBlock from '@/app/_components/ReviewProgressBlock'
 
 export type ApprovalStepDef = { id: number; step_number: number; step_name: string }
 import { Button } from '@/components/ui/button'
@@ -1407,66 +1407,23 @@ export default function EditFundsForm({
       </form>
 
       {!isDraft && !hideApprovalPanel && approvalSteps.length > 0 && (
-        <div style={{ marginTop: 32, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12, padding: '20px 24px' }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>審核進度</h2>
-          {approvalSteps.map((step, idx) => {
-            const past = approvalRecords.find(r => r.step_number === step.step_number)
-            const isActive = step.step_number === record.current_step && record.status === 'pending'
-            const isDone = !!past
-            const isLast = idx === approvalSteps.length - 1
-            return (
-              <div key={step.step_number} style={{
-                padding: '14px 0',
-                borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
-                opacity: !isDone && !isActive ? 0.4 : 1,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0, minWidth: 20 }}>
-                    {step.step_number}.
-                  </span>
-                  <strong style={{ fontSize: 14, flexShrink: 0 }}>
-                    {step.step_name}
-                    {isDone && past.reviewer_id && reviewerNames[past.reviewer_id] && (
-                      <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>
-                        · {reviewerNames[past.reviewer_id]}
-                      </span>
-                    )}
-                  </strong>
-                  <span style={{ flex: 1, fontSize: 14, color: 'var(--text-body)', textAlign: 'center' }}>
-                    {isDone && past.comment ? past.comment : ''}
-                  </span>
-                  {isDone && (
-                    <span style={{
-                      fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, flexShrink: 0,
-                      background: past.decision === 'approved' ? '#dcfce7' : '#fee2e2',
-                      color: past.decision === 'approved' ? '#16a34a' : '#dc2626',
-                    }}>
-                      {past.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
-                    </span>
-                  )}
-                  {isActive && !isDone && (
-                    <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#dbeafe', color: '#2563eb', flexShrink: 0 }}>
-                      待審核
-                    </span>
-                  )}
-                  {isDone && past.reviewed_at && (
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
-                      {formatDateTime(past.reviewed_at)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-          {record.status === 'approved' && (
-            <p style={{ marginTop: 12, color: '#16a34a', fontWeight: 600, fontSize: 14 }}>✓ 此申請已全數核准</p>
-          )}
-          {record.status === 'paid' && (
-            <p style={{ marginTop: 12, color: '#16a34a', fontWeight: 600, fontSize: 14 }}>✓ 此申請已全數核准，額度已用完（已付款）</p>
-          )}
-          {record.status === 'rejected' && (
-            <p style={{ marginTop: 12, color: '#dc2626', fontWeight: 600, fontSize: 14 }}>✗ 此申請已被拒絕</p>
-          )}
+        <div style={{ marginTop: 32 }}>
+          {/* 申請人自行查看審核進度：唯讀一列式排版（比照筑今），不核准/核准置中、右側顯示核准金額 */}
+          <ReviewProgressBlock
+            readOnly
+            steps={approvalSteps}
+            pastRecords={approvalRecords}
+            currentStep={record.current_step}
+            status={record.status}
+            canReview={false}
+            showApprovedAmount
+            reviewerNames={reviewerNames}
+            completionMessages={{
+              approved: '✓ 此申請已全數核准',
+              paid: '✓ 此申請已全數核准，額度已用完（已付款）',
+              rejected: '✗ 此申請已被拒絕',
+            }}
+          />
         </div>
       )}
     </div>
