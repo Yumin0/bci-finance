@@ -266,7 +266,7 @@
 - [x] tsc 型別檢查與 eslint 通過
 
 **建單頁資訊區塊改橫式（比照唯讀詳細頁）**（2026-07-15，Yumin，同分支延續）
-說明：付款憑單建單頁與暫付款沖銷建單頁的上方非群組資訊區塊原本是直式（標籤在上），與唯讀詳細頁（RecordDetailView 橫式）不一致。改為共用 `DetailFieldLayout`＋`detailRowGridStyle`（同一 `block.rows.some(r => r.repeatable || r.rowGroupStart)` 判斷）：無群組區塊＝橫式（標籤在左固定寬 140），付款明細群組區塊維持可編輯卡片直式。DetailFieldLayout 的 children 放可編輯 renderInput/renderField；付款憑單直式群組區塊維持原本含總額提示排版。
+說明：付款憑單建單頁與暫付款沖銷建單頁的上方非群組資訊區塊原本是直式（標籤在上），與唯讀詳細頁（RecordDetailView 橫式）不一致。改為共用 `DetailFieldLayout`＋`detailRowGridStyle`（同一 `block.rows.some(r => r.repeatable || r.rowGroupStart)` 判斷）：無群組區塊＝橫式（標籤在左固定寬 140），付款明細群組區塊維持可編輯卡片直式。DetailFieldLayout 的 children 放可編輯 renderInput/renderField；付款憑單直式群組區塊維持原本含總額提示排版。另沖銷建單頁最外層原本有 `maxWidth: 720` 限制（付款憑單建單頁/兩個詳細頁皆無），導致橫式欄位輸入框過窄截斷，一併移除改滿版與詳細頁一致。
 影響範圍確認（建單頁版面為橫切關注點）：
 - [x] /funds-voucher/my-voucher/add/[id]（暫付款沖銷建單頁）
 - [x] /funds-payment/my-payment/add/[id]（付款憑單建單頁）

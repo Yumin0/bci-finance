@@ -282,7 +282,7 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
   )
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Link href={`/funds-payment/my-payment/${paymentId}`} className={buttonVariants({ variant: 'outline' })}>
           ← 返回付款憑單
