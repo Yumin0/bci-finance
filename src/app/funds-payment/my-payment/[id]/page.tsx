@@ -18,13 +18,13 @@ import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/statu
 import { getAttachmentsByAllocationId, getAttachmentsByPaymentId, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
 import StatusBadge from '@/app/_components/StatusBadge'
+import ReviewProgressBlock, { type ReviewStepDef } from '@/app/_components/ReviewProgressBlock'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import ErrorDialog from '@/app/_components/ErrorDialog'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { formatDateTime } from '@/lib/dateUtils'
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6 }
 const readonlyCls = 'bg-[var(--bg-page)] cursor-default'
@@ -65,7 +65,7 @@ function getGroupRows(block: FormBlock): FormSchemaRow[] {
 type RecordWithTemplate = FundsPayment & {
   approval_flow_templates: {
     name: string
-    approval_flow_steps: Array<{ step_name: string; step_number: number }>
+    approval_flow_steps: Array<{ id: number; step_name: string; step_number: number; reviewer_type?: string }>
   } | null
   approval_records: Array<{ step_name: string; decision: string }>
 }
@@ -123,6 +123,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter()
   const [record, setRecord] = useState<RecordWithTemplate | null>(null)
   const [approvalHistory, setApprovalHistory] = useState<ApprovalRecord[]>([])
+  const [reviewerNames, setReviewerNames] = useState<Record<string, string>>({})
   const [schema, setSchema] = useState<FormBlock[]>([])
   const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
@@ -180,7 +181,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       const [[recordRes, histRes, config], schemas] = await Promise.all([
         Promise.all([
           supabase.from('funds_payment')
-            .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number)), approval_records!funds_payment_id(step_name, decision)`)
+            .select(`*, approval_flow_templates(name, approval_flow_steps(id, step_name, step_number, reviewer_type)), approval_records!funds_payment_id(step_name, decision)`)
             .eq('id', numId).single(),
           supabase.from('approval_records')
             .select('*').eq('funds_payment_id', numId).order('step_number'),
@@ -194,8 +195,23 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
       const rec = data as RecordWithTemplate
       setRecord(rec)
-      setApprovalHistory((histRes.data as ApprovalRecord[]) ?? [])
+      const histRecords = (histRes.data as ApprovalRecord[]) ?? []
+      setApprovalHistory(histRecords)
       setLabelConfig(config)
+
+      // 審核進度共用元件：已完成階段顯示審核人名（key = reviewer_id）
+      const reviewerIds = histRecords
+        .map(r => r.reviewer_id)
+        .filter((rid): rid is string => !!rid && !isNaN(Number(rid)))
+      if (reviewerIds.length > 0) {
+        const { data: users } = await supabase
+          .from('app_users')
+          .select('id, name')
+          .in('id', reviewerIds.map(Number))
+        const names: Record<string, string> = {}
+        for (const u of users ?? []) names[String(u.id)] = u.name
+        setReviewerNames(names)
+      }
 
       // 一張付款憑單只能建一張沖銷憑單：查是否已有「活的」沖銷單（草稿/審核中/已核准；退回的不算）
       if (rec.status === PAYMENT_STATUS.PAID && rec.category === '預支') {
@@ -1058,22 +1074,31 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         )}
       </div>
 
-      {/* 審核歷程 */}
-      {approvalHistory.length > 0 && (
-        <div style={{ marginTop: 40, maxWidth: 600 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>審核歷程</h2>
-          {approvalHistory.map(r => (
-            <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <strong style={{ fontSize: 13 }}>{r.step_name}</strong>
-                <span style={{ fontSize: 12, color: r.decision === 'approved' ? '#16a34a' : '#dc2626', fontWeight: 500 }}>
-                  {r.decision === 'approved' ? '✓ 核准' : '✗ 不核准'}
-                </span>
-                {r.reviewed_at && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatDateTime(r.reviewed_at)}</span>}
-              </div>
-              {r.comment && <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{r.comment}</p>}
-            </div>
-          ))}
+      {/* 審核進度：申請人唯讀一列式排版（比照資金分配編輯頁，共用 ReviewProgressBlock） */}
+      {record && record.status !== PAYMENT_STATUS.DRAFT && (record.approval_flow_templates?.approval_flow_steps?.length ?? 0) > 0 && (
+        <div style={{ marginTop: 40 }}>
+          <ReviewProgressBlock
+            readOnly
+            steps={[...(record.approval_flow_templates!.approval_flow_steps)]
+              .sort((a, b) => a.step_number - b.step_number)
+              .map(s => ({
+                id: s.id,
+                step_number: s.step_number,
+                step_name: s.step_name,
+                reviewer_type: s.reviewer_type as ReviewStepDef['reviewer_type'],
+              }))}
+            pastRecords={approvalHistory}
+            currentStep={record.current_step}
+            status={record.status}
+            canReview={false}
+            showApprovedAmount
+            reviewerNames={reviewerNames}
+            completionMessages={{
+              approved: '✓ 此憑單已全數核准',
+              paid: '✓ 此憑單已全數核准（已付款）',
+              rejected: '✗ 此憑單已被退回',
+            }}
+          />
         </div>
       )}
     </div>

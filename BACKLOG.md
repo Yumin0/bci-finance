@@ -256,6 +256,15 @@
 
 ## 已完成
 
+**付款憑單／暫付款沖銷申請人檢視頁審核進度改用共用 ReviewProgressBlock**（2026-07-15，Yumin）
+分支：`feature/yumin-applicant-review-block`
+說明：付款憑單詳細頁（`funds-payment/my-payment/[id]`）與暫付款沖銷詳細頁（`funds-voucher/my-voucher/[id]`）的申請人檢視原本是純文字「審核歷程」列表（只列已完成紀錄、無未來階段），改為共用 `_components/ReviewProgressBlock.tsx` 的 `readOnly` 一列式排版（比照資金分配編輯頁）：完整顯示所有審核階段、已完成階段顯示核准/不核准 radio＋審核人/時間、未來階段反灰。付款憑單顯示核准金額欄（`showApprovedAmount`）、沖銷不顯示。查詢多帶 `approval_flow_steps` 的 `id`/`reviewer_type`、新增依 `reviewer_id` 撈 `app_users` 審核人名，草稿狀態不顯示。此為第 28 行「明細頁共用元件」任務註明的「審核區塊共用化後續階段」的申請人檢視收尾。
+影響範圍確認（審核進度顯示為橫切關注點）：
+- [x] /funds-payment/my-payment/[id]（付款憑單申請人檢視，含核准金額欄）
+- [x] /funds-voucher/my-voucher/[id]（暫付款沖銷申請人檢視，不含核准金額欄）
+- [x] /funds-allocation/my-funds/edit/[id]（資金分配編輯頁，先前已套用，本次未動）
+- [x] tsc 型別檢查與 eslint 通過
+
 **審核清單快速審核按鈕放大＋共用化、拿掉查閱按鈕**（2026-07-15，Yumin）
 分支：`feature/yumin-review-quick-buttons`
 說明：資金分配審核管理頁快速審核按鈕比照筑今系統放大、改為實心紅底 `#f1416c`（不核准）／綠底 `#50cd89`（核准）、`whitespace-nowrap` 不斷行，抽成共用元件 `_components/QuickReviewButtons.tsx`（原本不核准只是紅框白底小字）。拿掉列表非本關列與「我的審核紀錄」歷史列的「查閱」按鈕（單號欄本身即連結，不影響進入審核頁），並移除歷史列空白動作欄；職務欄加 `w-32` 讓右側快速審核欄留白。build 通過。
