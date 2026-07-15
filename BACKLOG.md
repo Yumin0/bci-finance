@@ -265,6 +265,13 @@
 - [x] /funds-allocation/my-funds/edit/[id]（資金分配編輯頁，先前已套用，本次未動）
 - [x] tsc 型別檢查與 eslint 通過
 
+**建單頁資訊區塊改橫式（比照唯讀詳細頁）**（2026-07-15，Yumin，同分支延續）
+說明：付款憑單建單頁與暫付款沖銷建單頁的上方非群組資訊區塊原本是直式（標籤在上），與唯讀詳細頁（RecordDetailView 橫式）不一致。改為共用 `DetailFieldLayout`＋`detailRowGridStyle`（同一 `block.rows.some(r => r.repeatable || r.rowGroupStart)` 判斷）：無群組區塊＝橫式（標籤在左固定寬 140），付款明細群組區塊維持可編輯卡片直式。DetailFieldLayout 的 children 放可編輯 renderInput/renderField；付款憑單直式群組區塊維持原本含總額提示排版。
+影響範圍確認（建單頁版面為橫切關注點）：
+- [x] /funds-voucher/my-voucher/add/[id]（暫付款沖銷建單頁）
+- [x] /funds-payment/my-payment/add/[id]（付款憑單建單頁）
+- [x] tsc 型別檢查與 eslint 通過
+
 **審核清單快速審核按鈕放大＋共用化、拿掉查閱按鈕**（2026-07-15，Yumin）
 分支：`feature/yumin-review-quick-buttons`
 說明：資金分配審核管理頁快速審核按鈕比照筑今系統放大、改為實心紅底 `#f1416c`（不核准）／綠底 `#50cd89`（核准）、`whitespace-nowrap` 不斷行，抽成共用元件 `_components/QuickReviewButtons.tsx`（原本不核准只是紅框白底小字）。拿掉列表非本關列與「我的審核紀錄」歷史列的「查閱」按鈕（單號欄本身即連結，不影響進入審核頁），並移除歷史列空白動作欄；職務欄加 `w-32` 讓右側快速審核欄留白。build 通過。

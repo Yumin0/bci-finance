@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { buttonVariants } from '@/components/ui/button'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import ErrorDialog from '@/app/_components/ErrorDialog'
+import { DetailFieldLayout, detailRowGridStyle } from '@/app/_components/RecordDetailView'
 
 const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6,
@@ -302,12 +303,15 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
           const normalRows = block.rows.filter(r => !groupRowIds.has(r.id))
           const instances = groupInstances[block.id] ?? []
           const grandTotal = blockGrandTotal(block)
+          // 版面比照唯讀詳細頁：無群組/可重複列＝橫式（標籤在左），有群組列（付款明細）＝直式
+          const horizontal = !block.rows.some(r => r.repeatable || r.rowGroupStart)
           return (
             <div key={block.id} style={{
               marginBottom: 16,
               border: '1px solid var(--border-color)',
               borderRadius: 10,
               overflow: 'hidden',
+              background: 'var(--bg-card)',
             }}>
               {block.title && (
                 <div style={{
@@ -328,17 +332,11 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
               )}
               <div style={{ padding: '20px 20px 4px' }}>
                 {normalRows.map(row => (
-                  <div key={row.id} style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
-                    gap: 20,
-                    marginBottom: 20,
-                  }}>
+                  <div key={row.id} style={detailRowGridStyle(row.cols, horizontal)}>
                     {row.slots.map((slot, idx) => slot ? (
-                      <div key={idx}>
-                        <label style={labelStyle}>{slot.label}</label>
+                      <DetailFieldLayout key={idx} label={slot.label} required={slot.required} horizontal={horizontal}>
                         {renderInput(slot, fieldValues[slot.fieldId] ?? '', v => setField(slot.fieldId, v))}
-                      </div>
+                      </DetailFieldLayout>
                     ) : <div key={idx} />)}
                   </div>
                 ))}

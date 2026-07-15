@@ -19,6 +19,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
 import ErrorDialog from '@/app/_components/ErrorDialog'
+import { DetailFieldLayout, detailRowGridStyle } from '@/app/_components/RecordDetailView'
 
 
 // fieldId-based: known default fieldIds that are direct allocation columns → always readonly
@@ -858,6 +859,8 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
           const groupRows = getGroupRows(block)
           const preGroupRows = block.rows.filter(r => !groupRows.includes(r))
           const groupSummary = groupBlockSummary[block.id]
+          // 版面比照唯讀詳細頁：無群組/可重複列＝橫式（標籤在左），有群組列（付款明細）＝直式
+          const horizontal = !block.rows.some(r => r.repeatable || r.rowGroupStart)
           return (
             <div key={block.id} style={{
               marginBottom: 16,
@@ -887,28 +890,31 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
               )}
               <div style={{ padding: '20px 20px 4px' }}>
                 {preGroupRows.map(row => (
-                  <div key={row.id} style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
-                    gap: 20,
-                    marginBottom: 20,
-                  }}>
+                  <div key={row.id} style={detailRowGridStyle(row.cols, horizontal)}>
                     {row.slots.map((slot, idx) => {
                       if (slot && slot.showWhen && !slot.showWhen.values.includes(fieldValues[slot.showWhen.fieldId] ?? '')) {
                         return <div key={idx} />
                       }
-                      return slot ? (
+                      if (!slot) return <div key={idx} />
+                      const required = slot.required && slot.type !== 'readonly'
+                      // 橫式（無群組區塊）用共用 DetailFieldLayout；直式（群組區塊）維持原本含總額提示的排版
+                      if (horizontal) {
+                        return (
+                          <DetailFieldLayout key={idx} label={slot.label} required={required} horizontal>
+                            {renderField(slot, record)}
+                          </DetailFieldLayout>
+                        )
+                      }
+                      return (
                         <div key={idx}>
                           <label style={labelStyle}>
                             {slot.label}
-                            {slot.required && slot.type !== 'readonly' && (
-                              <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>
-                            )}
+                            {required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
                             {computedTotalHints[slot.fieldId] && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4, fontWeight: 400 }}>{computedTotalHints[slot.fieldId]}</span>}
                           </label>
                           {renderField(slot, record)}
                         </div>
-                      ) : <div key={idx} />
+                      )
                     })}
                   </div>
                 ))}
