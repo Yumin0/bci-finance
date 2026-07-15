@@ -7,6 +7,11 @@
 
 ## 進行中
 
+**審核清單快速審核按鈕放大＋共用化、拿掉查閱按鈕**（Yumin）
+分支：`feature/yumin-review-quick-buttons`
+開始：2026-07-15
+說明：資金分配審核管理頁快速審核按鈕比照筑今系統放大、改為紅底／綠底實心按鈕，抽成共用元件 `_components/QuickReviewButtons.tsx`；拿掉列表與歷史紀錄的「查閱」按鈕（單號本身即連結）。
+
 **組織架構編輯課別/處別按保存沒反應（層級誤設必填）**（Riku）
 分支：`feature/riku-org-edit-save`
 開始：2026-07-14
@@ -250,6 +255,14 @@
 ---
 
 ## 已完成
+
+**審核清單快速審核按鈕放大＋共用化、拿掉查閱按鈕**（2026-07-15，Yumin）
+分支：`feature/yumin-review-quick-buttons`
+說明：資金分配審核管理頁快速審核按鈕比照筑今系統放大、改為實心紅底 `#f1416c`（不核准）／綠底 `#50cd89`（核准）、`whitespace-nowrap` 不斷行，抽成共用元件 `_components/QuickReviewButtons.tsx`（原本不核准只是紅框白底小字）。拿掉列表非本關列與「我的審核紀錄」歷史列的「查閱」按鈕（單號欄本身即連結，不影響進入審核頁），並移除歷史列空白動作欄；職務欄加 `w-32` 讓右側快速審核欄留白。build 通過。
+影響範圍確認（審核清單按鈕為橫切關注點）：
+- [x] /funds-allocation/review（快速審核 Tab：諮詢議會／執行長／財務長；查閱按鈕移除含課處長 Tab 與我的審核紀錄）
+- [x] 新增共用元件 QuickReviewButtons，供三模組審核清單未來共用
+- [x] npm run build 全站編譯通過
 
 **範本管理付款明細支援整組重複＋按編輯自動捲動**（2026-07-15，Riku）
 分支：`feature/riku-template-group-repeat`

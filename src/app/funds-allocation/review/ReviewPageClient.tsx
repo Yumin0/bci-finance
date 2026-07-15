@@ -17,10 +17,11 @@ import { YearDropdown, WeekDropdown } from '@/app/_components/WeekPicker'
 import ColumnPicker from '@/app/_components/ColumnPicker'
 import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
 import ErrorDialog from '@/app/_components/ErrorDialog'
+import QuickReviewButtons from '@/app/_components/QuickReviewButtons'
 
 export type ReviewTab = 'div' | 'advisory' | 'executive' | 'cfo' | 'history'
 
-// 審核清單可自由開關的欄位（快速審核／審核／查閱 動作欄固定顯示，不列入）
+// 審核清單可自由開關的欄位（快速審核／審核 動作欄固定顯示，不列入）
 type ReviewColKey =
   | 'status' | 'serial' | 'division' | 'section' | 'applicant' | 'role'
   | 'requestedAmount' | 'approvedAmount' | 'remainingAmount' | 'expense' | 'name'
@@ -467,7 +468,7 @@ function AccountGroupedList({
                       {visibleCols.has('division') && <TableHead>申請處別</TableHead>}
                       {visibleCols.has('section') && <TableHead>申請課別</TableHead>}
                       {visibleCols.has('applicant') && <TableHead>申請人</TableHead>}
-                      {visibleCols.has('role') && <TableHead>職務</TableHead>}
+                      {visibleCols.has('role') && <TableHead className="w-32">職務</TableHead>}
                       {visibleCols.has('requestedAmount') && <TableHead>申請金額</TableHead>}
                       {visibleCols.has('approvedAmount') && <TableHead>核准金額</TableHead>}
                       {visibleCols.has('remainingAmount') && <TableHead>剩餘金額</TableHead>}
@@ -504,7 +505,7 @@ function AccountGroupedList({
                           {visibleCols.has('division') && <TableCell>{r.apply_division ?? '-'}</TableCell>}
                           {visibleCols.has('section') && <TableCell>{r.apply_section ?? '-'}</TableCell>}
                           {visibleCols.has('applicant') && <TableCell>{r.applicant ?? r.created_by}</TableCell>}
-                          {visibleCols.has('role') && <TableCell>{r.apply_role ?? '-'}</TableCell>}
+                          {visibleCols.has('role') && <TableCell className="w-32">{r.apply_role ?? '-'}</TableCell>}
                           {visibleCols.has('requestedAmount') && <TableCell>{r.amount.toLocaleString()}</TableCell>}
                           {visibleCols.has('approvedAmount') && <TableCell>{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>}
                           {visibleCols.has('remainingAmount') && <TableCell>-</TableCell>}
@@ -512,25 +513,13 @@ function AccountGroupedList({
                           {visibleCols.has('name') && <TableCell>{r.name}</TableCell>}
                           {showQuickActions && (
                             <TableCell>
-                              {isPendingHere ? (
-                                <div className="flex flex-col items-stretch gap-1.5">
-                                  <button
-                                    onClick={() => { setRejectTarget(r); setRejectComment('') }}
-                                    disabled={actioningId === r.id}
-                                    className="rounded-md border border-destructive px-3 py-1 text-center text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                                  >
-                                    不核准
-                                  </button>
-                                  <button
-                                    onClick={() => handleApprove(r)}
-                                    disabled={actioningId === r.id}
-                                    className="rounded-md bg-emerald-600 px-3 py-1 text-center text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                                  >
-                                    {actioningId === r.id ? '處理中…' : '核准'}
-                                  </button>
-                                </div>
-                              ) : (
-                                <Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>查閱</Link>
+                              {isPendingHere && (
+                                <QuickReviewButtons
+                                  onReject={() => { setRejectTarget(r); setRejectComment('') }}
+                                  onApprove={() => handleApprove(r)}
+                                  disabled={actioningId === r.id}
+                                  approving={actioningId === r.id}
+                                />
                               )}
                             </TableCell>
                           )}
@@ -548,10 +537,9 @@ function AccountGroupedList({
                           )}
                           {!showQuickActions && !showBatchActions && (
                             <TableCell>
-                              {isPendingHere
-                                ? <Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link>
-                                : <Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>查閱</Link>
-                              }
+                              {isPendingHere && (
+                                <Link href={`/funds-allocation/review/check/${r.id}`} className={buttonVariants({ variant: 'default', size: 'sm' })}>審核</Link>
+                              )}
                             </TableCell>
                           )}
                         </TableRow>
@@ -642,7 +630,7 @@ function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig
       <Table>
         <TableHeader>
           <TableRow>
-            {['狀態', '單號', '申請處別', '申請課別', '申請人', '職務', '申請金額', '出款帳戶', '費用項目', '項目', ''].map((col, i) => (
+            {['狀態', '單號', '申請處別', '申請課別', '申請人', '職務', '申請金額', '出款帳戶', '費用項目', '項目'].map((col, i) => (
               <TableHead key={i}>{col}</TableHead>
             ))}
           </TableRow>
@@ -666,9 +654,6 @@ function HistoryList({ items, labelConfig }: { items: HistoryItem[]; labelConfig
               <TableCell>{r.funds_allocation?.payment_account ?? '-'}</TableCell>
               <TableCell>{r.funds_allocation?.expense_item ?? '-'}</TableCell>
               <TableCell>{r.funds_allocation?.name ?? '-'}</TableCell>
-              <TableCell>
-                {r.funds_allocation_id && <Link href={`/funds-allocation/review/check/${r.funds_allocation_id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>查閱</Link>}
-              </TableCell>
             </TableRow>
           ))}
         </TableBody>
