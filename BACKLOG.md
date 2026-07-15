@@ -245,6 +245,10 @@
 
 ## 已完成
 
+**審核頁儲存變更後畫面即時刷新**（2026-07-15，Riku）
+分支：`feature/riku-review-save-refresh`
+說明：資金分配審核頁（`/funds-allocation/review/check/[id]`）審核人編輯欄位按「儲存變更」後，畫面未即時更新（資料實際已存、變更歷程可證），需手動重新整理才正確。根因：`onSaveSuccess` 先 bump `refreshKey` 讓 `EditFundsForm` 立即用「還沒重抓的舊 record」重建，重抓 record 的 `useEffect` 是非同步晚一步完成，且 `EditFundsForm` 欄位值初始化綁 `[record.id]`（存檔前後不變）故不再同步，於是畫面卡在舊值。修法：把 `load()` 抽成可重複呼叫（`useCallback`），`onSaveSuccess` 改為先 `await load()`（更新 record 與核准金額預填）再 bump `refreshKey`，確保表單重建時吃到新資料。只動審核頁一個檔，不碰共用元件。Playwright 實測：改費用 10000→8000 存檔後未重新整理，畫面即顯示 8000／稅額 2000／總額 10000／上方費用項目與核准金額預填同步更新，DB 一致。tsc 通過。
+
 **範本管理付款明細支援整組重複＋按編輯自動捲動**（2026-07-15，Riku）
 分支：`feature/riku-template-group-repeat`
 說明：共用範本管理（表單設定→範本分頁 `_template-tab.tsx`）的付款明細群組原本只能存「一組」預設值，與資金分配申請表單的整組重複新增功能對不齊，導致範本無法預填多組明細。改為比照申請表單支援多組——每組以框線卡片包裝、標「第 N 組」，下方「＋ 新增此組」、兩組以上每組右上角「刪除此組」；`editorGroup` state 由單一物件改為陣列、`buildFieldValues` 存整組陣列（整組空白略過）、`openEdit` 讀回全部組（不再只取第一組），與 `__group_{blockId}` JSON 格式一致，套用範本時 AddFundsForm 即帶入全部組。另修正按「編輯／新增」需自己往上滑才看到編輯卡片：加 `editCardRef` + `scrollIntoView` 自動平滑捲到編輯卡片。範本編輯器不帶稅額自動計算（純預填值）。只動 `_template-tab.tsx`，無資料庫結構變更，tsc 通過。
