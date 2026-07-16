@@ -22,6 +22,142 @@
 
 注意：正式站附件欄位的 label 若與 dev 不同（dev 為上述名稱），需對應調整。dev/staging 已於 2026-07-16 由遷移腳本完成（填 hint＋刪欄位＋清 extra_data 殘留）。
 
+這段 SQL 會把三張表單附件欄位的「說明小字」一次填好（效果同表單設定頁逐欄手填；`\n` 會存成換行、畫面上分兩行顯示）：
+
+```sql
+-- 改前先備份三張表單設定
+SELECT form_type, rows FROM form_schemas
+WHERE form_type IN ('funds_allocation', 'payment_voucher', 'temp_voucher');
+
+-- 資金分配「資料附件」
+UPDATE form_schemas
+SET rows = (
+  SELECT jsonb_agg(
+    jsonb_set(block, '{rows}', COALESCE((
+      SELECT jsonb_agg(
+        jsonb_set(row_, '{slots}', COALESCE((
+          SELECT jsonb_agg(
+            CASE
+              WHEN slot->>'type' = 'attachment' AND slot->>'label' = '資料附件'
+                THEN jsonb_set(slot, '{hint}', '"常見應附：核准的 CSW、合約、報價單 ／ Invoice、發票 ／ 刷卡明細\n（依實際情況檢附，非每筆都需全附）"'::jsonb)
+              ELSE slot
+            END
+            ORDER BY slot_ord
+          )
+          FROM jsonb_array_elements(row_->'slots') WITH ORDINALITY AS s(slot, slot_ord)
+        ), '[]'::jsonb))
+        ORDER BY row_ord
+      )
+      FROM jsonb_array_elements(block->'rows') WITH ORDINALITY AS r(row_, row_ord)
+    ), '[]'::jsonb))
+    ORDER BY block_ord
+  )
+  FROM jsonb_array_elements(rows) WITH ORDINALITY AS b(block, block_ord)
+)
+WHERE form_type = 'funds_allocation';
+
+-- 付款憑單「上傳單據」
+UPDATE form_schemas
+SET rows = (
+  SELECT jsonb_agg(
+    jsonb_set(block, '{rows}', COALESCE((
+      SELECT jsonb_agg(
+        jsonb_set(row_, '{slots}', COALESCE((
+          SELECT jsonb_agg(
+            CASE
+              WHEN slot->>'type' = 'attachment' AND slot->>'label' = '上傳單據'
+                THEN jsonb_set(slot, '{hint}', '"常見應附：Invoice、發票 ／ 刷卡明細 ／ 匯出付款憑單 html\n（依實際情況檢附，非每筆都需全附；申請單已附的單據會顯示在此欄位上方）"'::jsonb)
+              ELSE slot
+            END
+            ORDER BY slot_ord
+          )
+          FROM jsonb_array_elements(row_->'slots') WITH ORDINALITY AS s(slot, slot_ord)
+        ), '[]'::jsonb))
+        ORDER BY row_ord
+      )
+      FROM jsonb_array_elements(block->'rows') WITH ORDINALITY AS r(row_, row_ord)
+    ), '[]'::jsonb))
+    ORDER BY block_ord
+  )
+  FROM jsonb_array_elements(rows) WITH ORDINALITY AS b(block, block_ord)
+)
+WHERE form_type = 'payment_voucher';
+
+-- 暫付款沖銷「上傳單據」
+UPDATE form_schemas
+SET rows = (
+  SELECT jsonb_agg(
+    jsonb_set(block, '{rows}', COALESCE((
+      SELECT jsonb_agg(
+        jsonb_set(row_, '{slots}', COALESCE((
+          SELECT jsonb_agg(
+            CASE
+              WHEN slot->>'type' = 'attachment' AND slot->>'label' = '上傳單據'
+                THEN jsonb_set(slot, '{hint}', '"常見應附：紙本發票收據"'::jsonb)
+              ELSE slot
+            END
+            ORDER BY slot_ord
+          )
+          FROM jsonb_array_elements(row_->'slots') WITH ORDINALITY AS s(slot, slot_ord)
+        ), '[]'::jsonb))
+        ORDER BY row_ord
+      )
+      FROM jsonb_array_elements(block->'rows') WITH ORDINALITY AS r(row_, row_ord)
+    ), '[]'::jsonb))
+    ORDER BY block_ord
+  )
+  FROM jsonb_array_elements(rows) WITH ORDINALITY AS b(block, block_ord)
+)
+WHERE form_type = 'temp_voucher';
+
+-- 驗證：應回 3 筆（三張表單各一個附件欄位已有 hint）
+SELECT f.form_type, slot->>'label' AS label, slot->>'hint' AS hint
+FROM form_schemas f,
+  jsonb_array_elements(f.rows) block,
+  jsonb_array_elements(block->'rows') row_,
+  jsonb_array_elements(row_->'slots') slot
+WHERE slot->>'type' = 'attachment' AND slot->>'hint' IS NOT NULL;
+```
+
+這段 SQL 刪除付款憑單的「補充單據資料」附件欄位（該欄位在 dev 獨占一列，整列移除；正式站若版面不同——例如與其他欄位同列——請改用表單設定頁 UI 刪除該欄位即可，勿硬跑此 SQL）：
+
+```sql
+-- 確認現況：應查到 1 筆（獨占一列的補充單據資料附件欄位）
+SELECT count(*) FROM form_schemas f,
+  jsonb_array_elements(f.rows) block,
+  jsonb_array_elements(block->'rows') row_
+WHERE f.form_type = 'payment_voucher'
+  AND jsonb_array_length(row_->'slots') = 1
+  AND row_->'slots'->0->>'label' = '補充單據資料'
+  AND row_->'slots'->0->>'type' = 'attachment';
+
+-- 整列移除
+UPDATE form_schemas
+SET rows = (
+  SELECT jsonb_agg(
+    jsonb_set(block, '{rows}', COALESCE((
+      SELECT jsonb_agg(row_ ORDER BY row_ord)
+      FROM jsonb_array_elements(block->'rows') WITH ORDINALITY AS r(row_, row_ord)
+      WHERE NOT (
+        jsonb_array_length(row_->'slots') = 1
+        AND row_->'slots'->0->>'label' = '補充單據資料'
+        AND row_->'slots'->0->>'type' = 'attachment'
+      )
+    ), '[]'::jsonb))
+    ORDER BY block_ord
+  )
+  FROM jsonb_array_elements(rows) WITH ORDINALITY AS b(block, block_ord)
+)
+WHERE form_type = 'payment_voucher';
+
+-- 驗證：應為 0
+SELECT count(*) FROM form_schemas f,
+  jsonb_array_elements(f.rows) block,
+  jsonb_array_elements(block->'rows') row_,
+  jsonb_array_elements(row_->'slots') slot
+WHERE f.form_type = 'payment_voucher' AND slot->>'label' = '補充單據資料';
+```
+
 ### 付款憑單 extra_data 附件欄位殘留清理（資料清理，非結構變更）
 
 - [ ] 正式機視情況執行
