@@ -217,6 +217,27 @@ export async function updateDraftPayment(
   return { error: null }
 }
 
+export async function deleteDraftPayment(id: number): Promise<{ error: string | null }> {
+  const session = await getSession()
+  if (!session) return { error: '請先登入' }
+
+  // 只允許刪除本人的草稿（送審後不可刪，避免誤刪審核中的憑單）
+  const { data: payment } = await supabase
+    .from('funds_payment')
+    .select('status, created_by')
+    .eq('id', id)
+    .single()
+  if (!payment) return { error: '找不到此付款憑單' }
+  if (String(payment.created_by) !== String(session.userId)) return { error: '你沒有權限刪除此付款憑單' }
+  if (payment.status !== PAYMENT_STATUS.DRAFT) return { error: '只有草稿狀態的付款憑單可以刪除' }
+
+  await supabase.from('notifications').delete().eq('funds_payment_id', id)
+  await supabase.from('fund_attachments').delete().eq('funds_payment_id', id)
+  const { error } = await supabase.from('funds_payment').delete().eq('id', id)
+  if (error) return { error: error.message }
+  return { error: null }
+}
+
 export async function confirmPayment(id: number): Promise<{ error: string | null }> {
   const { data: updated, error } = await supabase
     .from('funds_payment')

@@ -9,7 +9,8 @@ import { applyTaxFormula, computeBlockTax, formatTaxNumber } from '@/lib/taxUtil
 import { validateFeePositive } from '@/lib/feeValidation'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { PAYMENT_STATUS } from '@/lib/constants'
-import { submitMyPayment, updateDraftPayment } from '@/app/actions/payment'
+import { submitMyPayment, updateDraftPayment, deleteDraftPayment } from '@/app/actions/payment'
+import { useConfirm } from '@/app/_components/useConfirm'
 import { getAllocationRemainingInfo, type AllocationRemainingInfo } from '@/app/actions/fund-budget'
 import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
 import { getFormSchemas } from '@/app/actions/form-schema'
@@ -123,6 +124,7 @@ function getRecordFieldValue(
 
 export default function PaymentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
+  const [confirm, confirmDialog] = useConfirm()
   const [record, setRecord] = useState<RecordWithTemplate | null>(null)
   const [approvalHistory, setApprovalHistory] = useState<ApprovalRecord[]>([])
   const [reviewerNames, setReviewerNames] = useState<Record<string, string>>({})
@@ -909,6 +911,16 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     setSaving(false)
   }
 
+  async function handleDelete() {
+    if (!record) return
+    if (!(await confirm({ message: '確定要刪除此單據嗎？此操作無法復原。', danger: true, confirmText: '刪除' }))) return
+    setSubmitting(true)
+    setError(null)
+    const { error: deleteError } = await deleteDraftPayment(record.id)
+    if (deleteError) { setError(deleteError); setSubmitting(false); return }
+    router.push('/funds-payment/my-payment')
+  }
+
   async function handleSubmit() {
     if (!record) return
     // 付款憑單表單沒有可重複列，repeatableValues 傳空物件
@@ -956,6 +968,16 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <Link href="/funds-payment/my-payment" className={buttonVariants({ variant: 'outline' })}>← 返回列表</Link>
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>付款憑單</h1>
+          {isDraft && (
+            <Button
+              type="button"
+              onClick={handleDelete}
+              disabled={submitting || saving}
+              style={{ marginLeft: 'auto', background: '#dc2626', color: '#fff', border: 'none' }}
+            >
+              刪除此單據
+            </Button>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
           <span>狀態：</span>
@@ -1051,6 +1073,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
         {/* 儲存/送出被擋（費用檢查、超額等）改用全站共用中央彈窗 */}
         <ErrorDialog message={error} title="無法儲存或送出" onClose={() => setError(null)} />
+        {confirmDialog}
 
         {isDraft && (
           <div style={{ marginTop: 32, display: 'flex', gap: 8 }}>

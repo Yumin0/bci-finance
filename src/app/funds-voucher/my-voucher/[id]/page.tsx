@@ -9,7 +9,8 @@ import { getFormSchemas } from '@/app/actions/form-schema'
 import { getAttachmentsByTempVoucherId, getVoucherInheritedAttachments, saveAttachments, deleteAttachmentRecord } from '@/app/actions/attachments'
 import { attachmentsForSlot, firstAttachmentSlotLabel } from '@/lib/attachmentSlots'
 import AttachmentUpload from '@/app/_components/AttachmentUpload'
-import { submitTempVoucher } from '@/app/actions/temp-voucher'
+import { submitTempVoucher, deleteTempVoucher } from '@/app/actions/temp-voucher'
+import { useConfirm } from '@/app/_components/useConfirm'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
@@ -88,6 +89,7 @@ function GroupTable({ block, record }: { block: FormBlock; record: TempVoucher }
 
 export default function VoucherDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
+  const [confirm, confirmDialog] = useConfirm()
   const [record, setRecord] = useState<TempVoucher | null>(null)
   const [schema, setSchema] = useState<FormBlock[]>([])
   const [approvalHistory, setApprovalHistory] = useState<ApprovalRecord[]>([])
@@ -171,6 +173,16 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
     return null
   }
 
+  async function handleDelete() {
+    if (!record) return
+    if (!(await confirm({ message: '確定要刪除此單據嗎？此操作無法復原。', danger: true, confirmText: '刪除' }))) return
+    setSubmitting(true)
+    setError(null)
+    const { error: deleteError } = await deleteTempVoucher(record.id)
+    if (deleteError) { setError(deleteError); setSubmitting(false); return }
+    router.push('/funds-voucher/my-voucher')
+  }
+
   async function handleSubmit() {
     if (!record) return
     setSubmitting(true)
@@ -206,7 +218,18 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>
           暫付款沖銷憑單{record!.serial_number ? ` ${record!.serial_number}` : ''}
         </h1>
+        {isDraft && (
+          <Button
+            type="button"
+            onClick={handleDelete}
+            disabled={submitting}
+            style={{ marginLeft: 'auto', background: '#dc2626', color: '#fff', border: 'none' }}
+          >
+            刪除此單據
+          </Button>
+        )}
       </div>
+      {confirmDialog}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
         <span>狀態：</span>

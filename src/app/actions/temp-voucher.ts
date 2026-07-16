@@ -207,3 +207,24 @@ export async function submitTempVoucher(id: number): Promise<{ error: string | n
 
   return { error: null }
 }
+
+export async function deleteTempVoucher(id: number): Promise<{ error: string | null }> {
+  const session = await getSession()
+  if (!session) return { error: '請先登入' }
+
+  // 只允許刪除本人的草稿（送審後不可刪，避免誤刪審核中的沖銷單）
+  const { data: voucher } = await supabase
+    .from('temp_vouchers')
+    .select('status, created_by')
+    .eq('id', id)
+    .single()
+  if (!voucher) return { error: '找不到此暫付款沖銷憑單' }
+  if (String(voucher.created_by) !== String(session.userId)) return { error: '你沒有權限刪除此暫付款沖銷憑單' }
+  if (voucher.status !== 'draft') return { error: '只有草稿狀態的暫付款沖銷憑單可以刪除' }
+
+  await supabase.from('notifications').delete().eq('temp_voucher_id', id)
+  await supabase.from('fund_attachments').delete().eq('temp_voucher_id', id)
+  const { error } = await supabase.from('temp_vouchers').delete().eq('id', id)
+  if (error) return { error: error.message }
+  return { error: null }
+}
