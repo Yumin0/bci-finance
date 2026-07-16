@@ -769,6 +769,20 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     )
   }
 
+  // 供 GroupEditTable 依「最長選項」自動配置下拉欄寬（選項短的欄變窄、長的加寬）
+  function groupSelectOptionLabels(slot: NonNullable<FormSlot>): string[] | undefined {
+    if (slot.type !== 'select') return undefined
+    if (slot.dataSource === 'tax_rates') return taxRateOptions.map(o => o.label)
+    if (slot.dataSource === 'static') return slot.staticOptions ?? []
+    if (slot.dataSource.startsWith('dropdown_options:')) {
+      return (dropdownOptions[slot.dataSource.replace('dropdown_options:', '')] ?? []).map(o => o.label)
+    }
+    if (slot.dataSource.startsWith('fee_records:') || slot.dataSource.startsWith('payee_records:')) {
+      return (dynamicSelectOptions[slot.dataSource] ?? []).map(o => o.label)
+    }
+    return undefined
+  }
+
   // 群組區塊：逐組渲染（可增刪修改），與付款憑單建立頁行為一致
   function renderGroupInstances(block: FormBlock) {
     const groupRows = getGroupRows(block)
@@ -801,6 +815,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       <GroupEditTable
         slots={groupSlots}
         instances={instances}
+        selectOptionLabels={groupSelectOptionLabels}
         onAdd={() => addGroupInstance(block.id)}
         onRemove={instIdx => removeGroupInstance(block.id, instIdx)}
         renderCell={(slot, instValues, instIdx) =>

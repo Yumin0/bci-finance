@@ -822,6 +822,20 @@ export default function AddFundsForm({
     return renderFieldFor(slot, fieldValues, setField)
   }
 
+  // 供 GroupEditTable 依「最長選項」自動配置下拉欄寬（選項短的欄變窄、長的加寬）
+  function groupSelectOptionLabels(slot: NonNullable<FormSlot>): string[] | undefined {
+    if (slot.type !== 'select') return undefined
+    if (slot.dataSource === 'tax_rates') return taxRateOptions.map(o => o.label)
+    if (slot.dataSource === 'static') return slot.staticOptions ?? []
+    if (slot.dataSource.startsWith('dropdown_options:')) {
+      return (dropdownOptions[slot.dataSource.replace('dropdown_options:', '')] ?? []).map(o => o.label)
+    }
+    if (slot.dataSource.startsWith('fee_records:') || slot.dataSource.startsWith('payee_records:')) {
+      return (dynamicSelectOptions[slot.dataSource] ?? []).map(o => o.label)
+    }
+    return undefined
+  }
+
   function renderGroupInstances(block: FormBlock) {
     const groupRows = getGroupRows(block)
     if (groupRows.length === 0) return null
@@ -859,6 +873,7 @@ export default function AddFundsForm({
       <GroupEditTable
         slots={groupSlots}
         instances={instances}
+        selectOptionLabels={groupSelectOptionLabels}
         onAdd={() => addGroupInstance(block.id)}
         onRemove={instIdx => removeGroupInstance(block.id, instIdx)}
         renderCell={(slot, instValues, instIdx) => {

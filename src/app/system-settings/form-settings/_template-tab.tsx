@@ -290,6 +290,20 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
       )]
     : []
 
+  // 供 GroupEditTable 依「最長選項」自動配置下拉欄寬（選項短的欄變窄、長的加寬）
+  function groupSelectOptionLabels(slot: NonNullable<FormSlot>): string[] | undefined {
+    if (slot.type !== 'select') return undefined
+    if (slot.dataSource === 'tax_rates') return taxRateOptions.map(o => o.label)
+    if (slot.dataSource === 'static') return slot.staticOptions ?? []
+    if (slot.dataSource.startsWith('dropdown_options:')) {
+      return (dropdownOptions[slot.dataSource.replace('dropdown_options:', '')] ?? []).map(o => o.label)
+    }
+    if (slot.dataSource.startsWith('fee_records:') || slot.dataSource.startsWith('payee_records:')) {
+      return (dynamicSelectOptions[slot.dataSource] ?? []).map(o => o.label)
+    }
+    return undefined
+  }
+
   // inTable：欄位放在 GroupEditTable 儲存格內（overflow 容器），下拉需開 portal 才不會被裁切
   function renderSlotInput(slot: NonNullable<FormSlot>, value: string, onChange: (v: string) => void, inTable = false) {
     const { fieldId, type, dataSource, staticOptions } = slot
@@ -439,6 +453,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
                             <GroupEditTable
                               slots={visibleSlots}
                               instances={instances}
+                              selectOptionLabels={groupSelectOptionLabels}
                               onAdd={() => addGroupInstance(block.id)}
                               onRemove={instIdx => removeGroupInstance(block.id, instIdx)}
                               addLabel="＋ 新增此組"
