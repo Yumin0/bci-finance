@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 interface Option {
   value: string
@@ -15,6 +16,8 @@ interface SearchableSelectProps {
   required?: boolean
   disabled?: boolean
   style?: React.CSSProperties
+  /** 下拉清單改渲染到 document.body（fixed 定位）。放在 overflow 容器（如 GroupEditTable 的橫向捲動區）內必須開啟，否則清單會被容器裁切 */
+  portal?: boolean
 }
 
 export function SearchableSelect({
@@ -25,10 +28,28 @@ export function SearchableSelect({
   required,
   disabled,
   style,
+  portal,
 }: SearchableSelectProps) {
   const [inputText, setInputText] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  // portal 模式下拉清單的 fixed 定位（開啟時計算，捲動/縮放時同步更新）
+  const [portalRect, setPortalRect] = useState<{ left: number; top: number; width: number } | null>(null)
+
+  useEffect(() => {
+    if (!portal || !isOpen) return
+    function updateRect() {
+      const r = containerRef.current?.getBoundingClientRect()
+      if (r) setPortalRect({ left: r.left, top: r.bottom + 4, width: r.width })
+    }
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [portal, isOpen])
 
   // When value changes externally (e.g. reset), clear search text
   useEffect(() => {
@@ -121,35 +142,42 @@ export function SearchableSelect({
       </div>
 
       {/* Dropdown list */}
-      {isOpen && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
-          background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-          borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-          zIndex: 100, maxHeight: 220, overflowY: 'auto',
-          color: 'var(--text-body)',
-        }}>
-          {filtered.length === 0 ? (
-            <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text-subtle)' }}>無符合選項</div>
-          ) : (
-            filtered.map(o => (
-              <div
-                key={o.value}
-                onMouseDown={() => handleSelect(o)}
-                style={{
-                  padding: '8px 12px', fontSize: 14, cursor: 'pointer',
-                  background: o.value === value ? 'var(--bg-page)' : 'var(--bg-card)',
-                  fontWeight: o.value === value ? 500 : 400,
-                }}
-                onMouseEnter={e => { if (o.value !== value) e.currentTarget.style.background = 'var(--bg-page)' }}
-                onMouseLeave={e => { if (o.value !== value) e.currentTarget.style.background = 'var(--bg-card)' }}
-              >
-                {o.label}
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      {isOpen && (() => {
+        if (portal && !portalRect) return null
+        const positionStyle: React.CSSProperties = portal && portalRect
+          ? { position: 'fixed', left: portalRect.left, top: portalRect.top, width: portalRect.width, zIndex: 1000 }
+          : { position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 100 }
+        const list = (
+          <div style={{
+            ...positionStyle,
+            background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+            borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+            maxHeight: 220, overflowY: 'auto',
+            color: 'var(--text-body)',
+          }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text-subtle)' }}>無符合選項</div>
+            ) : (
+              filtered.map(o => (
+                <div
+                  key={o.value}
+                  onMouseDown={() => handleSelect(o)}
+                  style={{
+                    padding: '8px 12px', fontSize: 14, cursor: 'pointer',
+                    background: o.value === value ? 'var(--bg-page)' : 'var(--bg-card)',
+                    fontWeight: o.value === value ? 500 : 400,
+                  }}
+                  onMouseEnter={e => { if (o.value !== value) e.currentTarget.style.background = 'var(--bg-page)' }}
+                  onMouseLeave={e => { if (o.value !== value) e.currentTarget.style.background = 'var(--bg-card)' }}
+                >
+                  {o.label}
+                </div>
+              ))
+            )}
+          </div>
+        )
+        return portal ? createPortal(list, document.body) : list
+      })()}
     </div>
   )
 }

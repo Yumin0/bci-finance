@@ -13,6 +13,7 @@ import { submitMyPayment, updateDraftPayment, deleteDraftPayment } from '@/app/a
 import { useConfirm } from '@/app/_components/useConfirm'
 import { getAllocationRemainingInfo, type AllocationRemainingInfo } from '@/app/actions/fund-budget'
 import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
+import GroupEditTable from '@/app/_components/GroupEditTable'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
@@ -755,6 +756,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           value={instValues[fieldId] ?? ''}
           onChange={v => setInstField(fieldId, v)}
           options={options}
+          portal
         />
       )
     }
@@ -794,48 +796,17 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       })
     }
 
+    // 未稅金額/稅額/總額 皆為一般數字欄：稅額於選稅或改未稅金額時自動帶入，總額純手動填寫、不自動加總
     return (
-      <div>
-        {instances.map((instValues, instIdx) => {
-          const setInstField = (fid: string, val: string) => setInstFieldWithAutoTax(instIdx, fid, val)
-
-          return (
-            <div key={instIdx} style={{
-              position: 'relative',
-              paddingBottom: 16,
-              marginBottom: instances.length > 1 && instIdx < instances.length - 1 ? 16 : 0,
-              borderBottom: instances.length > 1 && instIdx < instances.length - 1 ? '1px dashed var(--border-color)' : undefined,
-            }}>
-              {groupRows.map(row => (
-                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
-                  {row.slots.map((slot, slotIdx) => {
-                    if (!slot) return <div key={slotIdx} />
-                    // 未稅金額/稅額/總額 皆為一般數字欄：稅額於選稅或改未稅金額時自動帶入，總額純手動填寫、不自動加總
-                    return (
-                      <div key={slotIdx}>
-                        <label style={labelStyle}>{slot.label}</label>
-                        {renderGroupField(slot, instValues, setInstField)}
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
-              {instances.length > 1 && (
-                <button type="button" onClick={() => removeGroupInstance(block.id, instIdx)}
-                  style={{ position: 'absolute', right: -76, top: 0, width: 56, padding: '4px 8px', fontSize: 12,
-                    border: '1px solid #fca5a5', borderRadius: 6, background: 'var(--bg-card)', color: '#dc2626', cursor: 'pointer' }}>
-                  刪除
-                </button>
-              )}
-            </div>
-          )
-        })}
-        <button type="button" onClick={() => addGroupInstance(block.id)}
-          style={{ padding: '6px 14px', fontSize: 13, border: '1.5px dashed #d1d5db',
-            borderRadius: 6, background: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginTop: 4 }}>
-          ＋ 新增項目
-        </button>
-      </div>
+      <GroupEditTable
+        slots={groupSlots}
+        instances={instances}
+        onAdd={() => addGroupInstance(block.id)}
+        onRemove={instIdx => removeGroupInstance(block.id, instIdx)}
+        renderCell={(slot, instValues, instIdx) =>
+          renderGroupField(slot, instValues, (fid, val) => setInstFieldWithAutoTax(instIdx, fid, val))
+        }
+      />
     )
   }
 
