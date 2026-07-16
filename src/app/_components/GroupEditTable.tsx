@@ -26,7 +26,7 @@ function fixedWidthFor(slot: NonNullable<FormSlot>): number | undefined {
     case 'number': return 95
     case 'date': return 130
     case 'select':
-    case 'radio': return 130
+    case 'radio': return 180 // 選項多為中文詞組（如「1.1 招募_廣告費」），太窄會截斷已選值
     default: return undefined // 文字欄吃剩餘寬度
   }
 }

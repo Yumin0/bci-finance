@@ -34,13 +34,14 @@ export function SearchableSelect({
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   // portal 模式下拉清單的 fixed 定位（開啟時計算，捲動/縮放時同步更新）
-  const [portalRect, setPortalRect] = useState<{ left: number; top: number; width: number } | null>(null)
+  const [portalRect, setPortalRect] = useState<{ left: number; top: number; width: number; maxWidth: number } | null>(null)
 
   useEffect(() => {
     if (!portal || !isOpen) return
     function updateRect() {
       const r = containerRef.current?.getBoundingClientRect()
-      if (r) setPortalRect({ left: r.left, top: r.bottom + 4, width: r.width })
+      // maxWidth：清單依內容自動加寬（窄欄位選項文字不跳行），但不超出視窗右緣
+      if (r) setPortalRect({ left: r.left, top: r.bottom + 4, width: r.width, maxWidth: Math.max(r.width, window.innerWidth - r.left - 16) })
     }
     updateRect()
     window.addEventListener('scroll', updateRect, true)
@@ -144,8 +145,9 @@ export function SearchableSelect({
       {/* Dropdown list */}
       {isOpen && (() => {
         if (portal && !portalRect) return null
+        // portal 模式：清單至少與輸入框同寬，內容較長時自動加寬（不跳行），上限為視窗右緣
         const positionStyle: React.CSSProperties = portal && portalRect
-          ? { position: 'fixed', left: portalRect.left, top: portalRect.top, width: portalRect.width, zIndex: 1000 }
+          ? { position: 'fixed', left: portalRect.left, top: portalRect.top, width: 'max-content', minWidth: portalRect.width, maxWidth: portalRect.maxWidth, zIndex: 1000 }
           : { position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 100 }
         const list = (
           <div style={{
