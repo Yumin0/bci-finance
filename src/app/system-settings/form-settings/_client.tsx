@@ -562,6 +562,7 @@ export default function FormSettingsClient({
               <p style={panelLabel}>整組重複新增起始列</p>
               <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.5 }}>
                 設為「是」後，從這列開始到區塊底部的所有列會整組一起可以新增多筆。
+                填寫頁會把這些欄位攤平成表格（表頭一次、每組一列），此處的列欄配置只決定欄位左右順序、不影響排版；欄寬依欄位類型自動配置（數字窄、文字寬）。
               </p>
               <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
                 {[true, false].map(val => (

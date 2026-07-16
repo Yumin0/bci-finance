@@ -19,11 +19,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { buttonVariants } from '@/components/ui/button'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
 import ErrorDialog from '@/app/_components/ErrorDialog'
+import GroupEditTable from '@/app/_components/GroupEditTable'
 import { DetailFieldLayout, detailRowGridStyle } from '@/app/_components/RecordDetailView'
 
-const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text-body)', marginBottom: 6,
-}
 const readonlyCls = 'bg-[var(--bg-page)] cursor-not-allowed'
 
 // 沖銷表單欄位 ← 付款憑單付款明細欄位的名稱對應（兩邊 label 不同）
@@ -389,47 +387,16 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
                   </div>
                 ))}
 
-                {groupRows.length > 0 && instances.map((inst, instIdx) => (
-                  <div key={instIdx} style={{
-                    border: '1px dashed var(--border-color)',
-                    borderRadius: 8,
-                    padding: '16px 16px 0',
-                    marginBottom: 16,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>項目 {instIdx + 1}</span>
-                      {instances.length > 1 && (
-                        <Button type="button" variant="outline" size="sm" onClick={() => removeGroupInstance(block.id, instIdx)}>
-                          刪除此項
-                        </Button>
-                      )}
-                    </div>
-                    {groupRows.map(row => (
-                      <div key={row.id} style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${row.cols}, 1fr)`,
-                        gap: 20,
-                        marginBottom: 16,
-                      }}>
-                        {row.slots.map((slot, idx) => slot ? (
-                          <div key={idx}>
-                            <label style={labelStyle}>
-                              {slot.label}
-                              {slot.required && <span style={{ color: '#dc2626' }}> *</span>}
-                            </label>
-                            {renderInput(slot, inst[slot.fieldId] ?? '', v => setGroupField(block.id, instIdx, slot.fieldId, v))}
-                          </div>
-                        ) : <div key={idx} />)}
-                      </div>
-                    ))}
-                  </div>
-                ))}
                 {groupRows.length > 0 && (
-                  <div style={{ marginBottom: 16 }}>
-                    <Button type="button" variant="outline" size="sm" onClick={() => addGroupInstance(block.id)}>
-                      ＋ 新增項目
-                    </Button>
-                  </div>
+                  <GroupEditTable
+                    slots={groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]}
+                    instances={instances.length ? instances : [{}]}
+                    onAdd={() => addGroupInstance(block.id)}
+                    onRemove={instIdx => removeGroupInstance(block.id, instIdx)}
+                    renderCell={(slot, inst, instIdx) =>
+                      renderInput(slot, inst[slot.fieldId] ?? '', v => setGroupField(block.id, instIdx, slot.fieldId, v))
+                    }
+                  />
                 )}
               </div>
             </div>

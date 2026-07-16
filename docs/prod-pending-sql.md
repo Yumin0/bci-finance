@@ -8,6 +8,50 @@
 
 ## ⏳ 待執行
 
+### 資金分配「付款明細」區塊重排：單據種類/幣別移出群組＋群組欄位順序（表單設定＋回填 SQL）（feature/yumin-group-edit-table）
+
+- [ ] 正式機表單設定尚未同步付款明細區塊結構
+- [ ] 正式機舊申請單/範本 單據種類/幣別 頂層回填 SQL 尚未執行
+
+用途：付款明細群組編輯畫面已改為表格排版（GroupEditTable 共用元件），**欄位順序＝表單設定群組列的攤平順序**；且 Yumin 拍板（2026-07-16）**單據種類與幣別對整張單是同一個值，移出群組**（新增多組不用每組重選）。dev/staging 的 funds_allocation 表單「付款明細」區塊已改為：
+
+- 第 1 列（**組外**、非群組）：單據種類｜幣別（3 欄配置，第三格空）
+- 第 2 列（整組重複起始列）：費用項目（細項）（1 欄）
+- 第 3 列：摘要/用途說明｜費用
+- 第 4 列：手續費｜稅額選擇｜稅額
+
+攤平後群組表格欄序＝費用項目（細項）、摘要/用途說明、費用、手續費、稅額選擇、稅額；單據種類/幣別顯示在表格上方一般欄位列。部署 main 後到正式站 **表單設定 → 資金分配申請** 調成同樣結構（純 UI 操作、slot 整顆搬移即可，稅額計算設定 taxConfig 跟著欄位走不用重設）。
+
+**舊資料回填**：單據種類/幣別原本每組各存一份在 `extra_data.__group_{blockId}` 內，移出群組後改從頂層 `extra_data['單據種類']`／`extra_data['幣別']` 讀值，舊單不回填會顯示空白、編輯舊草稿要重選。dev/staging 已以腳本回填（帶**第一組**的值，34 張申請單＋8 個範本）。正式機執行下方 SQL 做同一件事——把每張有群組資料的申請單第一組的單據種類/幣別補到頂層（已有值的不覆蓋）：
+
+```sql
+-- 先確認正式站群組 key（block id 可能與 dev 的 block_funds_split_3 不同）：
+SELECT DISTINCT k FROM funds_allocation, LATERAL jsonb_object_keys(extra_data) k WHERE k LIKE '__group_%';
+
+-- 申請單回填（key 以上一步查到的為準）：
+UPDATE funds_allocation
+SET extra_data = extra_data || jsonb_strip_nulls(jsonb_build_object(
+  '單據種類', COALESCE(NULLIF(extra_data->>'單據種類',''), (extra_data->>'__group_block_funds_split_3')::jsonb->0->>'單據種類'),
+  '幣別',     COALESCE(NULLIF(extra_data->>'幣別',''),     (extra_data->>'__group_block_funds_split_3')::jsonb->0->>'幣別')
+))
+WHERE extra_data ? '__group_block_funds_split_3';
+```
+
+範本（`funds_allocation_templates.field_values`）同理，但 key 是**欄位代號**不是 label（dev 為 `custom_1782281419194`＝單據種類、`custom_currency`＝幣別；**正式站表單的欄位代號可能不同，先到正式站表單設定核對**）：
+
+```sql
+UPDATE funds_allocation_templates
+SET field_values = field_values || jsonb_strip_nulls(jsonb_build_object(
+  'custom_1782281419194', COALESCE(NULLIF(field_values->>'custom_1782281419194',''), (field_values->>'__group_block_funds_split_3')::jsonb->0->>'custom_1782281419194'),
+  'custom_currency',      COALESCE(NULLIF(field_values->>'custom_currency',''),      (field_values->>'__group_block_funds_split_3')::jsonb->0->>'custom_currency')
+))
+WHERE field_values ? '__group_block_funds_split_3';
+```
+
+註：舊單群組資料內的單據種類/幣別值保留不刪（只是不再顯示為表格欄）；多組值不同的舊單以第一組為準（與付款憑單建立頁帶入規則一致）。
+
+**付款憑單表單也有一筆順序調整**（2026-07-16，同分支）：付款明細群組列的「稅額選擇｜摘要/用途說明」互換為「**摘要/用途說明｜稅額選擇**」（攤平欄序＝摘要/用途說明、稅額選擇、未稅金額、稅額、總額）。部署 main 後到正式站 **表單設定 → 付款憑單** 同步互換（純 UI 操作，無 SQL、無資料回填）。
+
 ### 正式站費用項目資料尚未建立（費用類型設定，非 SQL，資料輸入）
 
 - [ ] 正式機尚未建立費用項目資料

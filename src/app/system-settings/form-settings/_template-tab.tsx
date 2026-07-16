@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { FundsAllocationTemplate, OrgUnit, DropdownOption, FormBlock, FormSlot, FormSchemaRow, TaxRateOption } from '@/lib/types'
 import { allDivisionOptions, allSectionOptions } from '@/lib/orgPositions'
 import { OrgScopeTree } from '@/app/_components/OrgScopeTree'
+import GroupEditTable from '@/app/_components/GroupEditTable'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -289,7 +290,8 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
       )]
     : []
 
-  function renderSlotInput(slot: NonNullable<FormSlot>, value: string, onChange: (v: string) => void) {
+  // inTable：欄位放在 GroupEditTable 儲存格內（overflow 容器），下拉需開 portal 才不會被裁切
+  function renderSlotInput(slot: NonNullable<FormSlot>, value: string, onChange: (v: string) => void, inTable = false) {
     const { fieldId, type, dataSource, staticOptions } = slot
 
     if (fieldId === 'apply_division') {
@@ -347,7 +349,7 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
       } else if (dataSource.startsWith('fee_records:') || dataSource.startsWith('payee_records:')) {
         options = dynamicSelectOptions[dataSource] ?? []
       }
-      return <SearchableSelect value={value} onChange={onChange} options={options} placeholder="選填" />
+      return <SearchableSelect value={value} onChange={onChange} options={options} placeholder="選填" portal={inTable} />
     }
     if (type === 'textarea') {
       return <Textarea value={value} onChange={e => onChange(e.target.value)} rows={2} placeholder="選填" />
@@ -426,46 +428,24 @@ export default function TemplateManagementTab({ newTrigger }: { newTrigger: numb
                       })}
                       {groupRows.length > 0 && (() => {
                         const instances = editorGroup[block.id] ?? [{}]
+                        // 範本欄位皆選填：去掉 required 星號，避免與「以下欄位可選填」說明矛盾
+                        const visibleSlots = groupRows
+                          .flatMap(r => r.slots)
+                          .filter((s): s is NonNullable<FormSlot> => !!s && !shouldSkipSlot(s))
+                          .map(s => ({ ...s, required: false }))
+                        if (!visibleSlots.length) return null
                         return (
-                          <div className="mt-3 flex flex-col gap-3">
-                            {instances.map((inst, instIdx) => (
-                              <div key={instIdx} className="rounded-lg border border-border p-3">
-                                <div className="mb-2 flex items-center justify-between">
-                                  <span className="text-xs font-medium text-muted-foreground">第 {instIdx + 1} 組</span>
-                                  {instances.length > 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => removeGroupInstance(block.id, instIdx)}
-                                      className="cursor-pointer rounded-md border border-red-300 bg-card px-2 py-1 text-xs text-destructive"
-                                    >
-                                      刪除此組
-                                    </button>
-                                  )}
-                                </div>
-                                <div className="flex flex-col gap-3">
-                                  {groupRows.map(row => {
-                                    const visible = row.slots.filter((s): s is NonNullable<FormSlot> => !!s && !shouldSkipSlot(s))
-                                    if (!visible.length) return null
-                                    return (
-                                      <div key={row.id} className="grid grid-cols-2 gap-3">
-                                        {visible.map(slot => (
-                                          <FieldRow key={slot.fieldId} label={slot.label}>
-                                            {renderSlotInput(slot, inst[slot.fieldId] ?? '', v => setGroupField(block.id, instIdx, slot.fieldId, v))}
-                                          </FieldRow>
-                                        ))}
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={() => addGroupInstance(block.id)}
-                              className="cursor-pointer rounded-md border border-dashed border-border bg-transparent px-3.5 py-1.5 text-sm text-muted-foreground"
-                            >
-                              ＋ 新增此組
-                            </button>
+                          <div className="mt-3">
+                            <GroupEditTable
+                              slots={visibleSlots}
+                              instances={instances}
+                              onAdd={() => addGroupInstance(block.id)}
+                              onRemove={instIdx => removeGroupInstance(block.id, instIdx)}
+                              addLabel="＋ 新增此組"
+                              renderCell={(slot, inst, instIdx) =>
+                                renderSlotInput(slot, inst[slot.fieldId] ?? '', v => setGroupField(block.id, instIdx, slot.fieldId, v), true)
+                              }
+                            />
                           </div>
                         )
                       })()}

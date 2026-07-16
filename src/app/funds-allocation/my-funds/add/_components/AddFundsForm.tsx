@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUpload'
+import GroupEditTable from '@/app/_components/GroupEditTable'
 import { FieldHint } from '@/app/_components/RecordDetailView'
 import ErrorDialog from '@/app/_components/ErrorDialog'
 import ConfirmDialog from '@/app/_components/ConfirmDialog'
@@ -702,6 +703,7 @@ export default function AddFundsForm({
           onChange={v => onChange(fieldId, v)}
           options={options}
           required={required}
+          portal={isRepeatable}
         />
       )
     }
@@ -757,6 +759,7 @@ export default function AddFundsForm({
           options={options}
           placeholder={isDetailFee && !mainFeeValue ? `請先選擇${mainFeeSlot!.label}` : undefined}
           required={required}
+          portal={isRepeatable}
         />
       )
     }
@@ -845,69 +848,30 @@ export default function AddFundsForm({
       })
     }
 
+    // 合計 = 其他數字欄位 + 已儲存的稅額（使用者可手動覆寫稅額）
+    const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
+    const taxAmountFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+    const otherNums = taxSelectSlot?.taxConfig
+      ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmountFieldId)
+      : []
+
     return (
-      <div>
-        {instances.map((instValues, instIdx) => {
-          const setInstField = (fid: string, val: string) => setInstFieldWithAutoTax(instIdx, fid, val)
-
-          // 合計 = 其他數字欄位 + 已儲存的稅額（使用者可手動覆寫）
-          const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
-          const taxAmountFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
-          const storedTax = taxAmountFieldId ? (parseFloat(instValues[taxAmountFieldId] ?? '0') || 0) : 0
-          const otherNums = taxSelectSlot?.taxConfig
-            ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmountFieldId)
-            : []
-          const computedTotal = otherNums.reduce((sum, s) => sum + (parseFloat(instValues[s.fieldId] ?? '0') || 0), 0) + storedTax
-
-          return (
-            <div key={instIdx} style={{
-              position: 'relative',
-              paddingBottom: 16,
-              marginBottom: instances.length > 1 && instIdx < instances.length - 1 ? 16 : 0,
-              borderBottom: instances.length > 1 && instIdx < instances.length - 1 ? '1px dashed var(--border-color)' : undefined,
-            }}>
-              {groupRows.map(row => (
-                <div key={row.id} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.cols}, 1fr)`, gap: 20, marginBottom: 20 }}>
-                  {row.slots.map((slot, slotIdx) => {
-                    if (!slot) return <div key={slotIdx} />
-                    // 合計唯讀（稅額 + 其他數字加總）
-                    if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
-                      return (
-                        <div key={slotIdx}>
-                          <label style={labelStyle}>{slot.label}</label>
-                          <Input value={String(computedTotal)} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
-                        </div>
-                      )
-                    }
-                    // 其他欄位（含稅額）：可編輯，費用/稅額選擇變動時自動帶入稅額
-                    return (
-                      <div key={slotIdx}>
-                        <label style={labelStyle}>
-                          {slot.label}
-                          {slot.required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}
-                        </label>
-                        {renderFieldFor(slot, instValues, setInstField, true)}
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
-              {instances.length > 1 && (
-                <button type="button" onClick={() => removeGroupInstance(block.id, instIdx)}
-                  style={{ position: 'absolute', right: -76, top: 0, width: 56, padding: '4px 8px', fontSize: 12,
-                    border: '1px solid #fca5a5', borderRadius: 6, background: 'var(--bg-card)', color: '#dc2626', cursor: 'pointer' }}>
-                  刪除
-                </button>
-              )}
-            </div>
-          )
-        })}
-        <button type="button" onClick={() => addGroupInstance(block.id)}
-          style={{ padding: '6px 14px', fontSize: 13, border: '1.5px dashed #d1d5db',
-            borderRadius: 6, background: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginTop: 4 }}>
-          ＋ 新增項目
-        </button>
-      </div>
+      <GroupEditTable
+        slots={groupSlots}
+        instances={instances}
+        onAdd={() => addGroupInstance(block.id)}
+        onRemove={instIdx => removeGroupInstance(block.id, instIdx)}
+        renderCell={(slot, instValues, instIdx) => {
+          // 合計唯讀（稅額 + 其他數字加總）
+          if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
+            const storedTax = taxAmountFieldId ? (parseFloat(instValues[taxAmountFieldId] ?? '0') || 0) : 0
+            const computedTotal = otherNums.reduce((sum, s) => sum + (parseFloat(instValues[s.fieldId] ?? '0') || 0), 0) + storedTax
+            return <Input value={String(computedTotal)} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
+          }
+          // 其他欄位（含稅額）：可編輯，費用/稅額選擇變動時自動帶入稅額
+          return renderFieldFor(slot, instValues, (fid, val) => setInstFieldWithAutoTax(instIdx, fid, val), true)
+        }}
+      />
     )
   }
 
@@ -1200,7 +1164,8 @@ export default function AddFundsForm({
                 })()}
               </div>
             )}
-            <div style={{ paddingTop: 44, paddingLeft: 48, paddingBottom: 16, paddingRight: block.rows.some(r => r.repeatable || r.rowGroupStart) ? 96 : 48 }}>
+            {/* 群組表格區塊左右內距縮為 24 讓 8 欄表格在筆電不用橫向捲動；右側留 96 只給可重複列的浮動刪除鈕用（群組列的刪除鈕已收進 GroupEditTable 行尾） */}
+            <div style={{ paddingTop: 44, paddingLeft: block.rows.some(r => r.rowGroupStart) ? 24 : 48, paddingBottom: 16, paddingRight: block.rows.some(r => r.repeatable) ? 96 : block.rows.some(r => r.rowGroupStart) ? 24 : 48 }}>
               {/* 非群組列正常渲染 */}
               {block.rows.filter(r => !r.rowGroupStart && !getGroupRows(block).includes(r)).map(row =>
                 row.repeatable ? (
