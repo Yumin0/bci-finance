@@ -31,7 +31,7 @@ function estimateTextWidth(s: string): number {
 function selectWidthFor(optionLabels: string[] | undefined): number {
   if (!optionLabels?.length) return 200
   const longest = Math.max(...optionLabels.map(estimateTextWidth))
-  return Math.round(Math.min(280, Math.max(140, longest + 56)))
+  return Math.round(Math.min(280, Math.max(110, longest + 56)))
 }
 
 // 欄寬抓「資金分配付款明細在 13～14 吋筆電（側欄展開）不用橫向捲動」為基準；
@@ -41,7 +41,7 @@ function fixedWidthFor(
   selectOptionLabels?: (slot: NonNullable<FormSlot>) => string[] | undefined,
 ): number | undefined {
   switch (slot.type) {
-    case 'number': return 95
+    case 'number': return 125 // 金額常見六、七位數（如 5,000,000），要能完整顯示不截斷
     case 'date': return 130
     case 'select':
     case 'radio': return selectWidthFor(selectOptionLabels?.(slot))
