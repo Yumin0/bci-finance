@@ -8,6 +8,19 @@
 
 ## ⏳ 待執行
 
+### 審核群組「財務人員」改名「支出課」（feature/yumin-voucher-category-default）
+
+- [ ] 正式機執行改名 SQL
+
+用途：Yumin 2026-07-19 拍板，審核管理的「財務人員」群組 Tab 改叫「支出課」。程式碼無寫死名稱（僅註解），改群組名稱即可，付款憑單/沖銷審核管理的動態群組 Tab 名稱會跟著變。dev 已改（approval_groups id=4）。正式機的群組 id 可能不同，先查再改：
+
+```sql
+-- 先確認正式機的群組 id
+SELECT id, name FROM approval_groups WHERE name = '財務人員';
+-- 改名（id 以上一步查到的為準）
+UPDATE approval_groups SET name = '支出課' WHERE name = '財務人員';
+```
+
 ### 正式站費用項目資料尚未建立（費用類型設定，非 SQL，資料輸入）
 
 - [ ] 正式機尚未建立費用項目資料

@@ -7,6 +7,14 @@
 
 ## 進行中
 
+**沖銷審核付款分類預設「回存」＋審核群組「財務人員」改名「支出課」**（Yumin）
+分支：`feature/yumin-voucher-category-default`
+開始：2026-07-19
+說明：① 暫付款沖銷審核頁（群組步驟）「付款分類」下拉預設選「回存」（先承接本單前面關卡選值、沒有才帶回存；不再承接母付款憑單的付款分類——母憑單分類描述預支出帳當下，與沖銷回存性質不同）；② 審核群組「財務人員」改名「支出課」（dev approval_groups id=4 已改，正式機 SQL 登記 prod-pending-sql；程式碼無寫死名稱、Tab 名稱隨群組名自動變）。皆 Yumin 2026-07-19 拍板。
+- [x] /funds-voucher/review/check/[id]（付款分類預設）
+- [x] dev 改名＋docs/prod-pending-sql.md 登記
+- [x] npx tsc --noEmit 零錯誤
+
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
 分支：`feature/yumin-voucher-return-amount`
 開始：2026-07-15
