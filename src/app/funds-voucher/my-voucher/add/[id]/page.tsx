@@ -21,6 +21,7 @@ import AttachmentUpload, { AttachmentItem } from '@/app/_components/AttachmentUp
 import ErrorDialog from '@/app/_components/ErrorDialog'
 import GroupEditTable from '@/app/_components/GroupEditTable'
 import { DetailFieldLayout, detailRowGridStyle } from '@/app/_components/RecordDetailView'
+import { preventEnterSubmit } from '@/lib/preventEnterSubmit'
 
 const readonlyCls = 'bg-[var(--bg-page)] cursor-not-allowed'
 
@@ -342,7 +343,7 @@ export default function AddTempVoucherPage({ params }: { params: Promise<{ id: s
       {/* 母付款憑單對照：當初預支多少、這次沖銷多少、要回存多少 */}
       <PaymentSummaryCard payment={payment} voucherTotal={voucherGrandTotal} />
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} onKeyDown={preventEnterSubmit}>
         {schema.map(block => {
           const groupRows = getGroupRows(block)
           const groupRowIds = new Set(groupRows.map(r => r.id))

@@ -30,6 +30,7 @@ import { saveUserFundTemplate } from '@/app/actions/fund-templates'
 import { logFieldChanges } from '@/app/actions/edit-logs'
 import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
 import { feeItemCode } from '@/lib/feeItems'
+import { preventEnterSubmit } from '@/lib/preventEnterSubmit'
 
 
 function unitLabel(u: OrgUnit) {
@@ -1273,7 +1274,7 @@ export default function EditFundsForm({
       <ErrorDialog message={error} title="無法儲存或送出" onClose={() => setError(null)} />
       {confirmDialog}
 
-      <form onSubmit={isDraft ? handleSubmitFromDraft : handleSaveChanges}>
+      <form onSubmit={isDraft ? handleSubmitFromDraft : handleSaveChanges} onKeyDown={preventEnterSubmit}>
         {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
           <div key={block.id} style={{ marginBottom: 28, border: '1px solid var(--border-color)', borderRadius: 16, background: 'var(--bg-card)' }}>
             {(block.title || blockTaxMap[block.id] || groupBlockSummary[block.id]) && (

@@ -22,6 +22,7 @@ import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
 import GroupEditTable from '@/app/_components/GroupEditTable'
 import ErrorDialog from '@/app/_components/ErrorDialog'
 import { DetailFieldLayout, FieldHint, detailRowGridStyle } from '@/app/_components/RecordDetailView'
+import { preventEnterSubmit } from '@/lib/preventEnterSubmit'
 
 
 // fieldId-based: known default fieldIds that are direct allocation columns → always readonly
@@ -859,7 +860,7 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       {/* 送出被擋（金額 0/超額等）改用中央彈窗：建立按鈕在長表單底部，頁頂紅字使用者看不到 */}
       <ErrorDialog message={error} title="無法建立付款憑單" onClose={() => setError(null)} />
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} onKeyDown={preventEnterSubmit}>
         {schema.map(block => {
           if (block.showWhen && fieldValues[block.showWhen.fieldId] !== block.showWhen.value) return null
           const groupRows = getGroupRows(block)
