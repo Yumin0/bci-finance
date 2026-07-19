@@ -8,17 +8,6 @@
 
 ## ⏳ 待執行
 
-### 逐項核准金額：審核紀錄加欄位（feature/yumin-itemized-approval）
-
-- [ ] 尚未在正式機執行（**部署 main 前先跑**，避免部署後資金分配審核送出失敗的空窗）
-- [ ] dev/staging Supabase 也需要先跑同一行（2026-07-19 查證 dev 尚無此欄；dev 沒跑之前，staging 上資金分配審核核准會存檔失敗）
-
-用途：資金分配審核的核准金額改為「逐組核准」（優化第二批第一節），每一關核准時把各組的核准費用／手續費原值／重算稅額存進該筆審核紀錄，轉建立付款憑單時逐組帶入最新一關的核准值。執行後審核紀錄多一個可為空的欄位，舊資料不受影響。
-
-```sql
-ALTER TABLE approval_records ADD COLUMN IF NOT EXISTS approved_items jsonb;
-```
-
 ### 正式站費用項目資料尚未建立（費用類型設定，非 SQL，資料輸入）
 
 - [ ] 正式機尚未建立費用項目資料
@@ -30,6 +19,17 @@ ALTER TABLE approval_records ADD COLUMN IF NOT EXISTS approved_items jsonb;
 另外（2026-07-16 查證）：**正式站 funds_allocation 表單目前只有一個 label 含「費用項目」的欄位**（fieldId `custom_1782788231927`，即「主要」），付款明細群組內**沒有「費用項目（細項）」欄位**——主要/細項連動功能在正式站不會觸發。建費用項目資料時，需一併到正式站表單設定在付款明細群組補上細項欄位（dataSource 選費用項目細項類別、fieldId 建議用 `expense_item` 以對應列表「費用項目」欄的結構化欄位），連動才會生效。
 
 ## ✅ 已執行
+
+### 逐項核准金額：審核紀錄加欄位（feature/yumin-itemized-approval）
+
+- [x] 已在正式機執行（2026-07-19，於合併 main 部署**前**先跑，Success. No rows returned）
+- [x] dev/staging Supabase 已執行（2026-07-19，執行後以 Playwright 全鏈路實測：第 1 關下修存檔、第 2 關承接、轉憑單帶入皆正確）
+
+用途：資金分配審核的核准金額改為「逐組核准」（優化第二批第一節），每一關核准時把各組的核准費用／手續費原值／重算稅額存進該筆審核紀錄，轉建立付款憑單時逐組帶入最新一關的核准值。執行後審核紀錄多一個可為空的欄位，舊資料不受影響。
+
+```sql
+ALTER TABLE approval_records ADD COLUMN IF NOT EXISTS approved_items jsonb;
+```
 
 ### 資金分配 expense_item 被存成幣別的回填（feature/yumin-expense-item-currency-fix）
 
