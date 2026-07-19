@@ -343,6 +343,19 @@ export async function submitApprovalDecision(params: {
     if (validationError) return { error: validationError }
   }
 
+  // 下修通知（列20，僅資金分配）：承接值＝上一關核准金額（第一關為申請金額），
+  // 必須在 update 覆寫 approved_amount 之前先讀，否則拿到的是這一關的新值
+  let allocPrevCap: number | null = null
+  if (fundsAllocationId && decision === 'approved' && approvedAmount != null) {
+    const { data: prevAlloc } = await supabase
+      .from('funds_allocation')
+      .select('amount, approved_amount')
+      .eq('id', fundsAllocationId)
+      .single()
+    const cap = prevAlloc?.approved_amount ?? prevAlloc?.amount
+    allocPrevCap = cap != null ? Number(cap) : null
+  }
+
   const isLastStep = stepNumber >= totalSteps
   const newStatus = decision === 'rejected' ? 'rejected' : isLastStep ? 'approved' : 'pending'
   const newCurrentStep = decision === 'rejected' || isLastStep ? null : stepNumber + 1
@@ -442,6 +455,18 @@ export async function submitApprovalDecision(params: {
             title: '資金分配申請已退回',
             itemName: alloc.name,
             body: allocBody,
+            link: `/funds-allocation/my-funds/edit/${fundsAllocationId}`,
+            fundsAllocationId,
+          })
+        }
+        // 列20：核准金額低於承接值（下修）→ 每一關下修都通知申請人一次
+        if (decision === 'approved' && approvedAmount != null && allocPrevCap != null && approvedAmount < allocPrevCap) {
+          await notifyApplicant({
+            userId: applicantId,
+            type: 'approved',
+            title: '核准金額調整',
+            itemName: alloc.name,
+            body: `「${stepName}」將核准金額由 NT$${allocPrevCap.toLocaleString()} 調整為 NT$${approvedAmount.toLocaleString()}`,
             link: `/funds-allocation/my-funds/edit/${fundsAllocationId}`,
             fundsAllocationId,
           })
