@@ -7,51 +7,6 @@
 
 ## 進行中
 
-**資金分配 expense_item 被存成幣別（審核群組 Tab 費用項目顯示成幣別）Bug 修正**（Yumin）
-分支：`feature/yumin-expense-item-currency-fix`
-開始：2026-07-19
-說明：7/16 單據種類/幣別移出群組後，AddFundsForm/EditFundsForm 推導 `expense_item` 的「抓付款明細區塊第一個 fee_records 欄位」邏輯誤抓到幣別（fee_records:3），之後建立的申請單費用項目全存成「台幣」、付款憑單建立時複製母單一併污染（dev 實查 13 筆申請單＋12 筆憑單）。修正為「label 含『費用項目』的 fee_records 欄位」（與主細項連動同一約定）；dev 已回填、正式機回填 SQL 登記 prod-pending-sql。
-影響範圍確認（expense_item 為多列表共用欄位）：
-- [x] AddFundsForm / EditFundsForm 推導點修正（全站僅此兩處，grep `startsWith('fee_records:')` 其餘皆為選項載入）
-- [x] dev 資料回填（申請單 13＋憑單 12）
-- [x] docs/prod-pending-sql.md 登記
-
-**誤觸 Enter 自動送單 Bug 修正（四個填寫頁擋 Enter 送出）**（Yumin）
-分支：`feature/yumin-enter-submit-guard`
-開始：2026-07-19
-說明：填寫頁輸入框按 Enter 會觸發瀏覽器預設的表單送出（測試回饋：輸入費用明細金額誤觸兩次 Enter 單子直接送審）。新增共用 `lib/preventEnterSubmit.ts`（只攔 input 的 Enter，textarea 換行與按鈕不受影響），送單一律要實際按送出按鈕。
-影響範圍確認（全站有 `<form onSubmit>` 的填寫頁，grep 確認僅四處）：
-- [x] /funds-allocation/my-funds/add（AddFundsForm）
-- [x] /funds-allocation/my-funds/edit/[id]（EditFundsForm，審核頁編輯共用）
-- [x] /funds-payment/my-payment/add/[id]（付款憑單建立頁）
-- [x] /funds-voucher/my-voucher/add/[id]（沖銷建立頁）
-
-**財務付款憑單管理頁（/finance/payment）加週次選擇器**（Yumin）
-分支：`feature/yumin-finance-payment-week`
-開始：2026-07-19
-說明：付款憑單管理頁原本一次列出全部憑單，加上與其他列表頁同一套年份＋週次下拉（共用 `WeekFilterBar`＋`useWeekFilter`，含「全部週次」），依憑單建單日期（`date`，草稿無日期退回 created_at）前端過濾，預設當週；帳戶區塊金額彙總隨過濾後清單計算。
-**「項目」自動帶入付款明細各組「摘要/用途說明」**（Yumin）
-分支：`feature/yumin-item-to-summary`
-開始：2026-07-19
-說明：資金分配申請單「項目」欄的值（如 7月5日SBBG）自動複製到付款明細每一組的「摘要/用途說明」當預設值（可改），新增組也自動帶（Yumin 2026-07-19 拍板）。實作：group 列內 label 含「摘要」的文字欄；改「項目」時只同步「仍是預設值」的組（空白或等於改動前的項目值），使用者填過的不覆蓋、載入舊單/範本不覆蓋；`newGroupInstanceSeed` 加摘要預帶。
-影響範圍確認：
-- [x] /funds-allocation/my-funds/add（AddFundsForm）
-- [x] /funds-allocation/my-funds/edit/[id]（EditFundsForm，審核頁編輯共用）
-**沖銷審核付款分類預設「回存」＋審核群組「財務人員」改名「支出課」**（Yumin）
-分支：`feature/yumin-voucher-category-default`
-開始：2026-07-19
-說明：① 暫付款沖銷審核頁（群組步驟）「付款分類」下拉預設選「回存」（先承接本單前面關卡選值、沒有才帶回存；不再承接母付款憑單的付款分類——母憑單分類描述預支出帳當下，與沖銷回存性質不同）；② 審核群組「財務人員」改名「支出課」（dev approval_groups id=4 已改，正式機 SQL 登記 prod-pending-sql；程式碼無寫死名稱、Tab 名稱隨群組名自動變）。皆 Yumin 2026-07-19 拍板。
-- [x] /funds-voucher/review/check/[id]（付款分類預設）
-- [x] dev 改名＋docs/prod-pending-sql.md 登記
-**付款憑單列印匯出（已付款 A4 列印頁＋財務代匯出）**（Yumin）
-分支：`feature/yumin-payment-export`
-開始：2026-07-19
-說明：優化第二批規格提案第四節（Yumin 2026-07-19 拍板：會計科目欄改印費用項目（細項）、簽核欄照筑今名稱 CFO/會計/部門主管/申請人帶對應人名、已付款才可匯出）。新增 `my-payment/[id]/print` 列印頁（筑今版式、window.print 存 PDF、print CSS 隱藏框架、DevEnvBadge 全站 print:hidden）；入口：憑單詳細頁（已付款）「匯出付款憑單」＋ /finance/payment 每列「匯出」欄（財務可代任何職員輸出，權限＝該頁既有頁面權限）。公司抬頭暫沿用筑今「商明國際股份有限公司」，如需改請告知。
-- [x] my-payment/[id]/print（新頁，Playwright 實測含 PDF 輸出）
-- [x] my-payment/[id] 詳細頁按鈕（僅 paid）
-- [x] /finance/payment 匯出欄（僅 paid）
-- [x] npx tsc --noEmit 零錯誤
-
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
 分支：`feature/yumin-voucher-return-amount`
 開始：2026-07-15
@@ -339,6 +294,53 @@
 ---
 
 ## 已完成
+
+（以下六項 2026-07-19 完成、同日 Yumin 驗收後推正式機；正式機待執行 SQL 見 prod-pending-sql：expense_item 回填、審核群組改名支出課）
+
+**資金分配 expense_item 被存成幣別（審核群組 Tab 費用項目顯示成幣別）Bug 修正**（Yumin）
+分支：`feature/yumin-expense-item-currency-fix`
+開始：2026-07-19
+說明：7/16 單據種類/幣別移出群組後，AddFundsForm/EditFundsForm 推導 `expense_item` 的「抓付款明細區塊第一個 fee_records 欄位」邏輯誤抓到幣別（fee_records:3），之後建立的申請單費用項目全存成「台幣」、付款憑單建立時複製母單一併污染（dev 實查 13 筆申請單＋12 筆憑單）。修正為「label 含『費用項目』的 fee_records 欄位」（與主細項連動同一約定）；dev 已回填、正式機回填 SQL 登記 prod-pending-sql。
+影響範圍確認（expense_item 為多列表共用欄位）：
+- [x] AddFundsForm / EditFundsForm 推導點修正（全站僅此兩處，grep `startsWith('fee_records:')` 其餘皆為選項載入）
+- [x] dev 資料回填（申請單 13＋憑單 12）
+- [x] docs/prod-pending-sql.md 登記
+
+**誤觸 Enter 自動送單 Bug 修正（四個填寫頁擋 Enter 送出）**（Yumin）
+分支：`feature/yumin-enter-submit-guard`
+開始：2026-07-19
+說明：填寫頁輸入框按 Enter 會觸發瀏覽器預設的表單送出（測試回饋：輸入費用明細金額誤觸兩次 Enter 單子直接送審）。新增共用 `lib/preventEnterSubmit.ts`（只攔 input 的 Enter，textarea 換行與按鈕不受影響），送單一律要實際按送出按鈕。
+影響範圍確認（全站有 `<form onSubmit>` 的填寫頁，grep 確認僅四處）：
+- [x] /funds-allocation/my-funds/add（AddFundsForm）
+- [x] /funds-allocation/my-funds/edit/[id]（EditFundsForm，審核頁編輯共用）
+- [x] /funds-payment/my-payment/add/[id]（付款憑單建立頁）
+- [x] /funds-voucher/my-voucher/add/[id]（沖銷建立頁）
+
+**財務付款憑單管理頁（/finance/payment）加週次選擇器**（Yumin）
+分支：`feature/yumin-finance-payment-week`
+開始：2026-07-19
+說明：付款憑單管理頁原本一次列出全部憑單，加上與其他列表頁同一套年份＋週次下拉（共用 `WeekFilterBar`＋`useWeekFilter`，含「全部週次」），依憑單建單日期（`date`，草稿無日期退回 created_at）前端過濾，預設當週；帳戶區塊金額彙總隨過濾後清單計算。
+**「項目」自動帶入付款明細各組「摘要/用途說明」**（Yumin）
+分支：`feature/yumin-item-to-summary`
+開始：2026-07-19
+說明：資金分配申請單「項目」欄的值（如 7月5日SBBG）自動複製到付款明細每一組的「摘要/用途說明」當預設值（可改），新增組也自動帶（Yumin 2026-07-19 拍板）。實作：group 列內 label 含「摘要」的文字欄；改「項目」時只同步「仍是預設值」的組（空白或等於改動前的項目值），使用者填過的不覆蓋、載入舊單/範本不覆蓋；`newGroupInstanceSeed` 加摘要預帶。
+影響範圍確認：
+- [x] /funds-allocation/my-funds/add（AddFundsForm）
+- [x] /funds-allocation/my-funds/edit/[id]（EditFundsForm，審核頁編輯共用）
+**沖銷審核付款分類預設「回存」＋審核群組「財務人員」改名「支出課」**（Yumin）
+分支：`feature/yumin-voucher-category-default`
+開始：2026-07-19
+說明：① 暫付款沖銷審核頁（群組步驟）「付款分類」下拉預設選「回存」（先承接本單前面關卡選值、沒有才帶回存；不再承接母付款憑單的付款分類——母憑單分類描述預支出帳當下，與沖銷回存性質不同）；② 審核群組「財務人員」改名「支出課」（dev approval_groups id=4 已改，正式機 SQL 登記 prod-pending-sql；程式碼無寫死名稱、Tab 名稱隨群組名自動變）。皆 Yumin 2026-07-19 拍板。
+- [x] /funds-voucher/review/check/[id]（付款分類預設）
+- [x] dev 改名＋docs/prod-pending-sql.md 登記
+**付款憑單列印匯出（已付款 A4 列印頁＋財務代匯出）**（Yumin）
+分支：`feature/yumin-payment-export`
+開始：2026-07-19
+說明：優化第二批規格提案第四節（Yumin 2026-07-19 拍板：會計科目欄改印費用項目（細項）、簽核欄照筑今名稱 CFO/會計/部門主管/申請人帶對應人名、已付款才可匯出）。新增 `my-payment/[id]/print` 列印頁（筑今版式、window.print 存 PDF、print CSS 隱藏框架、DevEnvBadge 全站 print:hidden）；入口：憑單詳細頁（已付款）「匯出付款憑單」＋ /finance/payment 每列「匯出」欄（財務可代任何職員輸出，權限＝該頁既有頁面權限）。公司抬頭暫沿用筑今「商明國際股份有限公司」，如需改請告知。
+- [x] my-payment/[id]/print（新頁，Playwright 實測含 PDF 輸出）
+- [x] my-payment/[id] 詳細頁按鈕（僅 paid）
+- [x] /finance/payment 匯出欄（僅 paid）
+- [x] npx tsc --noEmit 零錯誤
 
 **付款明細群組編輯表格化（GroupEditTable 共用元件）**（2026-07-16，Yumin）
 分支：`feature/yumin-group-edit-table`
