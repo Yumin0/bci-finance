@@ -263,7 +263,7 @@
 - [x] 測試截圖：`~/Desktop/付款憑單審核頁可編輯_測試截圖/`（7 張）
 - [x] dev Supabase 加欄 SQL 已執行（2026-07-19），補驗通過：儲存變更寫入 3 筆歷程（摘要/總額/憑單金額，含變更人與步驟）、Modal 分組顯示正常，測試資料已清除
 - [x] staging 驗收 → 已推正式機（2026-07-19）
-- [ ] **正式機 Supabase 加欄 SQL 尚待執行**（見 prod-pending-sql；未跑前審核人儲存不會失敗、只是變更歷程記不進去）
+- [x] 正式機 Supabase SQL 已執行（2026-07-19，因正式機發現整張表不存在改跑完整建表版，見 prod-pending-sql）
 
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin） ✅ 已完成（已上 main；2026-07-19 依 git log 核對歸檔）
 分支：`feature/yumin-voucher-return-amount`
