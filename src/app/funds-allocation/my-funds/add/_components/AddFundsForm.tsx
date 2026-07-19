@@ -995,7 +995,8 @@ export default function AddFundsForm({
         const thirdBlock = schema[2]
         if (thirdBlock) {
           const allThirdSlots = thirdBlock.rows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
-          const feeSlot = allThirdSlots.find(s => s.dataSource?.startsWith('fee_records:'))
+          // 幣別等其他 fee_records 欄位可能排在細項前面，必須以 label 含「費用項目」辨識（與主細項連動同一約定）
+          const feeSlot = allThirdSlots.find(s => s.dataSource?.startsWith('fee_records:') && s.label.includes('費用項目'))
           if (feeSlot) {
             const fromField = fieldValues[feeSlot.fieldId]
             if (fromField) return fromField

@@ -7,6 +7,16 @@
 
 ## 進行中
 
+**資金分配 expense_item 被存成幣別（審核群組 Tab 費用項目顯示成幣別）Bug 修正**（Yumin）
+分支：`feature/yumin-expense-item-currency-fix`
+開始：2026-07-19
+說明：7/16 單據種類/幣別移出群組後，AddFundsForm/EditFundsForm 推導 `expense_item` 的「抓付款明細區塊第一個 fee_records 欄位」邏輯誤抓到幣別（fee_records:3），之後建立的申請單費用項目全存成「台幣」、付款憑單建立時複製母單一併污染（dev 實查 13 筆申請單＋12 筆憑單）。修正為「label 含『費用項目』的 fee_records 欄位」（與主細項連動同一約定）；dev 已回填、正式機回填 SQL 登記 prod-pending-sql。
+影響範圍確認（expense_item 為多列表共用欄位）：
+- [x] AddFundsForm / EditFundsForm 推導點修正（全站僅此兩處，grep `startsWith('fee_records:')` 其餘皆為選項載入）
+- [x] dev 資料回填（申請單 13＋憑單 12）
+- [x] docs/prod-pending-sql.md 登記
+- [x] npx tsc --noEmit 零錯誤
+
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
 分支：`feature/yumin-voucher-return-amount`
 開始：2026-07-15

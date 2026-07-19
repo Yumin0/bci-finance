@@ -8,6 +8,35 @@
 
 ## ⏳ 待執行
 
+### 資金分配 expense_item 被存成幣別的回填（feature/yumin-expense-item-currency-fix）
+
+- [ ] 正式機執行回填 SQL
+
+用途：7/16「單據種類/幣別移出付款明細群組」後，幣別欄排在區塊最前面，而 AddFundsForm/EditFundsForm 推導 `expense_item` 的邏輯是「抓付款明細區塊第一個 `fee_records:` 來源欄位」，誤抓到幣別——之後建立/編輯的申請單 `expense_item` 全被存成「台幣」等幣別值，付款憑單建立時又複製母單的 `expense_item` 一併污染。程式已修正為「label 含『費用項目』的 fee_records 欄位」（與主細項連動同一約定）；dev 已回填（13 筆申請單＋12 筆憑單，2026-07-19）。正式機部署 main 後需回填（若正式站尚無污染資料，跑了也不會動到任何列）：
+
+```sql
+-- 1) 申請單：expense_item 是幣別值的，回填為付款明細第一組的「費用項目（細項）」，沒有細項則退回 extra_data 的「費用項目」（主要）
+-- 正式站幣別選項若不只 台幣/美金/英鎊，把 IN 清單補齊
+UPDATE funds_allocation fa
+SET expense_item = COALESCE(
+  (
+    SELECT NULLIF(grp.value::jsonb -> 0 ->> '費用項目（細項）', '')
+    FROM jsonb_each_text(fa.extra_data) AS grp(key, value)
+    WHERE grp.key LIKE '\_\_group\_%' ESCAPE '\'
+    LIMIT 1
+  ),
+  NULLIF(fa.extra_data ->> '費用項目', '')
+)
+WHERE fa.expense_item IN ('台幣', '美金', '英鎊');
+
+-- 2) 付款憑單：同樣被污染的，改抄母單（已回填後的）expense_item
+UPDATE funds_payment fp
+SET expense_item = fa.expense_item
+FROM funds_allocation fa
+WHERE fp.funds_allocation_id = fa.id
+  AND fp.expense_item IN ('台幣', '美金', '英鎊');
+```
+
 ### 正式站費用項目資料尚未建立（費用類型設定，非 SQL，資料輸入）
 
 - [ ] 正式機尚未建立費用項目資料
