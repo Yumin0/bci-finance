@@ -954,6 +954,17 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <Link href="/funds-payment/my-payment" className={buttonVariants({ variant: 'outline' })}>← 返回列表</Link>
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>付款憑單</h1>
+          {record!.status === PAYMENT_STATUS.PAID && (
+            // 已付款才可匯出列印版（比照筑今）；職員從這裡匯出自己的單、財務從付款憑單管理頁代匯出
+            <Link
+              href={`/funds-payment/my-payment/${record!.id}/print`}
+              target="_blank"
+              className={buttonVariants({ variant: 'outline' })}
+              style={{ marginLeft: 'auto' }}
+            >
+              匯出付款憑單
+            </Link>
+          )}
           {isDraft && (
             <Button
               type="button"
