@@ -7,20 +7,6 @@
 
 ## 進行中
 
-**付款憑單審核頁可編輯（優化第二批第三節 a，第一批：付款憑單）**（Yumin）
-分支：`feature/yumin-payment-review-edit`
-開始：2026-07-19
-規格文件：[`docs/core-logic/優化第二批規格提案_2026-07-19.md`](docs/core-logic/優化第二批規格提案_2026-07-19.md) 第三節 (a)
-說明：把資金分配審核頁的能力搬到付款憑單審核頁——審核人可直接改單子內容、每次儲存記欄位級變更歷程（含附件、群組明細逐行比對）、儲存後畫面即時刷新。工程主體：從草稿編輯頁（`my-payment/[id]/page.tsx`）抽出可重用的可編輯表單元件 `funds-payment/_components/PaymentEditForm.tsx`（mode='draft'/'reviewer'），嵌入 `review/check/[id]`；審核人儲存走新 server action `updatePaymentAsReviewer`（server 端再驗審核人身分，類型欄鎖定不可改）。**審核人不可異動金額**（2026-07-19 Yumin 拍板）：付款明細金額欄鎖唯讀、不可增刪明細組、action 不更新 amount，金額調整一律走「核准金額」（避免憑單金額與核准金額兩處要同步、沒同步就多付的怪帳）；server 端比對 incoming 群組金額值與已存資料，被改直接擋。變更歷程沿用 `allocation_edit_logs` 一張表，加 `funds_payment_id`／`temp_voucher_id` 可空欄（比照 approval_records 三 FK 設計，第二批沖銷直接沿用不用再改結構），SQL 已登記 prod-pending-sql（dev 已於 2026-07-19 執行並補驗；**正式機待執行**，未執行前儲存不失敗、只是變更歷程記不進去）。
-影響範圍確認：
-- [x] /funds-payment/review/check/[id]（審核頁嵌入可編輯表單；Playwright 實測：群組成員看到可編輯表單、改摘要/總額儲存變更 → DB 更新＋畫面即時刷新、非群組成員唯讀無儲存鈕）
-- [x] /funds-payment/my-payment/[id]（草稿編輯頁改用共用表單元件，行為不變：儲存草稿/確定送出/刪除按鈕、群組編輯、附件皆照舊）
-- [x] 變更歷程 Modal（ChangeLogModal/getEditLogs 通用化支援 fundsPaymentId；資金分配 #88 既有變更歷程回歸顯示正常；付款憑單歷程顯示需待 dev 加欄 SQL 執行後才有資料）
-- [x] npm run build 全站編譯通過（零 error 零 warning）
-- [x] 測試截圖：`~/Desktop/付款憑單審核頁可編輯_測試截圖/`（7 張）
-- [x] dev Supabase 加欄 SQL 已執行（2026-07-19），補驗通過：儲存變更寫入 3 筆歷程（摘要/總額/憑單金額，含變更人與步驟）、Modal 分組顯示正常，測試資料已清除
-- [ ] staging 驗收 → 推正式機（正式機需先跑 prod-pending-sql 的加欄 SQL）
-
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04
@@ -263,6 +249,21 @@
 ---
 
 ## 已完成
+
+**付款憑單審核頁可編輯（優化第二批第三節 a，第一批：付款憑單）**（Yumin） ✅ 已完成（2026-07-19，staging 驗收後推正式機）
+分支：`feature/yumin-payment-review-edit`
+開始：2026-07-19
+規格文件：[`docs/core-logic/優化第二批規格提案_2026-07-19.md`](docs/core-logic/優化第二批規格提案_2026-07-19.md) 第三節 (a)
+說明：把資金分配審核頁的能力搬到付款憑單審核頁——審核人可直接改單子內容、每次儲存記欄位級變更歷程（含附件、群組明細逐行比對）、儲存後畫面即時刷新。工程主體：從草稿編輯頁（`my-payment/[id]/page.tsx`）抽出可重用的可編輯表單元件 `funds-payment/_components/PaymentEditForm.tsx`（mode='draft'/'reviewer'），嵌入 `review/check/[id]`；審核人儲存走新 server action `updatePaymentAsReviewer`（server 端再驗審核人身分，類型欄鎖定不可改）。**審核人不可異動金額**（2026-07-19 Yumin 拍板）：付款明細金額欄鎖唯讀、不可增刪明細組、action 不更新 amount，金額調整一律走「核准金額」（避免憑單金額與核准金額兩處要同步、沒同步就多付的怪帳）；server 端比對 incoming 群組金額值與已存資料，被改直接擋。變更歷程沿用 `allocation_edit_logs` 一張表，加 `funds_payment_id`／`temp_voucher_id` 可空欄（比照 approval_records 三 FK 設計，第二批沖銷直接沿用不用再改結構），SQL 已登記 prod-pending-sql（dev 已於 2026-07-19 執行並補驗；**正式機待執行**，未執行前儲存不失敗、只是變更歷程記不進去）。
+影響範圍確認：
+- [x] /funds-payment/review/check/[id]（審核頁嵌入可編輯表單；Playwright 實測：群組成員看到可編輯表單、改摘要/總額儲存變更 → DB 更新＋畫面即時刷新、非群組成員唯讀無儲存鈕）
+- [x] /funds-payment/my-payment/[id]（草稿編輯頁改用共用表單元件，行為不變：儲存草稿/確定送出/刪除按鈕、群組編輯、附件皆照舊）
+- [x] 變更歷程 Modal（ChangeLogModal/getEditLogs 通用化支援 fundsPaymentId；資金分配 #88 既有變更歷程回歸顯示正常；付款憑單歷程顯示需待 dev 加欄 SQL 執行後才有資料）
+- [x] npm run build 全站編譯通過（零 error 零 warning）
+- [x] 測試截圖：`~/Desktop/付款憑單審核頁可編輯_測試截圖/`（7 張）
+- [x] dev Supabase 加欄 SQL 已執行（2026-07-19），補驗通過：儲存變更寫入 3 筆歷程（摘要/總額/憑單金額，含變更人與步驟）、Modal 分組顯示正常，測試資料已清除
+- [x] staging 驗收 → 已推正式機（2026-07-19）
+- [ ] **正式機 Supabase 加欄 SQL 尚待執行**（見 prod-pending-sql；未跑前審核人儲存不會失敗、只是變更歷程記不進去）
 
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin） ✅ 已完成（已上 main；2026-07-19 依 git log 核對歸檔）
 分支：`feature/yumin-voucher-return-amount`
