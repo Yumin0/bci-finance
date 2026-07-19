@@ -99,11 +99,7 @@
 - **實作點**：`submitApprovalDecision` 核准分支比對承接值，走既有 `notifyApplicant`；審核頁／快速核准／批次核准三個入口都會經過同一個 server action，一處實作全數涵蓋
 - 詳見 `docs/優化項目理解與提問_優先序2_2026-07-19.md` 列 20
 
-#### [一鍵複製分享連結給主管審核]（優先序2 列22，Layla 回饋，2026-07-19 全部拍板）
-- **已拍板**：按鈕放**職員的詳細頁**（職員複製連結分享給主管）；未登入點連結導 /login 後**自動跳回該單**（需確認/補 `proxy.ts` returnUrl 回跳）；雙身份主管不需優先邏輯（`current_step` 本來就決定審哪一關）
-- **已拍板（Q22c）**：分享連結指**中介轉址路由**（如 `/funds-allocation/share/{id}`），依身份分流：目前關卡審核人（含群組成員）→審核頁可操作／申請人本人→自己的單子頁／有查閱權限者→審核頁唯讀／皆非→「你沒有這張單的檢視權限」提示頁＋回首頁按鈕（不默默跳首頁、不露單子內容）
-- **範圍**：先做資金分配＋付款憑單（Layla 情境），沖銷是否要做待確認
-- 詳見 `docs/優化項目理解與提問_優先序2_2026-07-19.md` 列 22
+#### ~~[一鍵複製分享連結給主管審核]~~（優先序2 列22）✅ 已完成（2026-07-20，見「已完成」；**沖銷是否要做待確認**，要做時循 `actions/share-link.ts` 模式加 `/funds-voucher/share/{id}` 即可）
 
 #### ~~[付款憑單列表加「申請金額」欄]~~（優先序2 列24）✅ 已完成（2026-07-20，見「已完成」）
 
@@ -264,6 +260,20 @@
 ---
 
 ## 已完成
+
+**一鍵複製分享連結給主管審核**（Yumin，優先序2 列22，Layla 回饋） ✅ 已完成（2026-07-20）
+分支：`feature/yumin-share-review-link`
+開始：2026-07-20
+說明：職員詳細頁（資金分配編輯/詳細頁 EditFundsForm＋付款憑單詳細頁 `my-payment/[id]`，非草稿）加「複製分享連結」按鈕（共用 `_components/ShareLinkButton.tsx`），複製的是**中介轉址路由** `/funds-allocation/share/{id}`／`/funds-payment/share/{id}`（Q22c 拍板），依身份分流（`actions/share-link.ts`）：①目前關卡審核人（含群組成員）→審核頁可操作 ②申請人本人→自己的單子頁 ③有查閱權限者（管理員／fa-review-*／fp-review-* 子 Tab 權限／範本任一步驟審核人）→審核頁唯讀 ④皆非→提示頁「你沒有這張單的檢視權限」＋回首頁（`_components/ShareNoAccess.tsx`）。**returnUrl 登入回跳**：proxy 攔未登入帶 `?returnUrl=`，Email 登入（hidden input）與 Google OAuth（短效 cookie `google_oauth_return`）登入後皆跳回原頁，`lib/returnUrl.ts` 的 `safeReturnUrl` 只收站內路徑擋 open redirect。範圍＝資金分配＋付款憑單；沖銷待確認。**無資料庫結構變更、無正式機待執行 SQL。**
+影響範圍確認（Playwright 實測 11 項全數通過＋補測查閱者情境，localhost:3000，2026-07-20）：
+- [x] 未登入開 share 連結 → `/login?returnUrl=` → Email 登入後自動回跳原 share 路由
+- [x] 目前關卡審核人 → 資金分配／付款憑單審核頁（可操作）
+- [x] 申請人本人 → 自己的單子頁；頁上有複製按鈕、剪貼簿內容＝share 連結
+- [x] 查閱權限者（財務長角色、非本關）→ 審核頁唯讀（送出鈕全 disabled）
+- [x] 無權限者 → 提示頁（兩模組皆驗），不露單子內容
+- [x] 付款憑單詳細頁複製按鈕＋剪貼簿驗證
+- [x] npx tsc --noEmit 通過；驗收截圖 5 張在桌面；測試資料（申請單/測試帳號）已清除
+附帶發現：dev DB `app_users` id 序列落後導致 UI「建立帳號」必撞主鍵（duplicate key），測試過程已把序列推到位修復。
 
 **付款憑單列表加「申請金額」欄＋列表拿掉發票憑證欄**（Yumin，優先序2 列24＋列26 同批做） ✅ 已完成（2026-07-20）
 分支：`feature/yumin-payment-list-columns`

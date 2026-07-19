@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { safeReturnUrl } from '@/lib/returnUrl'
 
 export async function GET(req: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID!
@@ -26,6 +27,18 @@ export async function GET(req: NextRequest) {
     maxAge: 600,
     path: '/',
   })
+
+  // 登入成功後要跳回的站內路徑（分享連結情境）：OAuth 來回走外部網站，用短效 cookie 傳遞
+  const returnUrl = safeReturnUrl(req.nextUrl.searchParams.get('returnUrl'))
+  if (returnUrl) {
+    response.cookies.set('google_oauth_return', returnUrl, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 600,
+      path: '/',
+    })
+  }
 
   return response
 }
