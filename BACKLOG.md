@@ -25,6 +25,11 @@
 - [x] /funds-allocation/my-funds/edit/[id]（EditFundsForm，審核頁編輯共用）
 - [x] /funds-payment/my-payment/add/[id]（付款憑單建立頁）
 - [x] /funds-voucher/my-voucher/add/[id]（沖銷建立頁）
+
+**財務付款憑單管理頁（/finance/payment）加週次選擇器**（Yumin）
+分支：`feature/yumin-finance-payment-week`
+開始：2026-07-19
+說明：付款憑單管理頁原本一次列出全部憑單，加上與其他列表頁同一套年份＋週次下拉（共用 `WeekFilterBar`＋`useWeekFilter`，含「全部週次」），依憑單建單日期（`date`，草稿無日期退回 created_at）前端過濾，預設當週；帳戶區塊金額彙總隨過濾後清單計算。
 - [x] npx tsc --noEmit 零錯誤
 
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
