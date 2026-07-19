@@ -25,6 +25,7 @@ import { saveUserFundTemplate, updateUserFundTemplate, deleteUserFundTemplate } 
 import DateCyclePicker from '@/app/_components/DateCyclePicker'
 import { ApplicationCycleConfig } from '@/app/actions/application-cycle'
 import { computeNearestAllowedDate } from '@/lib/dateUtils'
+import { preventEnterSubmit } from '@/lib/preventEnterSubmit'
 
 
 function unitLabel(u: OrgUnit) {
@@ -1128,7 +1129,7 @@ export default function AddFundsForm({
         onCancel={() => setAskDeleteTemplate(false)}
       />
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} onKeyDown={preventEnterSubmit}>
         {schema.filter(block => !block.showWhen || fieldValues[block.showWhen.fieldId] === block.showWhen.value).map(block => (
           <div key={block.id} style={{
             marginBottom: 28,

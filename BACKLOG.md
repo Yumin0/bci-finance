@@ -7,6 +7,17 @@
 
 ## 進行中
 
+**誤觸 Enter 自動送單 Bug 修正（四個填寫頁擋 Enter 送出）**（Yumin）
+分支：`feature/yumin-enter-submit-guard`
+開始：2026-07-19
+說明：填寫頁輸入框按 Enter 會觸發瀏覽器預設的表單送出（測試回饋：輸入費用明細金額誤觸兩次 Enter 單子直接送審）。新增共用 `lib/preventEnterSubmit.ts`（只攔 input 的 Enter，textarea 換行與按鈕不受影響），送單一律要實際按送出按鈕。
+影響範圍確認（全站有 `<form onSubmit>` 的填寫頁，grep 確認僅四處）：
+- [x] /funds-allocation/my-funds/add（AddFundsForm）
+- [x] /funds-allocation/my-funds/edit/[id]（EditFundsForm，審核頁編輯共用）
+- [x] /funds-payment/my-payment/add/[id]（付款憑單建立頁）
+- [x] /funds-voucher/my-voucher/add/[id]（沖銷建立頁）
+- [x] npx tsc --noEmit 零錯誤
+
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
 分支：`feature/yumin-voucher-return-amount`
 開始：2026-07-15
