@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import PageHeader from '@/app/_components/PageHeader'
+import WeekFilterBar, { useWeekFilter } from '@/app/_components/WeekFilterBar'
 import {
   PaymentListCells,
   PAYMENT_LIST_COLUMNS_AFTER_STATUS,
@@ -92,7 +93,11 @@ export default function FinancePaymentPage() {
     setConfirming(prev => { const s = new Set(prev); s.delete(id); return s })
   }
 
-  const groups = records.reduce<Record<string, PaymentRecord[]>>((acc, r) => {
+  // 週次篩選：依憑單建單日期（date）過濾，與我的付款憑單／審核管理頁同一套元件
+  const weekFilter = useWeekFilter()
+  const filteredRecords = records.filter(r => weekFilter.matches(r.date, r.created_at))
+
+  const groups = filteredRecords.reduce<Record<string, PaymentRecord[]>>((acc, r) => {
     const key = r.payment_account ?? '（未指定帳戶）'
     if (!acc[key]) acc[key] = []
     acc[key].push(r)
@@ -101,18 +106,13 @@ export default function FinancePaymentPage() {
 
   if (loading) return <p className="text-muted-foreground">載入中...</p>
 
-  if (Object.keys(groups).length === 0) {
-    return (
-      <div className="flex flex-col gap-6">
-        <PageHeader title="付款憑單管理" />
-        <p className="text-muted-foreground">尚無付款憑單</p>
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="付款憑單管理" />
+      <WeekFilterBar filter={weekFilter} />
+      {Object.keys(groups).length === 0 && (
+        <p className="text-muted-foreground">{weekFilter.isFiltering ? '此週次尚無付款憑單' : '尚無付款憑單'}</p>
+      )}
 
       {Object.entries(groups).map(([account, items]) => {
         const totalAmount = items
