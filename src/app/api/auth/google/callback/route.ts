@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { encrypt } from '@/lib/session'
+import { safeReturnUrl } from '@/lib/returnUrl'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -88,7 +89,9 @@ export async function GET(req: NextRequest) {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   const sessionToken = await encrypt({ userId, name: userName, email: googleUser.email, expiresAt })
 
-  const response = NextResponse.redirect(new URL('/', req.nextUrl))
+  // 分享連結情境：登入前被導來時存下的站內路徑，登入成功後跳回
+  const returnUrl = safeReturnUrl(req.cookies.get('google_oauth_return')?.value)
+  const response = NextResponse.redirect(new URL(returnUrl ?? '/', req.nextUrl))
   response.cookies.set('session', sessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -97,6 +100,7 @@ export async function GET(req: NextRequest) {
     path: '/',
   })
   response.cookies.delete('google_oauth_state')
+  response.cookies.delete('google_oauth_return')
 
   return response
 }

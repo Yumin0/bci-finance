@@ -29,6 +29,7 @@ import { getAllocationRemainingInfo } from '@/app/actions/fund-budget'
 import { saveUserFundTemplate } from '@/app/actions/fund-templates'
 import { logFieldChanges } from '@/app/actions/edit-logs'
 import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
+import ShareLinkButton from '@/app/_components/ShareLinkButton'
 import { feeItemCode } from '@/lib/feeItems'
 import { preventEnterSubmit } from '@/lib/preventEnterSubmit'
 
@@ -1424,6 +1425,10 @@ export default function EditFundsForm({
             )}
             {templateSaved && !showSaveAs && (
               <span style={{ fontSize: 13, color: '#16a34a' }}>✓ 已儲存為我的範本</span>
+            )}
+            {/* 一鍵複製分享連結（列22）：職員複製給主管，連結為中介轉址路由依身份分流；草稿還沒送審沒有分享意義 */}
+            {isApplicant && !fromReview && !hideApprovalPanel && !isDraft && (
+              <ShareLinkButton path={`/funds-allocation/share/${record.id}`} />
             )}
             {isDraft && (
               <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>

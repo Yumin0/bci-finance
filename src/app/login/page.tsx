@@ -22,6 +22,9 @@ export default function LoginPage() {
   const [registerState, registerAction, registerPending] = useActionState(register, undefined)
   const searchParams = useSearchParams()
   const oauthError = searchParams.get('error')
+  // 從受保護頁被導來時 proxy 會帶 returnUrl，登入成功後跳回原頁（分享連結情境）
+  const returnUrl = searchParams.get('returnUrl')
+  const googleHref = returnUrl ? `/api/auth/google?returnUrl=${encodeURIComponent(returnUrl)}` : '/api/auth/google'
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-sidebar)' }}>
@@ -48,7 +51,7 @@ export default function LoginPage() {
 
         {/* Google 登入按鈕 */}
         <a
-          href="/api/auth/google"
+          href={googleHref}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             width: '100%', padding: '10px 0', borderRadius: 6, marginBottom: 20,
@@ -80,6 +83,7 @@ export default function LoginPage() {
 
         {mode === 'login' ? (
           <form action={loginAction}>
+            {returnUrl && <input type="hidden" name="returnUrl" value={returnUrl} />}
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Email</label>
               <Input name="email" type="email" placeholder="your@email.com" required />

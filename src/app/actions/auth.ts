@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { createSession, deleteSession, getSession } from '@/lib/session'
+import { safeReturnUrl } from '@/lib/returnUrl'
 
 export async function getMySession() {
   const session = await getSession()
@@ -56,7 +57,8 @@ export async function login(state: LoginState, formData: FormData): Promise<Logi
   }
 
   await createSession(user.id, user.name, user.email)
-  redirect('/')
+  // 從分享連結被導來登入時跳回原頁（登入頁 hidden input 帶入，僅接受站內路徑）
+  redirect(safeReturnUrl(formData.get('returnUrl') as string | null) ?? '/')
 }
 
 export async function logout() {
