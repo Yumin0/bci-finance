@@ -7,7 +7,7 @@ import { ApprovalRecord, FormBlock, FormSchemaRow, FormSlot, FundAttachment, Ste
 import { getAttachmentsByTempVoucherId, getVoucherInheritedAttachments } from '@/app/actions/attachments'
 import { attachmentsForSlot, firstAttachmentSlotLabel } from '@/lib/attachmentSlots'
 import AttachmentUpload from '@/app/_components/AttachmentUpload'
-import { submitApprovalDecision, checkCanReviewStep, getPaymentCategoryOptions, getLatestPaymentCategories } from '@/app/actions/approval-flow'
+import { submitApprovalDecision, checkCanReviewStep, getPaymentCategoryOptions } from '@/app/actions/approval-flow'
 import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
 import { Input } from '@/components/ui/input'
@@ -163,16 +163,11 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       const past = (pastRes.data as ApprovalRecord[]) ?? []
       setPastRecords(past)
 
-      // 付款分類預設值：先承接本沖銷單前面關卡選的值，都沒有才帶母付款憑單審核時最後選的付款分類
+      // 付款分類預設值：先承接本沖銷單前面關卡選的值，沒有就直接預設「回存」
+      //（暫付款沖銷絕大多數是回存，Yumin 2026-07-19 拍板；不再承接母付款憑單的付款分類——
+      //  母憑單分類描述的是預支出帳當下，與沖銷階段的回存性質不同）
       const inherited = [...past].reverse().find(r => r.payment_category)?.payment_category
-      if (inherited) {
-        setPaymentCategory(inherited)
-      } else if (voucher.funds_payment_id) {
-        getLatestPaymentCategories([voucher.funds_payment_id]).then(map => {
-          const fromPayment = map[voucher.funds_payment_id]
-          if (fromPayment) setPaymentCategory(prev => prev || fromPayment)
-        })
-      }
+      setPaymentCategory(inherited || '回存')
 
       let steps: StepDef[] = []
       if (voucher.flow_template_id) {
