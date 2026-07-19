@@ -345,6 +345,16 @@ export type ApprovalFlowStepWithRole = {
   approval_group_name: string | null
 }
 
+// 逐項核准金額：資金分配審核時各付款明細組的核准值（存 approval_records.approved_items jsonb）
+// index＝申請單付款明細的組序（0 起算）、approved_base＝核准費用（審核人可下修）、
+// other_fees＝手續費等其他數字欄原值合計（不可改，計入小計）、tax_amount＝依該組稅額選擇以核准費用重算的稅額
+export type ApprovedItem = {
+  index: number
+  approved_base: number
+  other_fees: number
+  tax_amount: number
+}
+
 export type ApprovalRecord = {
   id: number
   funds_allocation_id: number | null
@@ -355,6 +365,8 @@ export type ApprovalRecord = {
   decision: StepDecision
   comment: string | null
   approved_amount: number | null
+  // 逐項核准明細（僅資金分配、decision=approved 時有值；舊紀錄為 null）
+  approved_items: ApprovedItem[] | null
   // 付款分類：財務審核付款憑單/沖銷憑單（審核群組步驟）時加註的出帳分類，選項來自 dropdown_options（field='payment_category'）
   payment_category: string | null
   reviewer_id: string | null

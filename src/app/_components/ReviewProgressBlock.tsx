@@ -38,6 +38,10 @@ type Props = {
   showApprovedAmount?: boolean
   approvedAmount?: string
   onApprovedAmountChange?: (v: string) => void
+  // 逐項核准模式（資金分配）：總核准金額由逐項明細自動加總、進行中關卡不可手改
+  approvedAmountReadOnly?: boolean
+  // 各關卡列下方的補充內容（逐項核准明細表格）：進行中關卡為可編輯表格、已完成關卡為收合式檢視
+  renderStepExtra?: (step: ReviewStepDef, ctx: { editable: boolean; past: ApprovalRecord | null }) => React.ReactNode
 
   // 付款分類下拉（付款憑單／暫付款沖銷；僅「審核群組」步驟顯示）
   enablePaymentCategory?: boolean
@@ -69,6 +73,8 @@ export default function ReviewProgressBlock({
   showApprovedAmount = false,
   approvedAmount = '',
   onApprovedAmountChange,
+  approvedAmountReadOnly = false,
+  renderStepExtra,
   enablePaymentCategory = false,
   paymentCategory = '',
   onPaymentCategoryChange,
@@ -203,8 +209,17 @@ export default function ReviewProgressBlock({
                     )}
                   </div>
 
-                  {/* 核准金額 */}
-                  {showApprovedAmount && (
+                  {/* 核准金額（逐項核准模式下＝逐項明細自動加總，不可手改） */}
+                  {showApprovedAmount && (editable && approvedAmountReadOnly ? (
+                    <div style={{
+                      width: 130, height: 56, flexShrink: 0, boxSizing: 'border-box',
+                      display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end',
+                      padding: '0 10px', borderRadius: 6, border: '1px solid var(--btn-border)', background: 'var(--bg-page)',
+                    }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>核准金額（自動加總）</span>
+                      <strong style={{ fontSize: 15, color: 'var(--text-title)' }}>{(Number(rowAmount) || 0).toLocaleString()}</strong>
+                    </div>
+                  ) : (
                     <input
                       type="number"
                       value={rowAmount}
@@ -215,7 +230,7 @@ export default function ReviewProgressBlock({
                       placeholder="核准金額"
                       style={{ ...inputStyle, width: 130, height: 56, flexShrink: 0 }}
                     />
-                  )}
+                  ))}
 
                   {/* 確定送出（僅進行中可按，其餘反灰以維持一列版面） */}
                   <Button
@@ -229,6 +244,9 @@ export default function ReviewProgressBlock({
                 </>
               )}
             </div>
+
+            {/* 逐項核准明細（資金分配）：進行中關卡為可編輯表格、已完成關卡為收合式檢視 */}
+            {!readOnly && renderStepExtra?.(step, { editable, past: isDone ? past! : null })}
           </div>
         )
       })}

@@ -1,9 +1,12 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsAllocation, ApprovalRecord, StepDecision, FormBlock, FundAttachment } from '@/lib/types'
+import { FundsAllocation, ApprovalRecord, StepDecision, FormBlock, FundAttachment, TaxRateOption } from '@/lib/types'
+import { getAllocationGroupItems, latestApprovedItems, recomputeItemTax } from '@/lib/approvedItems'
+import { getTaxRateOptions } from '@/app/actions/tax-rates'
+import ItemizedApprovalTable, { PastItemizedDetail } from '@/app/funds-allocation/_components/ItemizedApprovalTable'
 import { submitApprovalDecision, checkCanReviewStep } from '@/app/actions/approval-flow'
 import { getMySession } from '@/app/actions/auth'
 import { getFormSchemas } from '@/app/actions/form-schema'
@@ -50,6 +53,9 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   const [decision, setDecision] = useState<StepDecision>('approved')
   const [comment, setComment] = useState('')
   const [approvedAmount, setApprovedAmount] = useState<string>('')
+  const [taxRateOptions, setTaxRateOptions] = useState<TaxRateOption[]>([])
+  // 逐項核准：各組「核准費用」輸入值（有付款明細群組資料時取代單一核准金額輸入框）
+  const [approvedBases, setApprovedBases] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [changeLogOpen, setChangeLogOpen] = useState(false)
@@ -123,7 +129,41 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     load()
     getFormSchemas().then(s => setSchema(s.funds_allocation))
+    getTaxRateOptions().then(setTaxRateOptions)
   }, [load])
+
+  // ── 逐項核准金額（規格：優化第二批第一節）─────────────────────
+  // 申請單付款明細各組資料（找不到群組資料的舊單為 null → 退回單一核准金額模式）
+  const groupInfo = useMemo(
+    () => (record && schema.length ? getAllocationGroupItems(schema, record.extra_data) : null),
+    [record, schema]
+  )
+  // 承接上一關的逐項核准值（組數對不上時——例如審核人改過明細組數——退回申請原值）
+  const inheritedItems = useMemo(() => {
+    if (!groupInfo) return null
+    const items = latestApprovedItems(pastRecords)
+    return items && items.length === groupInfo.items.length ? items : null
+  }, [groupInfo, pastRecords])
+
+  useEffect(() => {
+    if (!groupInfo) return
+    setApprovedBases(groupInfo.items.map((it, i) => String(inheritedItems ? inheritedItems[i].approved_base : it.base)))
+  }, [groupInfo, inheritedItems])
+
+  // 稅額依各組稅額選擇以「核准費用」即時重算（選項已被移除無法重算時，保留承接值/原稅額）
+  const itemTaxes = useMemo(() => {
+    if (!groupInfo) return []
+    return groupInfo.items.map((it, i) => {
+      const base = parseFloat(approvedBases[i] ?? '') || 0
+      const fallback = inheritedItems ? inheritedItems[i].tax_amount : it.taxAmount
+      return recomputeItemTax(base, it.taxSelectValue, taxRateOptions, fallback)
+    })
+  }, [groupInfo, approvedBases, inheritedItems, taxRateOptions])
+
+  // 總核准金額＝Σ(核准費用＋手續費等其他數字欄原值＋重算稅額)，自動加總、不可手改
+  const itemizedTotal = groupInfo
+    ? groupInfo.items.reduce((sum, it, i) => sum + (parseFloat(approvedBases[i] ?? '') || 0) + it.otherFees + (itemTaxes[i] ?? 0), 0)
+    : 0
 
   const steps = record?.approval_flow_templates?.approval_flow_steps
     ?.slice()
@@ -139,6 +179,15 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
     setSubmitting(true)
     setError(null)
     try {
+      // 逐項核准模式：核准金額＝逐項自動加總、並帶逐項明細存入審核紀錄；舊單（無群組資料）走單一金額
+      const approvedItems = decision === 'approved' && groupInfo
+        ? groupInfo.items.map((it, i) => ({
+            index: i,
+            approved_base: parseFloat(approvedBases[i] ?? '') || 0,
+            other_fees: it.otherFees,
+            tax_amount: itemTaxes[i] ?? 0,
+          }))
+        : undefined
       const result = await submitApprovalDecision({
         fundsAllocationId: record.id,
         stepNumber: currentStep,
@@ -147,7 +196,10 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         comment,
         reviewerId: String(userId ?? ''),
         totalSteps: steps.length,
-        approvedAmount: decision === 'approved' && approvedAmount !== '' ? Number(approvedAmount) : null,
+        approvedAmount: decision === 'approved'
+          ? (groupInfo ? itemizedTotal : (approvedAmount !== '' ? Number(approvedAmount) : null))
+          : null,
+        approvedItems,
       })
       // 存檔驗證擋下（核准金額 0/上調/低於已佔用等）：以中央彈窗顯示
       if (result?.error) {
@@ -225,8 +277,32 @@ export default function ReviewCheckPage({ params }: { params: Promise<{ id: stri
         submitting={submitting}
         onSubmit={handleSubmit}
         showApprovedAmount
-        approvedAmount={approvedAmount}
+        approvedAmount={groupInfo ? String(itemizedTotal) : approvedAmount}
         onApprovedAmountChange={setApprovedAmount}
+        approvedAmountReadOnly={!!groupInfo}
+        renderStepExtra={groupInfo ? (step, { editable, past }) => {
+          // 進行中關卡：可編輯的逐項核准表格（承接上一關值，第一關帶申請值）
+          if (editable) {
+            return (
+              <ItemizedApprovalTable
+                info={groupInfo}
+                bases={approvedBases}
+                taxes={itemTaxes}
+                onBaseChange={(idx, v) => setApprovedBases(prev => prev.map((b, i) => (i === idx ? v : b)))}
+              />
+            )
+          }
+          // 已完成關卡：有逐項紀錄時提供收合式檢視（看得出下修的是哪一組）
+          const items = past?.decision === 'approved' ? past.approved_items : null
+          if (!items || items.length !== groupInfo.items.length) return null
+          return (
+            <PastItemizedDetail
+              info={groupInfo}
+              bases={items.map(it => String(it.approved_base))}
+              taxes={items.map(it => it.tax_amount)}
+            />
+          )
+        } : undefined}
         reviewerNames={reviewerNames}
         completionMessages={{
           approved: '✓ 此申請已全數核准',

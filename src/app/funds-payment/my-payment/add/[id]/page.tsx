@@ -7,6 +7,8 @@ import { FundsAllocation, FormBlock, FormSchemaRow, FormSlot, DropdownOption, Ta
 import { applyTaxFormula, computeBlockTax, formatTaxNumber } from '@/lib/taxUtils'
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { createPayment, submitMyPayment, nextPurchaseOrderNumber } from '@/app/actions/payment'
+import { getLatestApprovedItems } from '@/app/actions/approval-flow'
+import { approvedItemSubtotal } from '@/lib/approvedItems'
 import { validateFeePositive } from '@/lib/feeValidation'
 import { taipeiToday } from '@/lib/dateUtils'
 import { getAllocationRemainingInfo, type AllocationRemainingInfo } from '@/app/actions/fund-budget'
@@ -151,10 +153,11 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
       const numId = Number(id)
       setAllocationId(numId)
 
-      const [{ data, error: fetchError }, schemas, remaining] = await Promise.all([
+      const [{ data, error: fetchError }, schemas, remaining, approvedItems] = await Promise.all([
         supabase.from('funds_allocation').select('*').eq('id', numId).single(),
         getFormSchemas(),
         getAllocationRemainingInfo(numId),
+        getLatestApprovedItems(numId),
       ])
       if (fetchError) { setError(fetchError.message); setLoading(false); return }
       setRemainingInfo(remaining)
@@ -241,6 +244,31 @@ export default function AddPaymentPage({ params }: { params: Promise<{ id: strin
         const totalForIdx = (idx: number) => (idx === 0 && totalFieldId && initTotal ? initTotal : '')
         const allocInstances = allocGroupArrays[groupArrayIdx++]
         if (allocInstances) {
+          // 逐項核准明細（2026-07-19）：審核有逐項核准值時，各組金額改帶「最新一關的核准值」——
+          // 未稅金額＝核准費用＋手續費、稅額＝重算稅額、總額＝該組核准小計（解掉核准下修後帶入對不上的問題）；
+          // 被砍到 0 的組不帶入（該項目不該再請款）。組數對不上（審核後明細被改過）退回原本「金額欄留白」邏輯。
+          const itemized = approvedItems && approvedItems.length === allocInstances.length ? approvedItems : null
+          if (itemized) {
+            const itemizedRows = allocInstances.flatMap((inst, idx) => {
+              const item = itemized[idx]
+              if (approvedItemSubtotal(item) <= 0) return []
+              const mapped: Record<string, string> = {}
+              for (const slot of groupSlots) {
+                if (amountFieldIds.has(slot.fieldId)) {
+                  if (slot.fieldId === taxSelectSlot?.taxConfig?.baseFieldId) mapped[slot.fieldId] = String(item.approved_base + item.other_fees)
+                  else if (slot.fieldId === taxSelectSlot?.taxConfig?.taxAmountFieldId) mapped[slot.fieldId] = String(item.tax_amount)
+                  else if (slot.fieldId === totalFieldId) mapped[slot.fieldId] = String(approvedItemSubtotal(item))
+                  continue
+                }
+                const v = inst[slot.label]
+                if (v != null && v !== '') mapped[slot.fieldId] = v
+              }
+              return [mapped]
+            })
+            // 全部組都被砍到 0 的極端情況：留一組空白讓使用者自行填寫
+            initGroups[block.id] = itemizedRows.length ? itemizedRows : [{}]
+            continue
+          }
           initGroups[block.id] = allocInstances.map((inst, idx) => {
             const mapped: Record<string, string> = {}
             for (const slot of groupSlots) {

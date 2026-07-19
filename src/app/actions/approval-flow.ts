@@ -1,7 +1,8 @@
 'use server'
 
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
-import { ApprovalFlowTemplate, ApprovalFlowStep, ApprovalFlowStepWithRole } from '@/lib/types'
+import { ApprovalFlowTemplate, ApprovalFlowStep, ApprovalFlowStepWithRole, ApprovedItem } from '@/lib/types'
+import { sumApprovedItems } from '@/lib/approvedItems'
 import { notifyReviewersForStep, notifyApplicant } from './notifications'
 import { emailToEnglishName } from '@/lib/userNames'
 import { calcRemainingAmount, type PaymentForRemaining } from '@/lib/fundsAllocationRemaining'
@@ -294,8 +295,41 @@ export async function submitApprovalDecision(params: {
   approvedAmount?: number | null
   // 付款分類：僅付款憑單/沖銷憑單的審核群組步驟會帶入（財務出帳分類，選填）
   paymentCategory?: string | null
+  // 逐項核准明細（僅資金分配）：有值時核准金額以逐項加總為準；未帶時（快速/批次核准）自動承接上一關的逐項值
+  approvedItems?: ApprovedItem[] | null
 }): Promise<{ error: string | null }> {
-  const { fundsAllocationId, fundsPaymentId, tempVoucherId, stepNumber, stepName, decision, comment, reviewerId, totalSteps, approvedAmount, paymentCategory } = params
+  const { fundsAllocationId, fundsPaymentId, tempVoucherId, stepNumber, stepName, decision, comment, reviewerId, totalSteps, paymentCategory, approvedItems } = params
+  let approvedAmount = params.approvedAmount
+
+  // ── 逐項核准明細（僅資金分配）──────────────────────────────
+  let itemsToStore: ApprovedItem[] | null = null
+  if (decision === 'approved' && fundsAllocationId) {
+    if (approvedItems?.length) {
+      for (const it of approvedItems) {
+        if (!Number.isFinite(it.approved_base) || it.approved_base < 0) {
+          return { error: `第 ${it.index + 1} 組的核准費用不是有效數字（不可為負數），請重新填寫。` }
+        }
+      }
+      itemsToStore = approvedItems
+      // 總核准金額以逐項加總為準（避免總額與逐項對不起來）
+      approvedAmount = sumApprovedItems(approvedItems)
+    } else {
+      // 快速/批次核准（沒帶逐項值）＝「全部照上一關的逐項值通過」：承接最新一關的逐項明細，
+      // 但僅在這次的總額與承接明細加總一致時（單一金額模式手改過總額時不硬塞對不上的明細）
+      const { data: prevRows } = await supabase
+        .from('approval_records')
+        .select('approved_items, step_number')
+        .eq('funds_allocation_id', fundsAllocationId)
+        .eq('decision', 'approved')
+        .not('approved_items', 'is', null)
+        .order('step_number', { ascending: false })
+        .limit(1)
+      const prevItems = (prevRows?.[0]?.approved_items ?? null) as ApprovedItem[] | null
+      if (prevItems?.length && approvedAmount != null && Math.abs(sumApprovedItems(prevItems) - approvedAmount) < 0.5) {
+        itemsToStore = prevItems
+      }
+    }
+  }
 
   // 核准金額存檔前驗證（畫面已擋過一次，這裡是最後一道防線；錯誤用回傳值帶回，
   // 不能用 throw——正式環境 throw 的訊息會被 Next.js 遮蔽，使用者只會看到通用錯誤）
@@ -327,6 +361,8 @@ export async function submitApprovalDecision(params: {
       payment_category: decision === 'approved' ? (paymentCategory || null) : null,
       reviewer_id: reviewerId,
       reviewed_at: new Date().toISOString(),
+      // 逐項核准明細：僅有值時帶欄位（避免正式機尚未加欄時，其他單據的審核也跟著失敗）
+      ...(itemsToStore ? { approved_items: itemsToStore } : {}),
     })
   // 存檔失敗以中文訊息回傳（不用 throw——正式環境 throw 的訊息會被遮蔽，使用者只看到通用錯誤）
   if (recordError) {
@@ -1225,6 +1261,22 @@ export async function getUsedPaymentAccountIds(
   const { data, error } = await query
   if (error) throw new Error(error.message)
   return (data ?? []).map((r: { payment_account_option_id: number }) => r.payment_account_option_id)
+}
+
+// ── 逐項核准明細 ─────────────────────────────────────
+
+// 取資金分配單「最新一關」的逐項核准明細（建立付款憑單帶入各組核准值用；舊單無逐項資料回傳 null）
+export async function getLatestApprovedItems(allocationId: number): Promise<ApprovedItem[] | null> {
+  const { data } = await supabase
+    .from('approval_records')
+    .select('approved_items, step_number')
+    .eq('funds_allocation_id', allocationId)
+    .eq('decision', 'approved')
+    .not('approved_items', 'is', null)
+    .order('step_number', { ascending: false })
+    .limit(1)
+  const items = (data?.[0]?.approved_items ?? null) as ApprovedItem[] | null
+  return items?.length ? items : null
 }
 
 // ── 付款分類 ─────────────────────────────────────────

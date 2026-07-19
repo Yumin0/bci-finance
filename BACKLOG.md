@@ -7,6 +7,19 @@
 
 ## 進行中
 
+**逐項核准金額（優化第二批第一節）**（Yumin）
+分支：`feature/yumin-itemized-approval`
+開始：2026-07-19
+規格文件：[`docs/core-logic/優化第二批規格提案_2026-07-19.md`](docs/core-logic/優化第二批規格提案_2026-07-19.md) 第一節（已拍板）
+說明：資金分配審核頁「審核進度」的核准金額改為逐組核准表格（費用項目細項｜摘要｜申請費用｜核准費用可改），稅額依各組稅率設定自動重算，總核准金額＝Σ(核准費用＋重算稅額) 自動加總不可手改；每關承接上一關逐項值（第一關帶申請值）；快速/批次核准＝全部照上一關逐項值通過。新增 `approval_records.approved_items jsonb`（`approved_amount` 照舊存總額）。轉付款憑單建立頁改讀最新一關 `approved_items` 逐組帶入未稅/稅額/總額（解 Eric 金額同步問題）；舊單無逐項資料照舊只帶總額。
+影響範圍確認：
+- [x] /funds-allocation/review/check/[id]（審核頁逐項核准表格，Playwright 實測：承接申請值、改核准費用稅額即時重算、總額自動加總不可手改）
+- [x] ReviewProgressBlock 其他使用點不受影響（新增 `approvedAmountReadOnly`／`renderStepExtra` 均為選填 props，付款憑單/沖銷審核頁與三個 readOnly 檢視頁未傳、行為不變）
+- [x] 審核管理列表快速核准／批次核准（呼叫端不用改：server 端 submitApprovalDecision 總額與上一關逐項加總一致時自動承接複製 approved_items）
+- [x] /funds-payment/my-payment/add/[id]（轉憑單逐組帶入最新一關核准值；砍到 0 的組不帶；組數對不上/舊單退回原邏輯）
+- [x] 待執行 SQL 登記 docs/prod-pending-sql.md（approval_records 加 approved_items jsonb；**dev/staging Supabase 也要跑，未跑前核准會存檔失敗**）
+- [x] npm run build 全站編譯通過（零 error 零 warning）
+
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
 分支：`feature/yumin-voucher-return-amount`
 開始：2026-07-15
