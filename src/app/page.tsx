@@ -2,7 +2,6 @@ import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { getFormSchemas } from '@/app/actions/form-schema'
-import { getAttachmentsByPaymentIds } from '@/app/actions/attachments'
 import { FundsAllocation, FundsPayment, FormSlot } from '@/lib/types'
 import { resolveApplicantNames } from '@/lib/resolveApplicantNames'
 import { calcRemainingAmount, type PaymentForRemaining } from '@/lib/fundsAllocationRemaining'
@@ -85,10 +84,6 @@ export default async function Home() {
   ])
   const voucherRecords = addStep(voucherResult.data)
 
-  const attachmentsMap = await getAttachmentsByPaymentIds(
-    (paymentRecords as FundsPayment[]).map(r => r.id)
-  )
-
   return (
     <HomeTabView
       fundsRecords={fundsRecords}
@@ -96,7 +91,6 @@ export default async function Home() {
       voucherRecords={voucherRecords}
       labelConfig={labelConfig}
       payeeLabel={payeeLabel}
-      attachmentsMap={attachmentsMap}
     />
   )
 }

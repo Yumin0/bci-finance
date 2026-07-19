@@ -12,7 +12,6 @@ import WeekFilterBar, { useWeekFilter } from '@/app/_components/WeekFilterBar'
 import {
   PaymentListCells,
   PAYMENT_LIST_COLUMNS_AFTER_STATUS,
-  type PaymentAttachmentMap,
 } from '@/app/funds-payment/_components/PaymentListCells'
 
 type PaymentRow = FundsPayment & {
@@ -50,12 +49,10 @@ export default function MyPaymentTableView({
   records,
   labelConfig,
   payeeLabel,
-  attachmentsMap,
 }: {
   records: PaymentRow[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
-  attachmentsMap: PaymentAttachmentMap
 }) {
   const [query, setQuery] = useState('')
   const weekFilter = useWeekFilter()
@@ -104,7 +101,7 @@ export default function MyPaymentTableView({
                 <TableCell>
                   <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
                 </TableCell>
-                <PaymentListCells r={r} payeeLabel={payeeLabel} attachments={attachmentsMap[r.id] ?? []} />
+                <PaymentListCells r={r} payeeLabel={payeeLabel} />
               </TableRow>
             ))}
           </TableBody>

@@ -4,7 +4,6 @@ import { getSession } from '@/lib/session'
 import { getUserAllowedItemIds } from '@/app/actions/sidebar-config'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { getFormSchemas } from '@/app/actions/form-schema'
-import { getAttachmentsByPaymentIds } from '@/app/actions/attachments'
 import AllPaymentTableView from './_components/AllPaymentTableView'
 
 export default async function AllPaymentPage() {
@@ -39,12 +38,10 @@ export default async function AllPaymentPage() {
     approval_records: Array<{ step_name: string; decision: string }>
   })[]
 
-  const attachmentsMap = await getAttachmentsByPaymentIds(records.map(r => r.id))
-
   return (
     <>
       {error && <p style={{ color: '#dc2626' }}>載入失敗：{error.message}</p>}
-      <AllPaymentTableView records={records} labelConfig={labelConfig} canExport={canExport} payeeLabel={payeeLabel} attachmentsMap={attachmentsMap} />
+      <AllPaymentTableView records={records} labelConfig={labelConfig} canExport={canExport} payeeLabel={payeeLabel} />
     </>
   )
 }

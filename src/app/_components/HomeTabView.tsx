@@ -14,7 +14,6 @@ import { FUNDS_ALLOCATION_COLUMNS } from '@/lib/fundsAllocationColumns'
 import {
   PaymentListCells,
   PAYMENT_LIST_COLUMNS_AFTER_STATUS,
-  type PaymentAttachmentMap,
 } from '@/app/funds-payment/_components/PaymentListCells'
 import type { StatusLabelConfig } from '@/lib/status-label-config'
 
@@ -42,14 +41,12 @@ export default function HomeTabView({
   voucherRecords,
   labelConfig,
   payeeLabel,
-  attachmentsMap,
 }: {
   fundsRecords: FundsAllocationRow[]
   paymentRecords: WithStep<FundsPayment>[]
   voucherRecords: WithStep<TempVoucherRow>[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
-  attachmentsMap: PaymentAttachmentMap
 }) {
   const [tab, setTab] = useState<Tab>('funds')
   const { visibleCols, toggleCol } = useColumnVisibility(LS_KEY, FUNDS_ALLOCATION_COLUMNS.map(c => c.key))
@@ -149,7 +146,7 @@ export default function HomeTabView({
               {paymentRecords.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell><StatusBadge module="payment_voucher" status={r.status} stepName={r.stepName} labelConfig={labelConfig} /></TableCell>
-                  <PaymentListCells r={r} payeeLabel={payeeLabel} attachments={attachmentsMap[r.id] ?? []} />
+                  <PaymentListCells r={r} payeeLabel={payeeLabel} />
                 </TableRow>
               ))}
             </TableBody>

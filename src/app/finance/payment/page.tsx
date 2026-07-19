@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FundsPayment, FundAttachment, FormSlot } from '@/lib/types'
+import { FundsPayment, FormSlot } from '@/lib/types'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { confirmPayment } from '@/app/actions/payment'
 import { getFormSchemas } from '@/app/actions/form-schema'
-import { getAttachmentsByPaymentIds } from '@/app/actions/attachments'
 import { getLatestPaymentCategories } from '@/app/actions/approval-flow'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
@@ -33,9 +32,8 @@ export default function FinancePaymentPage() {
   const [labelConfig, setLabelConfig] = useState<StatusLabelConfig>(DEFAULT_STATUS_LABEL_CONFIG)
   const [loading, setLoading] = useState(true)
   const [confirming, setConfirming] = useState<Set<number>>(new Set())
-  // 對齊筑今 9 欄所需資料：受款人欄位名稱、發票憑證附件、付款分類（審核紀錄最新選值）
+  // 對齊筑今欄位所需資料：受款人欄位名稱、付款分類（審核紀錄最新選值）
   const [payeeLabel, setPayeeLabel] = useState<string | null>(null)
-  const [attachmentsMap, setAttachmentsMap] = useState<Record<number, FundAttachment[]>>({})
   const [paymentCategoryMap, setPaymentCategoryMap] = useState<Record<number, string>>({})
 
   useEffect(() => {
@@ -58,11 +56,7 @@ export default function FinancePaymentPage() {
           ?.label ?? null
       )
       const ids = rows.map(r => r.id)
-      const [attachments, categories] = await Promise.all([
-        getAttachmentsByPaymentIds(ids),
-        getLatestPaymentCategories(ids),
-      ])
-      setAttachmentsMap(attachments)
+      const categories = await getLatestPaymentCategories(ids)
       setPaymentCategoryMap(categories)
       setLoading(false)
     }
@@ -154,11 +148,7 @@ export default function FinancePaymentPage() {
                     <TableCell>
                       <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
                     </TableCell>
-                    <PaymentListCells
-                      r={r}
-                      payeeLabel={payeeLabel}
-                      attachments={attachmentsMap[r.id] ?? []}
-                    />
+                    <PaymentListCells r={r} payeeLabel={payeeLabel} />
                     <TableCell className="whitespace-nowrap">{paymentCategoryMap[r.id] ?? '-'}</TableCell>
                     <TableCell>
                       {r.status === 'approved' ? (

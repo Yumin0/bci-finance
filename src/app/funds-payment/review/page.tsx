@@ -9,7 +9,6 @@ import {
 } from '@/app/actions/approval-flow'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { getFormSchemas } from '@/app/actions/form-schema'
-import { getAttachmentsByPaymentIds } from '@/app/actions/attachments'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { FormSlot } from '@/lib/types'
 import {
@@ -127,22 +126,14 @@ export default async function PaymentReviewPage({
     activeTabs.map((tab, i) => [tab.key, tabItemResults[i] as unknown as PaymentItem[]])
   ) as Record<string, PaymentItem[]>
 
-  // 所有審核 Tab 與「我的審核紀錄」皆已對齊 9 欄，需要「發票憑證」附件
-  const attachmentPaymentIds = Array.from(new Set([
-    ...Object.values(tabItems).flatMap(items => items.map(r => r.id)),
-    ...historyItems.map(h => h.funds_payment?.id).filter((id): id is number => id != null),
-  ]))
   // 群組 Tab（財務人員、第三處處長等）另顯示「付款分類」欄：取各憑單審核紀錄裡最新選定的付款分類
-  const [attachmentsMap, paymentCategoryMap] = await Promise.all([
-    getAttachmentsByPaymentIds(attachmentPaymentIds),
-    getLatestPaymentCategories(
-      Array.from(new Set(
-        activeTabs
-          .filter(t => t.key.startsWith('group-'))
-          .flatMap(t => (tabItems[t.key] ?? []).map(r => r.id))
-      ))
-    ),
-  ])
+  const paymentCategoryMap = await getLatestPaymentCategories(
+    Array.from(new Set(
+      activeTabs
+        .filter(t => t.key.startsWith('group-'))
+        .flatMap(t => (tabItems[t.key] ?? []).map(r => r.id))
+    ))
+  )
 
   return (
     <PaymentReviewClient
@@ -152,7 +143,6 @@ export default async function PaymentReviewPage({
       paymentAccounts={paymentAccounts}
       labelConfig={labelConfig}
       payeeLabel={payeeLabel}
-      attachmentsMap={attachmentsMap}
       paymentCategoryMap={paymentCategoryMap}
       selectedYear={validYear}
       selectedWeekStart={selectedWeekStart}

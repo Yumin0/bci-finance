@@ -14,9 +14,6 @@ import { YearDropdown, WeekDropdown } from '@/app/_components/WeekPicker'
 
 export type TabDef = { key: string; label: string }
 
-export type VoucherAttachment = { file_name: string; url?: string }
-export type VoucherAttachmentMap = Record<number, VoucherAttachment[]>
-
 // 母付款憑單資訊：沖銷憑單自己沒有這些欄位，一律取自母付款憑單
 type VoucherPaymentRef = {
   payment_account?: string | null
@@ -99,6 +96,7 @@ function normalizeHistory(r: HistoryItem, payeeLabel: string | null): Normalized
   }
 }
 
+// 發票憑證欄已移除（2026-07-20，外層列表不看附檔、只留內層詳細頁附件欄位）
 const COLUMNS_AFTER_STATUS = [
   '暫付款沖銷憑單號',
   '費用項目',
@@ -107,10 +105,9 @@ const COLUMNS_AFTER_STATUS = [
   '付款方式',
   '核准金額',
   '沖銷金額',
-  '發票憑證',
 ] as const
 
-function VoucherCells({ r, attachments }: { r: NormalizedRow; attachments: VoucherAttachment[] }) {
+function VoucherCells({ r }: { r: NormalizedRow }) {
   return (
     <>
       <TableCell>
@@ -124,23 +121,6 @@ function VoucherCells({ r, attachments }: { r: NormalizedRow; attachments: Vouch
       <TableCell>{r.payment_method ?? '-'}</TableCell>
       <TableCell className="whitespace-nowrap">{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>
       <TableCell className="whitespace-nowrap">{r.amount != null ? r.amount.toLocaleString() : '-'}</TableCell>
-      <TableCell>
-        {attachments.length === 0 ? '-' : (
-          <div className="flex flex-col gap-0.5">
-            {attachments.map((a, i) => (
-              <a
-                key={i}
-                href={a.url ?? '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="whitespace-nowrap text-sm text-primary underline underline-offset-4"
-              >
-                {a.file_name}
-              </a>
-            ))}
-          </div>
-        )}
-      </TableCell>
     </>
   )
 }
@@ -161,7 +141,6 @@ type Props = {
   paymentAccounts: string[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
-  attachmentsMap: VoucherAttachmentMap
   selectedYear: number
   selectedWeekStart: string
 }
@@ -173,7 +152,6 @@ export default function VoucherReviewClient({
   paymentAccounts,
   labelConfig,
   payeeLabel,
-  attachmentsMap,
   selectedYear,
   selectedWeekStart,
 }: Props) {
@@ -251,14 +229,12 @@ export default function VoucherReviewClient({
         <HistoryList
           rows={historyItems.map(r => normalizeHistory(r, payeeLabel)).filter(matches)}
           labelConfig={labelConfig}
-          attachmentsMap={attachmentsMap}
         />
       ) : (
         <AccountGroupedList
           rows={(tabItems[activeTab] ?? []).map(r => normalizeItem(r, payeeLabel)).filter(matches)}
           paymentAccounts={paymentAccounts}
           labelConfig={labelConfig}
-          attachmentsMap={attachmentsMap}
         />
       )}
     </div>
@@ -269,12 +245,10 @@ function AccountGroupedList({
   rows,
   paymentAccounts,
   labelConfig,
-  attachmentsMap,
 }: {
   rows: NormalizedRow[]
   paymentAccounts: string[]
   labelConfig: StatusLabelConfig
-  attachmentsMap: VoucherAttachmentMap
 }) {
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">本週沒有相關憑單</p>
 
@@ -309,7 +283,7 @@ function AccountGroupedList({
                   <TableCell>
                     <StatusBadge module="temp_voucher" status={r.status} stepName={r.step_name} labelConfig={labelConfig} />
                   </TableCell>
-                  <VoucherCells r={r} attachments={attachmentsMap[r.id] ?? []} />
+                  <VoucherCells r={r} />
                 </TableRow>
               ))}
             </TableBody>
@@ -323,11 +297,9 @@ function AccountGroupedList({
 function HistoryList({
   rows,
   labelConfig,
-  attachmentsMap,
 }: {
   rows: NormalizedRow[]
   labelConfig: StatusLabelConfig
-  attachmentsMap: VoucherAttachmentMap
 }) {
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">尚無審核紀錄</p>
   return (
@@ -345,7 +317,7 @@ function HistoryList({
               <TableCell>
                 <StatusBadge module="temp_voucher" status={r.status} stepName={r.step_name} labelConfig={labelConfig} />
               </TableCell>
-              <VoucherCells r={r} attachments={attachmentsMap[r.id] ?? []} />
+              <VoucherCells r={r} />
             </TableRow>
           ))}
         </TableBody>

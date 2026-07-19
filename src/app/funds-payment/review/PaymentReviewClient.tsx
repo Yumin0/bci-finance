@@ -13,7 +13,6 @@ import { YearDropdown, WeekDropdown } from '@/app/_components/WeekPicker'
 import {
   PaymentListCells,
   PAYMENT_LIST_COLUMNS_AFTER_STATUS,
-  type PaymentAttachmentMap,
 } from '@/app/funds-payment/_components/PaymentListCells'
 
 export type TabDef = { key: string; label: string }
@@ -49,7 +48,6 @@ type Props = {
   paymentAccounts: string[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
-  attachmentsMap: PaymentAttachmentMap
   // 各憑單最新選定的付款分類（審核群組步驟核准時加註），群組 Tab 顯示「付款分類」欄用
   paymentCategoryMap: Record<number, string>
   selectedYear: number
@@ -63,7 +61,6 @@ export default function PaymentReviewClient({
   paymentAccounts,
   labelConfig,
   payeeLabel,
-  attachmentsMap,
   paymentCategoryMap,
   selectedYear,
   selectedWeekStart,
@@ -146,14 +143,13 @@ export default function PaymentReviewClient({
       </div>
 
       {activeTab === 'history' ? (
-        <HistoryList items={filterHistory(historyItems)} labelConfig={labelConfig} payeeLabel={payeeLabel} attachmentsMap={attachmentsMap} />
+        <HistoryList items={filterHistory(historyItems)} labelConfig={labelConfig} payeeLabel={payeeLabel} />
       ) : (
         <AccountGroupedList
           items={filterItems(tabItems[activeTab] ?? [])}
           paymentAccounts={paymentAccounts}
           labelConfig={labelConfig}
           payeeLabel={payeeLabel}
-          attachmentsMap={attachmentsMap}
           // 「付款分類」欄只在群組 Tab（財務人員、第三處處長等）顯示，對齊筑今支出課/處長列表
           paymentCategoryMap={activeTab.startsWith('group-') ? paymentCategoryMap : null}
         />
@@ -167,14 +163,12 @@ function AccountGroupedList({
   paymentAccounts,
   labelConfig,
   payeeLabel,
-  attachmentsMap,
   paymentCategoryMap,
 }: {
   items: PaymentItem[]
   paymentAccounts: string[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
-  attachmentsMap: PaymentAttachmentMap
   // null＝此 Tab 不顯示付款分類欄
   paymentCategoryMap: Record<number, string> | null
 }) {
@@ -218,7 +212,6 @@ function AccountGroupedList({
                   <PaymentListCells
                     r={r}
                     payeeLabel={payeeLabel}
-                    attachments={attachmentsMap[r.id] ?? []}
                     hrefBase="/funds-payment/review/check"
                   />
                   {paymentCategoryMap && (
@@ -234,7 +227,7 @@ function AccountGroupedList({
   )
 }
 
-function HistoryList({ items, labelConfig, payeeLabel, attachmentsMap }: { items: HistoryItem[]; labelConfig: StatusLabelConfig; payeeLabel: string | null; attachmentsMap: PaymentAttachmentMap }) {
+function HistoryList({ items, labelConfig, payeeLabel }: { items: HistoryItem[]; labelConfig: StatusLabelConfig; payeeLabel: string | null }) {
   if (items.length === 0) return <p className="text-sm text-muted-foreground">尚無審核紀錄</p>
   return (
     <Card className="overflow-hidden p-0">
@@ -259,7 +252,6 @@ function HistoryList({ items, labelConfig, payeeLabel, attachmentsMap }: { items
                   <PaymentListCells
                     r={fp}
                     payeeLabel={payeeLabel}
-                    attachments={attachmentsMap[fp.id] ?? []}
                     hrefBase="/funds-payment/review/check"
                   />
                 ) : (

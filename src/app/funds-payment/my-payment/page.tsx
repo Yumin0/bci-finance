@@ -3,7 +3,6 @@ import { getSession } from '@/lib/session'
 import { FundsPayment, FormSlot } from '@/lib/types'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { getFormSchemas } from '@/app/actions/form-schema'
-import { getAttachmentsByPaymentIds } from '@/app/actions/attachments'
 import MyPaymentTableView from './_components/MyPaymentTableView'
 
 export default async function MyPaymentPage() {
@@ -36,12 +35,10 @@ export default async function MyPaymentPage() {
     approval_records: Array<{ step_name: string; decision: string }>
   })[]) ?? []
 
-  const attachmentsMap = await getAttachmentsByPaymentIds(records.map(r => r.id))
-
   return (
     <>
       {error && <p style={{ color: '#dc2626' }}>載入失敗：{error.message}</p>}
-      <MyPaymentTableView records={records} labelConfig={labelConfig} payeeLabel={payeeLabel} attachmentsMap={attachmentsMap} />
+      <MyPaymentTableView records={records} labelConfig={labelConfig} payeeLabel={payeeLabel} />
     </>
   )
 }

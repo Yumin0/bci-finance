@@ -11,7 +11,6 @@ import PageHeader from '@/app/_components/PageHeader'
 import {
   PaymentListCells,
   PAYMENT_LIST_COLUMNS_AFTER_STATUS,
-  type PaymentAttachmentMap,
 } from '@/app/funds-payment/_components/PaymentListCells'
 import ExportCsvButton from './ExportCsvButton'
 
@@ -51,13 +50,11 @@ export default function AllPaymentTableView({
   labelConfig,
   canExport,
   payeeLabel,
-  attachmentsMap,
 }: {
   records: PaymentRow[]
   labelConfig: StatusLabelConfig
   canExport: boolean
   payeeLabel: string | null
-  attachmentsMap: PaymentAttachmentMap
 }) {
   const [query, setQuery] = useState('')
 
@@ -109,7 +106,7 @@ export default function AllPaymentTableView({
                 <TableCell>
                   <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
                 </TableCell>
-                <PaymentListCells r={r} payeeLabel={payeeLabel} attachments={attachmentsMap[r.id] ?? []} />
+                <PaymentListCells r={r} payeeLabel={payeeLabel} />
               </TableRow>
             ))}
           </TableBody>

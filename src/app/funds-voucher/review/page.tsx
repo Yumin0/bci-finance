@@ -8,7 +8,6 @@ import {
 } from '@/app/actions/approval-flow'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { getFormSchemas } from '@/app/actions/form-schema'
-import { getAttachmentsByTempVoucherIds } from '@/app/actions/attachments'
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { FormSlot } from '@/lib/types'
 import {
@@ -19,7 +18,7 @@ import {
   getWeeksForYear,
   getAvailableYears,
 } from '@/lib/weekUtils'
-import VoucherReviewClient, { type TabDef, type VoucherItem, type HistoryItem, type VoucherAttachmentMap } from './VoucherReviewClient'
+import VoucherReviewClient, { type TabDef, type VoucherItem, type HistoryItem } from './VoucherReviewClient'
 
 const getCachedPaymentAccounts = unstable_cache(
   async () => {
@@ -128,13 +127,6 @@ export default async function VoucherReviewPage({
     activeTabs.map((tab, i) => [tab.key, tabItemResults[i] as unknown as VoucherItem[]])
   ) as Record<string, VoucherItem[]>
 
-  // 「發票憑證」欄：一次撈所有列到的沖銷憑單附件
-  const attachmentVoucherIds = Array.from(new Set([
-    ...Object.values(tabItems).flatMap(items => items.map(r => r.id)),
-    ...historyItems.map(h => h.temp_voucher?.id).filter((id): id is number => id != null),
-  ]))
-  const attachmentsMap = (await getAttachmentsByTempVoucherIds(attachmentVoucherIds)) as unknown as VoucherAttachmentMap
-
   return (
     <VoucherReviewClient
       visibleTabs={visibleTabs}
@@ -143,7 +135,6 @@ export default async function VoucherReviewPage({
       paymentAccounts={paymentAccounts}
       labelConfig={labelConfig}
       payeeLabel={payeeLabel}
-      attachmentsMap={attachmentsMap}
       selectedYear={validYear}
       selectedWeekStart={selectedWeekStart}
     />
