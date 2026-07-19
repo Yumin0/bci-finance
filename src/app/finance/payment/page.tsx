@@ -145,6 +145,7 @@ export default function FinancePaymentPage() {
                   ))}
                   <TableHead>付款分類</TableHead>
                   <TableHead>付款執行</TableHead>
+                  <TableHead>匯出</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -171,6 +172,20 @@ export default function FinancePaymentPage() {
                         </Button>
                       ) : r.status === 'paid' ? (
                         <Button size="sm" variant="secondary" disabled>已付款</Button>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {/* 財務代職員匯出列印版（筑今做不到的），已付款才開放 */}
+                      {r.status === 'paid' ? (
+                        <a
+                          href={`/funds-payment/my-payment/${r.id}/print`}
+                          target="_blank"
+                          className="text-sm text-blue-600 whitespace-nowrap hover:underline"
+                        >
+                          匯出
+                        </a>
                       ) : (
                         <span className="text-sm text-muted-foreground">—</span>
                       )}

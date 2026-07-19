@@ -43,6 +43,13 @@
 說明：① 暫付款沖銷審核頁（群組步驟）「付款分類」下拉預設選「回存」（先承接本單前面關卡選值、沒有才帶回存；不再承接母付款憑單的付款分類——母憑單分類描述預支出帳當下，與沖銷回存性質不同）；② 審核群組「財務人員」改名「支出課」（dev approval_groups id=4 已改，正式機 SQL 登記 prod-pending-sql；程式碼無寫死名稱、Tab 名稱隨群組名自動變）。皆 Yumin 2026-07-19 拍板。
 - [x] /funds-voucher/review/check/[id]（付款分類預設）
 - [x] dev 改名＋docs/prod-pending-sql.md 登記
+**付款憑單列印匯出（已付款 A4 列印頁＋財務代匯出）**（Yumin）
+分支：`feature/yumin-payment-export`
+開始：2026-07-19
+說明：優化第二批規格提案第四節（Yumin 2026-07-19 拍板：會計科目欄改印費用項目（細項）、簽核欄照筑今名稱 CFO/會計/部門主管/申請人帶對應人名、已付款才可匯出）。新增 `my-payment/[id]/print` 列印頁（筑今版式、window.print 存 PDF、print CSS 隱藏框架、DevEnvBadge 全站 print:hidden）；入口：憑單詳細頁（已付款）「匯出付款憑單」＋ /finance/payment 每列「匯出」欄（財務可代任何職員輸出，權限＝該頁既有頁面權限）。公司抬頭暫沿用筑今「商明國際股份有限公司」，如需改請告知。
+- [x] my-payment/[id]/print（新頁，Playwright 實測含 PDF 輸出）
+- [x] my-payment/[id] 詳細頁按鈕（僅 paid）
+- [x] /finance/payment 匯出欄（僅 paid）
 - [x] npx tsc --noEmit 零錯誤
 
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）

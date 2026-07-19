@@ -9,7 +9,7 @@ export function DevEnvBadge() {
   if (!config) return null
 
   return (
-    <div style={{ position: 'fixed', bottom: 16, right: 16, zIndex: 9999, pointerEvents: 'none', userSelect: 'none' }}>
+    <div className="print:hidden" style={{ position: 'fixed', bottom: 16, right: 16, zIndex: 9999, pointerEvents: 'none', userSelect: 'none' }}>
       <style>{`
         @keyframes devBadgeBob {
           0%, 100% { transform: translateY(0); }
