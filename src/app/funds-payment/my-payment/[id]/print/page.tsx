@@ -29,6 +29,8 @@ type PrintPayment = {
 type ApprovalRow = { step_name: string | null; decision: string | null; reviewer_id: string | null }
 
 const COMPANY_NAME = '商明國際股份有限公司'
+// CFO 欄不看審核紀錄、一律印財務長（Yumin 2026-07-19 拍板：不管誰核的都印吳素瑜；換人時改這裡）
+const CFO_NAME = '吳素瑜'
 
 // 憑單自己的付款明細組（instance 含 未稅金額/總額 key），與帶入申請單的組區分（含 費用項目（細項））
 function parseGroups(extra: Record<string, string> | null) {
@@ -56,7 +58,6 @@ export default function PaymentPrintPage({ params }: { params: Promise<{ id: str
   const [approvals, setApprovals] = useState<ApprovalRow[]>([])
   const [paymentMethodOptions, setPaymentMethodOptions] = useState<string[]>([])
   const [applicantName, setApplicantName] = useState('')
-  const [cfoFallbackName, setCfoFallbackName] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -77,19 +78,7 @@ export default function PaymentPrintPage({ params }: { params: Promise<{ id: str
         getFormSchemas(),
       ])
       const payment = data as unknown as PrintPayment
-      let rows = (recs ?? []) as ApprovalRow[]
-      // 憑單流程沒有財務長關卡時，回溯母申請單的審核紀錄找財務長（資金分配流程有這關），
-      // 讓 CFO 欄帶「實際核准過這張單的財務長」而非亂猜
-      if (!rows.some(r => (r.step_name ?? '').includes('財務長')) && payment?.funds_allocation_id) {
-        const { data: allocRecs } = await supabase
-          .from('approval_records')
-          .select('step_name, decision, reviewer_id')
-          .eq('funds_allocation_id', payment.funds_allocation_id)
-          .eq('decision', 'approved')
-          .order('step_number')
-        const cfoRec = ((allocRecs ?? []) as ApprovalRow[]).filter(r => (r.step_name ?? '').includes('財務長'))
-        rows = [...rows, ...cfoRec]
-      }
+      const rows = (recs ?? []) as ApprovalRow[]
       setApprovals(rows)
       const ids = [...new Set(rows.map(r => Number(r.reviewer_id)).filter(n => !isNaN(n)))]
       if (ids.length) {
@@ -101,12 +90,6 @@ export default function PaymentPrintPage({ params }: { params: Promise<{ id: str
       if (!isNaN(creatorId)) {
         const { data: creator } = await supabase.from('app_users').select('name').eq('id', creatorId).single()
         if (creator?.name) setApplicantName(creator.name)
-      }
-      // 連母單都沒有財務長紀錄的極端情況：退回「財務長」系統角色的使用者（多人取第一位）
-      const { data: cfoRole } = await supabase.from('system_roles').select('id').eq('name', '財務長').maybeSingle()
-      if (cfoRole) {
-        const { data: cfoUsers } = await supabase.from('app_users').select('name').eq('system_role_id', cfoRole.id).order('id')
-        if (cfoUsers?.length) setCfoFallbackName(cfoUsers[0].name)
       }
       const pmSlot = (schemas.payment_voucher as FormBlock[])
         .flatMap(b => b.rows.flatMap(r => r.slots))
@@ -136,7 +119,7 @@ export default function PaymentPrintPage({ params }: { params: Promise<{ id: str
   const nameOf = (r: ApprovalRow | undefined) => (r?.reviewer_id && reviewerNames[r.reviewer_id]) || ''
   const findStep = (match: (name: string) => boolean) => [...approvals].reverse().find(r => match(r.step_name ?? ''))
   const signers = {
-    cfo: nameOf(findStep(n => n.includes('財務長') || n.toUpperCase().includes('CFO'))) || cfoFallbackName,
+    cfo: CFO_NAME,
     accountant: nameOf(findStep(n => n.includes('支出課') || n.includes('財務人員'))),
     manager: nameOf(findStep(n => n.includes('處長'))),
     applicant: applicantName || record.applicant || record.funds_allocation?.applicant || '',
@@ -155,13 +138,19 @@ export default function PaymentPrintPage({ params }: { params: Promise<{ id: str
       `}</style>
 
       {/* 頂部操作列（列印時隱藏）：按列印後在瀏覽器視窗選「另存為 PDF」即可輸出檔案 */}
-      <div className="print-hide" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <span style={{ fontSize: 13, color: '#666' }}>
+      <div className="print-hide" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <a
+          href={`/funds-payment/my-payment/${record.id}`}
+          style={{ border: '1px solid #ccc', background: '#fff', color: '#333', padding: '9px 18px', fontSize: 14, borderRadius: 6, textDecoration: 'none', whiteSpace: 'nowrap' }}
+        >
+          ← 返回付款憑單
+        </a>
+        <span style={{ fontSize: 13, color: '#666', flex: 1 }}>
           按「列印 / 匯出 PDF」後，在列印視窗的「目的地」選「另存為 PDF」即可輸出檔案
         </span>
         <button
           onClick={() => window.print()}
-          style={{ background: '#111', color: '#fff', border: 'none', padding: '10px 24px', fontSize: 15, fontWeight: 600, cursor: 'pointer', borderRadius: 6 }}
+          style={{ background: '#111', color: '#fff', border: 'none', padding: '10px 24px', fontSize: 15, fontWeight: 600, cursor: 'pointer', borderRadius: 6, whiteSpace: 'nowrap' }}
         >
           🖨 列印 / 匯出 PDF
         </button>
