@@ -7,6 +7,15 @@
 
 ## 進行中
 
+**「項目」自動帶入付款明細各組「摘要/用途說明」**（Yumin）
+分支：`feature/yumin-item-to-summary`
+開始：2026-07-19
+說明：資金分配申請單「項目」欄的值（如 7月5日SBBG）自動複製到付款明細每一組的「摘要/用途說明」當預設值（可改），新增組也自動帶（Yumin 2026-07-19 拍板）。實作：group 列內 label 含「摘要」的文字欄；改「項目」時只同步「仍是預設值」的組（空白或等於改動前的項目值），使用者填過的不覆蓋、載入舊單/範本不覆蓋；`newGroupInstanceSeed` 加摘要預帶。
+影響範圍確認：
+- [x] /funds-allocation/my-funds/add（AddFundsForm）
+- [x] /funds-allocation/my-funds/edit/[id]（EditFundsForm，審核頁編輯共用）
+- [x] npx tsc --noEmit 零錯誤
+
 **暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
 分支：`feature/yumin-voucher-return-amount`
 開始：2026-07-15

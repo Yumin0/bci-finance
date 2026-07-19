@@ -236,6 +236,29 @@ export default function AddFundsForm({
       return next
     })
   }
+  // 「項目」自動帶入付款明細每組「摘要/用途說明」當預設值（可改）：
+  // 群組列內 label 含「摘要」的文字欄，各 block 取第一個
+  const summarySlotByBlock: Record<string, string> = {}
+  for (const b of schema) {
+    const s = getGroupRows(b).flatMap(r => r.slots).find(s => s?.type === 'text' && s.label.includes('摘要'))
+    if (s) summarySlotByBlock[b.id] = s.fieldId
+  }
+  // 改「項目」時同步各組摘要：只動仍是預設值的組（空白、或等於改動前的項目值），使用者改過的不覆蓋
+  function syncItemToGroupSummaries(newVal: string) {
+    const prevVal = fieldValues.name ?? ''
+    setGroupInstances(prev => {
+      const next = { ...prev }
+      for (const [blockId, fid] of Object.entries(summarySlotByBlock)) {
+        const instances = prev[blockId] ?? [{}]
+        next[blockId] = instances.map(inst => {
+          const cur = inst[fid] ?? ''
+          return (cur === '' || cur === prevVal) ? { ...inst, [fid]: newVal } : inst
+        })
+      }
+      return next
+    })
+  }
+
   // 新增一組付款明細時的預帶值：套用各群組欄位的預設值（如幣別台幣），並比照連動邏輯——
   // 目前主要費用項目底下細項唯一時，自動帶入該細項
   function newGroupInstanceSeed(blockId: string): Record<string, string> {
@@ -252,6 +275,8 @@ export default function AddFundsForm({
         if (matched.length === 1) seed[slot.fieldId] = matched[0].value
       }
     }
+    const summaryFid = summarySlotByBlock[blockId]
+    if (summaryFid && !seed[summaryFid] && (fieldValues.name ?? '') !== '') seed[summaryFid] = fieldValues.name
     return seed
   }
   function addGroupInstance(blockId: string) {
@@ -811,7 +836,10 @@ export default function AddFundsForm({
     return (
       <Input type={inputType} name={fieldId}
         value={autoVal ?? values[fieldId] ?? ''}
-        onChange={e => onChange(fieldId, e.target.value)}
+        onChange={e => {
+          onChange(fieldId, e.target.value)
+          if (fieldId === 'name') syncItemToGroupSummaries(e.target.value)
+        }}
         readOnly={!!autoVal} required={required}
         className={autoVal ? 'bg-[var(--bg-page)] cursor-not-allowed' : ''}
       />
