@@ -8,6 +8,19 @@
 
 ## ⏳ 待執行
 
+### 付款憑單審核頁可編輯：變更歷程資料表通用化（feature/yumin-payment-review-edit）
+
+- [ ] 正式機待執行
+- [x] dev/staging Supabase 已執行（2026-07-19，Success. No rows returned；執行後以 Playwright 補驗：審核人儲存變更寫入 3 筆歷程、ChangeLogModal 顯示正常）
+
+用途：付款憑單審核頁可編輯（優化第二批第三節 a 第一批）。變更歷程沿用資金分配的 `allocation_edit_logs` 一張表，比照 `approval_records` 的設計加上 `funds_payment_id`／`temp_voucher_id` 兩個可為空的關聯欄（temp_voucher_id 為第二批沖銷預留，屆時不用再改結構），並放寬 `funds_allocation_id` 允許空值（付款憑單的紀錄該欄為空）。執行後舊資料不受影響；**未執行前審核人儲存變更不會失敗，只是變更歷程記不進去**（程式已做降級：insert 失敗只記 console）。
+
+```sql
+ALTER TABLE allocation_edit_logs ALTER COLUMN funds_allocation_id DROP NOT NULL;
+ALTER TABLE allocation_edit_logs ADD COLUMN IF NOT EXISTS funds_payment_id bigint REFERENCES funds_payment(id);
+ALTER TABLE allocation_edit_logs ADD COLUMN IF NOT EXISTS temp_voucher_id bigint REFERENCES temp_vouchers(id);
+```
+
 ### 正式站費用項目資料尚未建立（費用類型設定，非 SQL，資料輸入）
 
 - [ ] 正式機尚未建立費用項目資料

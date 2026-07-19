@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FundsPayment, ApprovalRecord, StepDecision, FormBlock, FundAttachment } from '@/lib/types'
 import { submitApprovalDecision, checkCanReviewStep, getPaymentCategoryOptions } from '@/app/actions/approval-flow'
@@ -11,6 +11,8 @@ import { getAttachmentsByAllocationId, getAttachmentsByPaymentId } from '@/app/a
 import { getAllocationRemainingInfo, type AllocationRemainingInfo } from '@/app/actions/fund-budget'
 import { getPaymentOccupiedAmount } from '@/lib/fundsAllocationRemaining'
 import FundsPaymentDetail from '@/app/funds-payment/_components/FundsPaymentDetail'
+import PaymentEditForm from '@/app/funds-payment/_components/PaymentEditForm'
+import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
 import AllocationSummaryCard from '@/app/_components/AllocationSummaryCard'
 import ErrorDialog from '@/app/_components/ErrorDialog'
 import ReviewProgressBlock from '@/app/_components/ReviewProgressBlock'
@@ -40,6 +42,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
   const [pastRecords, setPastRecords] = useState<ApprovalRecord[]>([])
   const [schema, setSchema] = useState<FormBlock[]>([])
   const [userId, setUserId] = useState<number | null>(null)
+  const [userName, setUserName] = useState<string>('')
   const [canReviewStep, setCanReviewStep] = useState(false)
   const [loading, setLoading] = useState(true)
   const [decision, setDecision] = useState<StepDecision>(null)
@@ -53,9 +56,12 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
   const [allocationAttachments, setAllocationAttachments] = useState<FundAttachment[]>([])
   const [paymentAttachments, setPaymentAttachments] = useState<FundAttachment[]>([])
   const [remainingInfo, setRemainingInfo] = useState<AllocationRemainingInfo | null>(null)
+  const [changeLogOpen, setChangeLogOpen] = useState(false)
+  // 審核人儲存變更後：await load() 重抓最新 record（含核准金額預填）再 bump key 重建表單，
+  // 修正「先重建表單吃到舊 record」的競速（比照資金分配審核頁）
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  useEffect(() => {
-    async function load() {
+  const load = useCallback(async () => {
       const { id } = await params
       const numId = Number(id)
 
@@ -65,6 +71,7 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         getMySession(),
       ])
       setUserId(session.userId)
+      setUserName(session.name ?? '')
 
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
@@ -117,18 +124,21 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         }
       }
 
-      // 載入附件
+      // 載入附件（審核人可編輯情境的附件由 PaymentEditForm 自行載入管理）
       getAttachmentsByPaymentId(numId).then(setPaymentAttachments)
       if (payment.funds_allocation_id) {
         getAttachmentsByAllocationId(payment.funds_allocation_id).then(setAllocationAttachments)
       }
 
       setLoading(false)
-    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params])
+
+  useEffect(() => {
     load()
     getFormSchemas().then(s => setSchema(s.payment_voucher))
     getPaymentCategoryOptions().then(setCategoryOptions)
-  }, [params])
+  }, [load])
 
   const steps = record?.approval_flow_templates?.approval_flow_steps
     ?.slice().sort((a, b) => a.step_number - b.step_number) ?? []
@@ -187,11 +197,21 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <button onClick={() => router.back()} style={{ background: 'none', border: '1px solid var(--btn-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>
-          ← 返回
+      <ChangeLogModal fundsPaymentId={record.id} open={changeLogOpen} onClose={() => setChangeLogOpen(false)} />
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => router.back()} style={{ background: 'none', border: '1px solid var(--btn-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>
+            ← 返回
+          </button>
+          <h1 style={{ fontSize: 18, fontWeight: 700 }}>審核付款憑單</h1>
+        </div>
+        <button
+          onClick={() => setChangeLogOpen(true)}
+          style={{ fontSize: 13, padding: '6px 12px', border: '1px solid var(--btn-border)', borderRadius: 6, background: 'none', cursor: 'pointer', color: 'var(--text-body)' }}
+        >
+          變更歷程
         </button>
-        <h1 style={{ fontSize: 18, fontWeight: 700 }}>審核付款憑單</h1>
       </div>
 
       {/* 審核送出被擋（核准金額驗證等）改用全站共用中央彈窗 */}
@@ -205,13 +225,25 @@ export default function PaymentReviewCheckPage({ params }: { params: Promise<{ i
         />
       )}
 
-      {/* 附件顯示在表單各自的附件欄位內（原本底部另有一個獨立附件區塊，已移除） */}
-      <FundsPaymentDetail
-        record={record}
-        schema={schema}
-        attachments={paymentAttachments}
-        inheritedAttachments={allocationAttachments}
-      />
+      {/* 表單區：目前關卡審核人看可編輯版（儲存變更會記欄位級變更歷程），其他人看唯讀版 */}
+      {canReview && schema.length > 0 ? (
+        <PaymentEditForm
+          key={refreshKey}
+          record={record}
+          schema={schema}
+          mode="reviewer"
+          userId={userId}
+          userName={userName}
+          onSaveSuccess={async () => { await load(); setRefreshKey(k => k + 1) }}
+        />
+      ) : (
+        <FundsPaymentDetail
+          record={record}
+          schema={schema}
+          attachments={paymentAttachments}
+          inheritedAttachments={allocationAttachments}
+        />
+      )}
 
       {/* 審核進度（比照筑今一列式排版，共用元件；付款群組步驟顯示付款分類） */}
       <ReviewProgressBlock

@@ -7,7 +7,7 @@ import { PAYMENT_STATUS } from '@/lib/constants'
 import { calcRemainingAmount, type PaymentForRemaining } from '@/lib/fundsAllocationRemaining'
 import { buildOccupiedVoucherSummary } from '@/lib/occupiedVoucherLines'
 import { notifyReviewersForStep } from './notifications'
-import { getAllocationOrgContext } from './approval-flow'
+import { getAllocationOrgContext, checkCanReviewStep } from './approval-flow'
 import { recalcAllocationCloseStatus } from './fund-budget'
 import { taipeiToday } from '@/lib/dateUtils'
 
@@ -176,6 +176,70 @@ export async function createPayment(
 
   if (error) return { id: null, error: error.message }
   return { id: inserted.id, error: null }
+}
+
+// 審核人於審核頁直接修改審核中（pending）的憑單。與 updateDraftPayment 的差異：
+// 不限本人草稿，但 server 端必須驗證呼叫者確實是目前關卡的審核人（不能只信前端 canReview）；
+// 類型（一般/預支）送審後鎖定，此處不更新 category
+export async function updatePaymentAsReviewer(
+  id: number,
+  paymentMethod: string,
+  extraData: Record<string, string>,
+  amount: number
+): Promise<{ error: string | null }> {
+  const session = await getSession()
+  if (!session) return { error: '請先登入' }
+
+  const { data: payment } = await supabase
+    .from('funds_payment')
+    .select('status, current_step, flow_template_id, funds_allocation_id')
+    .eq('id', id)
+    .single()
+  if (!payment) return { error: '找不到此付款憑單' }
+  if (payment.status !== PAYMENT_STATUS.PENDING || payment.current_step == null) {
+    return { error: '只有審核中的付款憑單可以由審核人修改' }
+  }
+
+  const { data: stepDef } = await supabase
+    .from('approval_flow_steps')
+    .select('reviewer_type, role_type_id, org_unit_type, system_role_id, approval_group_id')
+    .eq('template_id', payment.flow_template_id)
+    .eq('step_number', payment.current_step)
+    .limit(1)
+    .maybeSingle()
+  if (!stepDef) return { error: '找不到目前的審核關卡設定' }
+
+  const orgContext = await getAllocationOrgContext(payment.funds_allocation_id)
+  const canReview = await checkCanReviewStep({
+    userId: Number(session.userId),
+    stepDef: stepDef as {
+      reviewer_type: 'org_role' | 'system_role' | 'approval_group'
+      role_type_id: number | null
+      org_unit_type: string | null
+      system_role_id: number | null
+      approval_group_id: number | null
+    },
+    applyDivisionId: orgContext.applyDivisionId,
+    applySectionId: orgContext.applySectionId,
+  })
+  if (!canReview) return { error: '你不是目前關卡的審核人，無法修改此付款憑單' }
+
+  const amountError = await checkAmountWithinRemaining(payment.funds_allocation_id, amount, id, String(session.userId))
+  if (amountError) return { error: amountError }
+
+  const { error } = await supabase
+    .from('funds_payment')
+    .update({
+      payment_method: paymentMethod || null,
+      extra_data: Object.keys(extraData).length > 0 ? extraData : null,
+      amount,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('status', PAYMENT_STATUS.PENDING)
+
+  if (error) return { error: error.message }
+  return { error: null }
 }
 
 export async function updateDraftPayment(
