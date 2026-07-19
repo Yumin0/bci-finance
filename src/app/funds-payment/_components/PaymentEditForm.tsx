@@ -617,7 +617,8 @@ export default function PaymentEditForm({
     }
 
     if (computedTotals[fieldId] !== undefined) {
-      if (editableTotalFieldIds.has(fieldId)) {
+      // 審核人模式：非群組稅務區塊的總額/稅額欄同樣鎖唯讀（金額異動走核准金額）
+      if (editableTotalFieldIds.has(fieldId) && !isReviewer) {
         const manualKey = `root:${fieldId}`
         const isManual = manualTotalKeys.has(manualKey)
         return (
@@ -748,13 +749,20 @@ export default function PaymentEditForm({
     return undefined
   }
 
-  // 群組區塊：逐組渲染（可增刪修改），與付款憑單建立頁行為一致
+  // 群組區塊：逐組渲染（可增刪修改），與付款憑單建立頁行為一致。
+  // 審核人模式：金額欄（未稅金額/稅額/總額/稅額選擇）鎖唯讀、不可增刪明細組——
+  // 金額異動一律走「核准金額」（2026-07-19 Yumin 拍板，避免憑單金額與核准金額兩處要同步的怪帳）
   function renderGroupInstances(block: FormBlock) {
     const groupRows = getGroupRows(block)
     if (groupRows.length === 0) return null
     const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
     const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
     const instances = groupInstances[block.id] ?? [{}]
+    const lockedMoneyFieldIds = new Set(
+      isReviewer && taxSelectSlot?.taxConfig
+        ? [taxSelectSlot.fieldId, taxSelectSlot.taxConfig.baseFieldId, taxSelectSlot.taxConfig.taxAmountFieldId, taxSelectSlot.taxConfig.totalFieldId].filter(Boolean) as string[]
+        : []
+    )
 
     // 費用或稅額選擇改變時，自動帶入稅額（不鎖定，使用者仍可手動覆寫）
     function setInstFieldWithAutoTax(instIdx: number, fieldId: string, val: string) {
@@ -781,10 +789,12 @@ export default function PaymentEditForm({
         slots={groupSlots}
         instances={instances}
         selectOptionLabels={groupSelectOptionLabels}
-        onAdd={() => addGroupInstance(block.id)}
-        onRemove={instIdx => removeGroupInstance(block.id, instIdx)}
+        onAdd={isReviewer ? undefined : () => addGroupInstance(block.id)}
+        onRemove={isReviewer ? undefined : (instIdx => removeGroupInstance(block.id, instIdx))}
         renderCell={(slot, instValues, instIdx) =>
-          renderGroupField(slot, instValues, (fid, val) => setInstFieldWithAutoTax(instIdx, fid, val))
+          lockedMoneyFieldIds.has(slot.fieldId)
+            ? <Input value={instValues[slot.fieldId] ?? ''} readOnly className={readonlyCls} />
+            : renderGroupField(slot, instValues, (fid, val) => setInstFieldWithAutoTax(instIdx, fid, val))
         }
       />
     )
@@ -903,11 +913,6 @@ export default function PaymentEditForm({
       }
     }
 
-    // 憑單金額（各組總額加總）變動也記一筆，審核人一眼看得出金額被改過
-    if (grandTotal !== (record.amount ?? 0)) {
-      changes.push({ fieldLabel: '憑單金額', oldValue: String(record.amount ?? 0), newValue: String(grandTotal) })
-    }
-
     // 附件增刪
     const deletedItems = ownAttachmentRows.filter(a => deletedPaymentAttachmentIds.includes(a.id))
     for (const a of deletedItems) {
@@ -944,14 +949,13 @@ export default function PaymentEditForm({
     router.push('/funds-payment/my-payment')
   }
 
-  // 審核人儲存變更：後端再驗證審核人身分與金額上限，成功後記變更歷程、由父頁面重載刷新
+  // 審核人儲存變更：後端再驗證審核人身分與金額欄未被異動，成功後記變更歷程、由父頁面重載刷新
+  // 不跑 validateFeePositive——金額欄鎖唯讀改不了，舊單金額異常時不該擋敘述欄位的修改
   async function handleSaveChanges() {
-    const feeError = validateFeePositive(schema, fieldValues, {}, groupInstances)
-    if (feeError) { setError(feeError); return }
     setSaving(true)
     setError(null)
     const changes = computeChangeLogs()
-    const { error: saveError } = await updatePaymentAsReviewer(record.id, getPaymentMethodValue(), buildExtraData(), grandTotal)
+    const { error: saveError } = await updatePaymentAsReviewer(record.id, getPaymentMethodValue(), buildExtraData())
     if (saveError) { setError(saveError); setSaving(false); return }
     await persistPaymentAttachments(record.id)
     if (changes.length > 0 && userId) {

@@ -180,24 +180,43 @@ export async function createPayment(
 
 // 審核人於審核頁直接修改審核中（pending）的憑單。與 updateDraftPayment 的差異：
 // 不限本人草稿，但 server 端必須驗證呼叫者確實是目前關卡的審核人（不能只信前端 canReview）；
-// 類型（一般/預支）送審後鎖定，此處不更新 category
+// 類型（一般/預支）送審後鎖定，此處不更新 category；
+// 金額（amount 與付款明細金額欄）審核人不可異動——金額調整一律走「核准金額」（2026-07-19 Yumin 拍板，
+// 避免「憑單金額改了、核准金額沒跟」兩個地方要改造成的怪帳），此處不更新 amount、前端金額欄鎖唯讀
 export async function updatePaymentAsReviewer(
   id: number,
   paymentMethod: string,
-  extraData: Record<string, string>,
-  amount: number
+  extraData: Record<string, string>
 ): Promise<{ error: string | null }> {
   const session = await getSession()
   if (!session) return { error: '請先登入' }
 
   const { data: payment } = await supabase
     .from('funds_payment')
-    .select('status, current_step, flow_template_id, funds_allocation_id')
+    .select('status, current_step, flow_template_id, funds_allocation_id, extra_data')
     .eq('id', id)
     .single()
   if (!payment) return { error: '找不到此付款憑單' }
   if (payment.status !== PAYMENT_STATUS.PENDING || payment.current_step == null) {
     return { error: '只有審核中的付款憑單可以由審核人修改' }
+  }
+
+  // 金額欄防線：付款明細群組裡的金額欄位值必須與已存資料一致（前端已鎖唯讀，這裡再擋一次）
+  // 只比對既有 __group_ key（舊憑單無此 key、群組由申請單資料補出時無從比對，放行）
+  const MONEY_LABELS = ['未稅金額', '稅額', '總額', '稅額選擇']
+  const storedExtra = (payment.extra_data ?? {}) as Record<string, string>
+  for (const key of Object.keys(extraData)) {
+    if (!key.startsWith('__group_') || !storedExtra[key]) continue
+    let oldArr: Record<string, string>[] = []
+    let newArr: Record<string, string>[] = []
+    try { oldArr = JSON.parse(storedExtra[key]) } catch { /* empty */ }
+    try { newArr = JSON.parse(extraData[key]) } catch { /* empty */ }
+    const moneyChanged =
+      oldArr.length !== newArr.length ||
+      oldArr.some((row, i) => MONEY_LABELS.some(l => (row[l] ?? '') !== (newArr[i]?.[l] ?? '')))
+    if (moneyChanged) {
+      return { error: '審核人不可直接修改付款明細的金額或增刪明細組，金額調整請使用「核准金額」欄位。' }
+    }
   }
 
   const { data: stepDef } = await supabase
@@ -224,15 +243,11 @@ export async function updatePaymentAsReviewer(
   })
   if (!canReview) return { error: '你不是目前關卡的審核人，無法修改此付款憑單' }
 
-  const amountError = await checkAmountWithinRemaining(payment.funds_allocation_id, amount, id, String(session.userId))
-  if (amountError) return { error: amountError }
-
   const { error } = await supabase
     .from('funds_payment')
     .update({
       payment_method: paymentMethod || null,
       extra_data: Object.keys(extraData).length > 0 ? extraData : null,
-      amount,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
