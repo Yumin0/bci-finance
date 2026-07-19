@@ -11,7 +11,7 @@
 分支：`feature/yumin-payment-review-edit`
 開始：2026-07-19
 規格文件：[`docs/core-logic/優化第二批規格提案_2026-07-19.md`](docs/core-logic/優化第二批規格提案_2026-07-19.md) 第三節 (a)
-說明：把資金分配審核頁的能力搬到付款憑單審核頁——審核人可直接改單子內容、每次儲存記欄位級變更歷程（含附件、群組明細逐行比對）、儲存後畫面即時刷新。工程主體：從草稿編輯頁（`my-payment/[id]/page.tsx`）抽出可重用的可編輯表單元件 `funds-payment/_components/PaymentEditForm.tsx`（mode='draft'/'reviewer'），嵌入 `review/check/[id]`；審核人儲存走新 server action `updatePaymentAsReviewer`（server 端再驗審核人身分＋金額上限，類型欄鎖定不可改）。變更歷程沿用 `allocation_edit_logs` 一張表，加 `funds_payment_id`／`temp_voucher_id` 可空欄（比照 approval_records 三 FK 設計，第二批沖銷直接沿用不用再改結構），SQL 已登記 prod-pending-sql（**dev 與正式皆待執行**；未執行前儲存不失敗、只是變更歷程記不進去）。
+說明：把資金分配審核頁的能力搬到付款憑單審核頁——審核人可直接改單子內容、每次儲存記欄位級變更歷程（含附件、群組明細逐行比對）、儲存後畫面即時刷新。工程主體：從草稿編輯頁（`my-payment/[id]/page.tsx`）抽出可重用的可編輯表單元件 `funds-payment/_components/PaymentEditForm.tsx`（mode='draft'/'reviewer'），嵌入 `review/check/[id]`；審核人儲存走新 server action `updatePaymentAsReviewer`（server 端再驗審核人身分＋金額上限，類型欄鎖定不可改）。變更歷程沿用 `allocation_edit_logs` 一張表，加 `funds_payment_id`／`temp_voucher_id` 可空欄（比照 approval_records 三 FK 設計，第二批沖銷直接沿用不用再改結構），SQL 已登記 prod-pending-sql（dev 已於 2026-07-19 執行並補驗；**正式機待執行**，未執行前儲存不失敗、只是變更歷程記不進去）。
 影響範圍確認：
 - [x] /funds-payment/review/check/[id]（審核頁嵌入可編輯表單；Playwright 實測：群組成員看到可編輯表單、改摘要/總額儲存變更 → DB 更新＋畫面即時刷新、非群組成員唯讀無儲存鈕）
 - [x] /funds-payment/my-payment/[id]（草稿編輯頁改用共用表單元件，行為不變：儲存草稿/確定送出/刪除按鈕、群組編輯、附件皆照舊）
@@ -20,60 +20,6 @@
 - [x] 測試截圖：`~/Desktop/付款憑單審核頁可編輯_測試截圖/`（7 張）
 - [x] dev Supabase 加欄 SQL 已執行（2026-07-19），補驗通過：儲存變更寫入 3 筆歷程（摘要/總額/憑單金額，含變更人與步驟）、Modal 分組顯示正常，測試資料已清除
 - [ ] staging 驗收 → 推正式機（正式機需先跑 prod-pending-sql 的加欄 SQL）
-
-**暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin）
-分支：`feature/yumin-voucher-return-amount`
-開始：2026-07-15
-規格文件：[`docs/core-logic/暫付款沖銷與回存金額_待確認事項.md`](docs/core-logic/暫付款沖銷與回存金額_待確認事項.md)（第二節五項已拍板，其餘待財務確認）
-說明：① 付款憑單建單頁「總額」預帶母單剩餘額度（多組只帶第一組）；② 沖銷建單頁「總額」預帶母憑單**實際撥款金額**（修 bug：原本帶母憑單原始填寫值，只要審核下修過就必定超額被擋）；③ 超額硬擋維持不變（財務確認：不可花超過，超過請另做資金分配申請）；④ 沖銷建單／詳細／審核三頁加「預支的付款憑單」對照卡片（原本完全沒有母憑單資訊，審核人看不到當初預支多少）；⑤ 顯示「回存金額」＝實際撥款 − 各組總額加總（即時算不落地）。**全部不動資料庫、無待執行 SQL。**
-名稱約定：這個數字**一律叫「回存金額」**，不可叫「剩餘金額」（後者在全站已是「資金分配核准金額 − 憑單佔用額度」，意思完全不同，撞名會全站混淆）。
-影響範圍確認（回存金額顯示為橫切關注點）：
-- [x] /funds-voucher/my-voucher/add/[id]（建單頁：對照卡片＋回存金額＋總額預帶值）
-- [x] /funds-voucher/my-voucher/[id]（詳細頁：對照卡片＋回存金額；順修送出後 reload 漏帶 funds_payment embed 導致採購單號掉成「-」）
-- [x] /funds-voucher/review/check/[id]（審核頁：對照卡片＋回存金額）
-- [x] /funds-payment/my-payment/add/[id]（付款憑單建單頁：總額預帶剩餘額度）
-- [x] AllocationSummaryCard 3 個使用點（改用共用 SummaryCard，props 未變）
-- [x] DetailSummaryItem 既有 7 個使用點（新增選填 danger prop，不影響現有呼叫）
-- [x] npm run build 全站編譯通過（零 error 零 warning）
-
-**審核清單快速審核按鈕放大＋共用化、拿掉查閱按鈕**（Yumin）
-分支：`feature/yumin-review-quick-buttons`
-開始：2026-07-15
-說明：資金分配審核管理頁快速審核按鈕比照筑今系統放大、改為紅底／綠底實心按鈕，抽成共用元件 `_components/QuickReviewButtons.tsx`；拿掉列表與歷史紀錄的「查閱」按鈕（單號本身即連結）。
-
-**組織架構編輯課別/處別按保存沒反應（層級誤設必填）**（Riku）
-分支：`feature/riku-org-edit-save`
-開始：2026-07-14
-說明：組織架構節點編輯的存檔函式把「層級」欄位設為必填（`!editLevel.trim()` 就 return），但層級是純顯示用的選填自由文字標籤，多數節點留空，導致編輯留空層級的課別/處別按保存直接靜默 return、畫面無反應也無錯誤。修正為只檢查名稱必填。
-
-**新增申請單：選申請課別/處別會把已選職務清空**（Riku）
-分支：`feature/riku-role-cascade`
-開始：2026-07-14
-說明：新增資金分配申請單頁「職務」下拉選項值已改為「組織單位＋職稱」組合字，但「申請處別/課別」onChange 仍留舊邏輯，會用純職稱字串反向覆寫職務——格式對不上導致一選課別就把職務清空（多角色課別直接清空、單角色也塞入對不到選項的值）。修正：移除申請處別/課別 onChange 反向覆寫職務的那段（改處別仍清空已選課別）。設計維持單向「選職務→自動帶入處/課」。編輯頁為另一種設計（處/課驅動職務、選項為純職稱），格式一致故不動。
-
-**明細頁共用元件：付款明細表格 + 欄位區塊渲染**（Yumin）
-分支：`feature/yumin-shared-detail-components`
-開始：2026-07-15
-說明：抽出共用唯讀顯示元件 `_components/RecordDetailView.tsx`（`ReadOnlyField`／`DetailFieldLayout`／`DetailBlock`／`DetailSummaryItem`／`GroupDetailTable`／`detailRowGridStyle`），三個明細頁改用同一套樣式，改顏色/間距一次到位連動。暫付款沖銷明細表格原本樣式不同（muted 標頭＋#序號欄），統一為付款憑單/資金分配樣式（text-body 標頭、空值「—」、拿掉 # 欄）。欄位版面比照資金分配申請表單：**無群組區塊＝橫式（標籤在左固定寬 140、內容填滿、columnGap 48）、有群組/可重複列的區塊（付款明細）＝直式（標籤在上）**，三個明細頁一致。審核區塊共用化列為後續階段。
-※ 與 Riku `feature/riku-ui-consistency`（付款憑單詳細頁、審核操作頁）重疊，已知會，Yumin 與 Riku 協調。
-影響範圍確認（共用明細顯示為橫切關注點）：
-- [x] /funds-allocation/review/check/[id]（FundsAllocationDetail 唯讀顯示）
-- [x] /funds-payment/my-payment/[id]（FundsPaymentDetail）
-- [x] /funds-payment/review/check/[id]（FundsPaymentDetail）
-- [x] /funds-voucher/my-voucher/[id]（沖銷明細頁，本次主要目標）
-- [x] /funds-voucher/review/check/[id]（沖銷審核頁的明細表格）
-- [x] npm run build 全站編譯通過
-
-**出款帳戶可見範圍 + 編輯／防重複／排序**（Riku）
-分支：`feature/riku-payment-account-visibility`
-開始：2026-07-13
-說明：出款帳戶可設定「可見範圍」（組織節點，勾選節點含子孫成員才會在申請單下拉看到；空＝全公司可見）；並加就地改名、新增/改名防重複（去空白不分大小寫）、右上角拖曳排序。
-影響範圍確認（出款帳戶下拉過濾為橫切關注點）：
-- [x] /funds-allocation/my-funds/add（申請單新增，下拉過濾）
-- [x] /funds-allocation/my-funds/edit/[id]（申請單編輯，下拉過濾）
-- [x] /funds-payment 建立/草稿編輯（出款帳戶為唯讀繼承，不需過濾，已確認）
-- [x] /system-settings/expense-fields（可見範圍/編輯/防重複/排序 UI）
-- [x] 待執行 SQL 登記 docs/prod-pending-sql.md
 
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
@@ -317,6 +263,60 @@
 ---
 
 ## 已完成
+
+**暫付款沖銷：回存金額 + 母憑單對照卡片 + 總額預帶值修正**（Yumin） ✅ 已完成（已上 main；2026-07-19 依 git log 核對歸檔）
+分支：`feature/yumin-voucher-return-amount`
+開始：2026-07-15
+規格文件：[`docs/core-logic/暫付款沖銷與回存金額_待確認事項.md`](docs/core-logic/暫付款沖銷與回存金額_待確認事項.md)（第二節五項已拍板，其餘待財務確認）
+說明：① 付款憑單建單頁「總額」預帶母單剩餘額度（多組只帶第一組）；② 沖銷建單頁「總額」預帶母憑單**實際撥款金額**（修 bug：原本帶母憑單原始填寫值，只要審核下修過就必定超額被擋）；③ 超額硬擋維持不變（財務確認：不可花超過，超過請另做資金分配申請）；④ 沖銷建單／詳細／審核三頁加「預支的付款憑單」對照卡片（原本完全沒有母憑單資訊，審核人看不到當初預支多少）；⑤ 顯示「回存金額」＝實際撥款 − 各組總額加總（即時算不落地）。**全部不動資料庫、無待執行 SQL。**
+名稱約定：這個數字**一律叫「回存金額」**，不可叫「剩餘金額」（後者在全站已是「資金分配核准金額 − 憑單佔用額度」，意思完全不同，撞名會全站混淆）。
+影響範圍確認（回存金額顯示為橫切關注點）：
+- [x] /funds-voucher/my-voucher/add/[id]（建單頁：對照卡片＋回存金額＋總額預帶值）
+- [x] /funds-voucher/my-voucher/[id]（詳細頁：對照卡片＋回存金額；順修送出後 reload 漏帶 funds_payment embed 導致採購單號掉成「-」）
+- [x] /funds-voucher/review/check/[id]（審核頁：對照卡片＋回存金額）
+- [x] /funds-payment/my-payment/add/[id]（付款憑單建單頁：總額預帶剩餘額度）
+- [x] AllocationSummaryCard 3 個使用點（改用共用 SummaryCard，props 未變）
+- [x] DetailSummaryItem 既有 7 個使用點（新增選填 danger prop，不影響現有呼叫）
+- [x] npm run build 全站編譯通過（零 error 零 warning）
+
+**審核清單快速審核按鈕放大＋共用化、拿掉查閱按鈕**（Yumin） ✅ 已完成（已上 main；2026-07-19 依 git log 核對歸檔）
+分支：`feature/yumin-review-quick-buttons`
+開始：2026-07-15
+說明：資金分配審核管理頁快速審核按鈕比照筑今系統放大、改為紅底／綠底實心按鈕，抽成共用元件 `_components/QuickReviewButtons.tsx`；拿掉列表與歷史紀錄的「查閱」按鈕（單號本身即連結）。
+
+**組織架構編輯課別/處別按保存沒反應（層級誤設必填）**（Riku） ✅ 已完成（已上 main；2026-07-19 依 git log 核對歸檔）
+分支：`feature/riku-org-edit-save`
+開始：2026-07-14
+說明：組織架構節點編輯的存檔函式把「層級」欄位設為必填（`!editLevel.trim()` 就 return），但層級是純顯示用的選填自由文字標籤，多數節點留空，導致編輯留空層級的課別/處別按保存直接靜默 return、畫面無反應也無錯誤。修正為只檢查名稱必填。
+
+**新增申請單：選申請課別/處別會把已選職務清空**（Riku） ✅ 已完成（已上 main；2026-07-19 依 git log 核對歸檔）
+分支：`feature/riku-role-cascade`
+開始：2026-07-14
+說明：新增資金分配申請單頁「職務」下拉選項值已改為「組織單位＋職稱」組合字，但「申請處別/課別」onChange 仍留舊邏輯，會用純職稱字串反向覆寫職務——格式對不上導致一選課別就把職務清空（多角色課別直接清空、單角色也塞入對不到選項的值）。修正：移除申請處別/課別 onChange 反向覆寫職務的那段（改處別仍清空已選課別）。設計維持單向「選職務→自動帶入處/課」。編輯頁為另一種設計（處/課驅動職務、選項為純職稱），格式一致故不動。
+
+**明細頁共用元件：付款明細表格 + 欄位區塊渲染**（Yumin） ✅ 已完成（已上 main；2026-07-19 依 git log 核對歸檔）
+分支：`feature/yumin-shared-detail-components`
+開始：2026-07-15
+說明：抽出共用唯讀顯示元件 `_components/RecordDetailView.tsx`（`ReadOnlyField`／`DetailFieldLayout`／`DetailBlock`／`DetailSummaryItem`／`GroupDetailTable`／`detailRowGridStyle`），三個明細頁改用同一套樣式，改顏色/間距一次到位連動。暫付款沖銷明細表格原本樣式不同（muted 標頭＋#序號欄），統一為付款憑單/資金分配樣式（text-body 標頭、空值「—」、拿掉 # 欄）。欄位版面比照資金分配申請表單：**無群組區塊＝橫式（標籤在左固定寬 140、內容填滿、columnGap 48）、有群組/可重複列的區塊（付款明細）＝直式（標籤在上）**，三個明細頁一致。審核區塊共用化列為後續階段。
+※ 與 Riku `feature/riku-ui-consistency`（付款憑單詳細頁、審核操作頁）重疊，已知會，Yumin 與 Riku 協調。
+影響範圍確認（共用明細顯示為橫切關注點）：
+- [x] /funds-allocation/review/check/[id]（FundsAllocationDetail 唯讀顯示）
+- [x] /funds-payment/my-payment/[id]（FundsPaymentDetail）
+- [x] /funds-payment/review/check/[id]（FundsPaymentDetail）
+- [x] /funds-voucher/my-voucher/[id]（沖銷明細頁，本次主要目標）
+- [x] /funds-voucher/review/check/[id]（沖銷審核頁的明細表格）
+- [x] npm run build 全站編譯通過
+
+**出款帳戶可見範圍 + 編輯／防重複／排序**（Riku） ✅ 已完成（已上 main；2026-07-19 依 git log 核對歸檔）
+分支：`feature/riku-payment-account-visibility`
+開始：2026-07-13
+說明：出款帳戶可設定「可見範圍」（組織節點，勾選節點含子孫成員才會在申請單下拉看到；空＝全公司可見）；並加就地改名、新增/改名防重複（去空白不分大小寫）、右上角拖曳排序。
+影響範圍確認（出款帳戶下拉過濾為橫切關注點）：
+- [x] /funds-allocation/my-funds/add（申請單新增，下拉過濾）
+- [x] /funds-allocation/my-funds/edit/[id]（申請單編輯，下拉過濾）
+- [x] /funds-payment 建立/草稿編輯（出款帳戶為唯讀繼承，不需過濾，已確認）
+- [x] /system-settings/expense-fields（可見範圍/編輯/防重複/排序 UI）
+- [x] 待執行 SQL 登記 docs/prod-pending-sql.md
 
 **逐項核准金額（優化第二批第一節）**（Yumin）✅ 已完成（2026-07-19，staging 驗收後推正式機；`approval_records.approved_items jsonb` 加欄 SQL 已於 dev 與正式機執行完畢）
 分支：`feature/yumin-itemized-approval`
