@@ -19,6 +19,7 @@ import PaymentEditForm from '@/app/funds-payment/_components/PaymentEditForm'
 import StatusBadge from '@/app/_components/StatusBadge'
 import ShareLinkButton from '@/app/_components/ShareLinkButton'
 import ReviewProgressBlock, { type ReviewStepDef } from '@/app/_components/ReviewProgressBlock'
+import { canExportPaymentVoucher } from '@/lib/paymentPrintEligibility'
 import ErrorDialog from '@/app/_components/ErrorDialog'
 import { Button, buttonVariants } from '@/components/ui/button'
 
@@ -163,8 +164,8 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>付款憑單</h1>
           {/* 一鍵複製分享連結（列22）：職員複製給主管，連結為中介轉址路由依身份分流；草稿還沒送審沒有分享意義 */}
           {!isDraft && <ShareLinkButton path={`/funds-payment/share/${record!.id}`} />}
-          {record!.status === PAYMENT_STATUS.PAID && (
-            // 已付款才可匯出列印版（比照筑今）；職員從這裡匯出自己的單、財務從付款憑單管理頁代匯出
+          {canExportPaymentVoucher(record!.status, record!.current_step, record!.approval_flow_templates?.approval_flow_steps) && (
+            // 課處長關卡核准後即可匯出列印版（2026-07-20 財務拍板，不必等已付款）；職員從這裡匯出自己的單、財務從付款憑單管理頁代匯出
             <Link
               href={`/funds-payment/my-payment/${record!.id}/print`}
               target="_blank"
