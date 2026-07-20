@@ -1,7 +1,9 @@
 'use client'
 
-// 付款憑單列印頁（比照筑今版式）：已付款憑單專用，A4 直式表格＋瀏覽器列印（可存 PDF）。
-// 入口：憑單詳細頁（已付款）右上角「匯出付款憑單」、財務付款憑單管理頁每列「匯出」。
+// 付款憑單列印頁（比照筑今版式）：A4 直式表格＋瀏覽器列印（可存 PDF）。
+// 開放條件見 lib/paymentPrintEligibility.ts：課處長關卡核准後即可匯出（2026-07-20 財務拍板，不必等已付款），
+// 提早匯出時還沒審到的簽核欄（會計/CFO）人名留白給紙本簽。
+// 入口：憑單詳細頁右上角「匯出付款憑單」、財務付款憑單管理頁每列「匯出」。
 // 筑今差異（Yumin 2026-07-19 拍板）：會計科目欄改印「費用項目（細項）」；簽核欄名照筑今
 // （CFO／會計／部門主管／申請人），帶新系統審核紀錄對應人名。
 
@@ -9,6 +11,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FormBlock, FormSlot } from '@/lib/types'
 import { getFormSchemas } from '@/app/actions/form-schema'
+import { canExportPaymentVoucher } from '@/lib/paymentPrintEligibility'
 
 type PrintPayment = {
   id: number
@@ -20,10 +23,12 @@ type PrintPayment = {
   payment_method: string | null
   category: string | null
   status: string
+  current_step: number | null
   applicant: string | null
   created_by: string | null
   extra_data: Record<string, string> | null
   funds_allocation: { name: string | null; applicant: string | null } | null
+  approval_flow_templates: { approval_flow_steps: Array<{ step_number: number; reviewer_type: string | null }> } | null
 }
 
 type ApprovalRow = { step_name: string | null; decision: string | null; reviewer_id: string | null }
@@ -66,7 +71,7 @@ export default function PaymentPrintPage({ params }: { params: Promise<{ id: str
       const [{ data }, { data: recs }, schemas] = await Promise.all([
         supabase
           .from('funds_payment')
-          .select('id, funds_allocation_id, purchase_order_number, date, amount, approved_amount, payment_method, category, status, applicant, created_by, extra_data, funds_allocation:funds_allocation_id(name, applicant)')
+          .select('id, funds_allocation_id, purchase_order_number, date, amount, approved_amount, payment_method, category, status, current_step, applicant, created_by, extra_data, funds_allocation:funds_allocation_id(name, applicant), approval_flow_templates(approval_flow_steps(step_number, reviewer_type))')
           .eq('id', Number(id))
           .single(),
         supabase
@@ -103,8 +108,8 @@ export default function PaymentPrintPage({ params }: { params: Promise<{ id: str
 
   if (loading) return <p className="text-muted-foreground">載入中...</p>
   if (!record) return <p className="text-muted-foreground">找不到付款憑單</p>
-  if (record.status !== 'paid') {
-    return <p className="text-muted-foreground">此憑單尚未付款，付款完成後才能匯出付款憑單。</p>
+  if (!canExportPaymentVoucher(record.status, record.current_step, record.approval_flow_templates?.approval_flow_steps)) {
+    return <p className="text-muted-foreground">此憑單尚未通過課長、處長審核，各處審核流程跑完後才能匯出付款憑單。</p>
   }
 
   const extra = record.extra_data ?? {}

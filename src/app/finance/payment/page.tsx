@@ -18,11 +18,12 @@ import {
   PaymentListCells,
   PAYMENT_LIST_COLUMNS_AFTER_STATUS,
 } from '@/app/funds-payment/_components/PaymentListCells'
+import { canExportPaymentVoucher } from '@/lib/paymentPrintEligibility'
 
 type PaymentRecord = FundsPayment & {
   approval_flow_templates: {
     name: string
-    approval_flow_steps: Array<{ step_name: string; step_number: number }>
+    approval_flow_steps: Array<{ step_name: string; step_number: number; reviewer_type?: string | null }>
   } | null
   approval_records: Array<{ step_name: string; decision: string }>
 }
@@ -41,7 +42,7 @@ export default function FinancePaymentPage() {
       const [{ data }, config, schemas] = await Promise.all([
         supabase
           .from('funds_payment')
-          .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number)), approval_records!funds_payment_id(step_name, decision)`)
+          .select(`*, approval_flow_templates(name, approval_flow_steps(step_name, step_number, reviewer_type)), approval_records!funds_payment_id(step_name, decision)`)
           .order('created_at', { ascending: false }),
         getStatusLabelConfig(),
         getFormSchemas(),
@@ -167,8 +168,8 @@ export default function FinancePaymentPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {/* 財務代職員匯出列印版（筑今做不到的），已付款才開放 */}
-                      {r.status === 'paid' ? (
+                      {/* 財務代職員匯出列印版（筑今做不到的）；課處長關卡核准後即開放（2026-07-20 財務拍板） */}
+                      {canExportPaymentVoucher(r.status, r.current_step, r.approval_flow_templates?.approval_flow_steps) ? (
                         <a
                           href={`/funds-payment/my-payment/${r.id}/print`}
                           target="_blank"
