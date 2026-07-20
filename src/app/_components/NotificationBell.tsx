@@ -210,9 +210,11 @@ export default function NotificationBell({ userId, initialUnreadCount }: Props) 
                       <div style={{
                         fontSize: 12,
                         color: 'var(--text-muted)',
-                        whiteSpace: 'nowrap',
+                        // 內文最多兩行再截斷（核准金額調整通知單行看不完整）
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
                         overflow: 'hidden',
-                        textOverflow: 'ellipsis',
                       }}>
                         {item.body}
                       </div>
