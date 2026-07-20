@@ -11,6 +11,7 @@ import { deriveUserOrgCombos, allDivisionOptions, allSectionOptions, unitsInTree
 import { getTaxRateOptions } from '@/app/actions/tax-rates'
 import { feeItemCode } from '@/lib/feeItems'
 import { validateFeePositive } from '@/lib/feeValidation'
+import { isGroupSlotHidden, visibleGroupSlots } from '@/lib/groupSlotVisibility'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -497,34 +498,44 @@ export default function AddFundsForm({
     ? [...new Set(divisionRoles)]
     : [...new Set(Object.values(memberRoleMap).flat())]
 
+  // 群組欄位 showWhen 判斷用：觸發欄位（如「單據種類」）是頂層欄位，直接讀 fieldValues
+  const topFieldValue = (fid: string) => fieldValues[fid] ?? ''
+
   // 稅額計算（純 derived，每次 render 重新算，不放進 state 避免無限迴圈）
   const blockTaxMap: Record<string, ReturnType<typeof computeBlockTax>> = {}
-  // 群組區塊的彙總顯示（key = blockId）
-  const groupBlockSummary: Record<string, { taxBase: number; handling: number; taxAmount: number; total: number }> = {}
+  // 群組區塊的彙總顯示（key = blockId）；showHandling/showTax＝該欄未被 showWhen 整欄隱藏
+  const groupBlockSummary: Record<string, { taxBase: number; handling: number; taxAmount: number; total: number; showHandling: boolean; showTax: boolean }> = {}
   for (const block of schema) {
     const groupRows = getGroupRows(block)
     if (groupRows.length > 0) {
-      // 群組區塊：加總所有實例（使用儲存值，保留使用者手動修改的稅額）
+      // 群組區塊：加總所有實例（使用儲存值，保留使用者手動修改的稅額）；showWhen 隱藏的欄位視為 0
       const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+      const visSlots = visibleGroupSlots(groupSlots, topFieldValue)
       const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
       const baseFieldId = taxSelectSlot?.taxConfig?.baseFieldId ?? ''
       const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
       const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
       // 手續費 = 所有 number 欄位，排除費用、稅額、合計
-      const handlingSlots = groupSlots.filter(s =>
+      const isHandling = (s: NonNullable<FormSlot>) =>
         s.type === 'number' &&
         s.fieldId !== baseFieldId &&
         (!taxAmtFieldId || s.fieldId !== taxAmtFieldId) &&
         (!totalFieldId || s.fieldId !== totalFieldId)
-      )
+      const allHandlingSlots = groupSlots.filter(isHandling)
+      const handlingSlots = visSlots.filter(isHandling)
+      const taxVisible = !!taxAmtFieldId && visSlots.some(s => s.fieldId === taxAmtFieldId)
       const instances = groupInstances[block.id] ?? [{}]
       let totalBase = 0, totalHandling = 0, totalTax = 0
       for (const inst of instances) {
         totalBase += parseFloat(inst[baseFieldId] ?? '0') || 0
         totalHandling += handlingSlots.reduce((acc, s) => acc + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0)
-        totalTax += taxAmtFieldId ? (parseFloat(inst[taxAmtFieldId] ?? '0') || 0) : 0
+        totalTax += taxVisible ? (parseFloat(inst[taxAmtFieldId!] ?? '0') || 0) : 0
       }
-      groupBlockSummary[block.id] = { taxBase: totalBase, handling: totalHandling, taxAmount: totalTax, total: totalBase + totalHandling + totalTax }
+      groupBlockSummary[block.id] = {
+        taxBase: totalBase, handling: totalHandling, taxAmount: totalTax, total: totalBase + totalHandling + totalTax,
+        showHandling: allHandlingSlots.length === 0 || handlingSlots.length > 0,
+        showTax: !taxAmtFieldId || taxVisible,
+      }
       continue
     }
     // Aggregate repeatable row values (summed) so tax calculation sees correct amounts
@@ -869,6 +880,8 @@ export default function AddFundsForm({
     const groupRows = getGroupRows(block)
     if (groupRows.length === 0) return null
     const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
+    // showWhen 隱藏的欄位不進表格（如國內公司隱藏手續費/稅額選擇/稅額）；taxConfig 仍從全部欄位找，結構不受隱藏影響
+    const visSlots = visibleGroupSlots(groupSlots, topFieldValue)
     const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
     const instances = groupInstances[block.id] ?? [{}]
 
@@ -891,16 +904,17 @@ export default function AddFundsForm({
       })
     }
 
-    // 合計 = 其他數字欄位 + 已儲存的稅額（使用者可手動覆寫稅額）
+    // 合計 = 其他數字欄位 + 已儲存的稅額（使用者可手動覆寫稅額）；隱藏欄位視為 0 不計入
     const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
     const taxAmountFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+    const taxAmtVisible = !!taxAmountFieldId && visSlots.some(s => s.fieldId === taxAmountFieldId)
     const otherNums = taxSelectSlot?.taxConfig
-      ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmountFieldId)
+      ? visSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmountFieldId)
       : []
 
     return (
       <GroupEditTable
-        slots={groupSlots}
+        slots={visSlots}
         instances={instances}
         selectOptionLabels={groupSelectOptionLabels}
         onAdd={() => addGroupInstance(block.id)}
@@ -908,7 +922,7 @@ export default function AddFundsForm({
         renderCell={(slot, instValues, instIdx) => {
           // 合計唯讀（稅額 + 其他數字加總）
           if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
-            const storedTax = taxAmountFieldId ? (parseFloat(instValues[taxAmountFieldId] ?? '0') || 0) : 0
+            const storedTax = taxAmtVisible ? (parseFloat(instValues[taxAmountFieldId!] ?? '0') || 0) : 0
             const computedTotal = otherNums.reduce((sum, s) => sum + (parseFloat(instValues[s.fieldId] ?? '0') || 0), 0) + storedTax
             return <Input value={String(computedTotal)} readOnly className="bg-[var(--bg-page)] cursor-not-allowed" />
           }
@@ -991,16 +1005,21 @@ export default function AddFundsForm({
       const taxSelectSlot = groupSlots.find(s => s.dataSource === 'tax_rates' && s.taxConfig)
       const totalFieldId = taxSelectSlot?.taxConfig?.totalFieldId
       const taxAmtFieldId = taxSelectSlot?.taxConfig?.taxAmountFieldId
+      // showWhen 隱藏的欄位（如國內公司的手續費/稅額選擇/稅額）不計入合計、存檔一律存空值
+      const visSlots = visibleGroupSlots(groupSlots, topFieldValue)
+      const taxAmtVisible = !!taxAmtFieldId && visSlots.some(s => s.fieldId === taxAmtFieldId)
       const otherNums = taxSelectSlot?.taxConfig
-        ? groupSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmtFieldId)
+        ? visSlots.filter(s => s.type === 'number' && s.fieldId !== totalFieldId && s.fieldId !== taxAmtFieldId)
         : []
       const labeled = instances.map(inst => {
-        const storedTax = taxAmtFieldId ? (parseFloat(inst[taxAmtFieldId] ?? '0') || 0) : 0
+        const storedTax = taxAmtVisible ? (parseFloat(inst[taxAmtFieldId!] ?? '0') || 0) : 0
         const numsSum = otherNums.reduce((sum, s) => sum + (parseFloat(inst[s.fieldId] ?? '0') || 0), 0)
         const total = numsSum + storedTax
         const obj: Record<string, string> = {}
         for (const slot of groupSlots) {
-          if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
+          if (isGroupSlotHidden(slot, topFieldValue)) {
+            obj[slot.label] = ''
+          } else if (totalFieldId && slot.fieldId === totalFieldId && slot.type === 'number') {
             obj[slot.label] = String(total)
           } else {
             obj[slot.label] = inst[slot.fieldId] ?? ''
@@ -1184,12 +1203,16 @@ export default function AddFundsForm({
                         <span style={{ color: 'var(--text-muted)' }}>
                           費用 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.taxBase)}</strong>
                         </span>
-                        <span style={{ color: 'var(--text-muted)' }}>
-                          手續費 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.handling)}</strong>
-                        </span>
-                        <span style={{ color: 'var(--text-muted)' }}>
-                          稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.taxAmount)}</strong>
-                        </span>
+                        {grpSummary.showHandling && (
+                          <span style={{ color: 'var(--text-muted)' }}>
+                            手續費 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.handling)}</strong>
+                          </span>
+                        )}
+                        {grpSummary.showTax && (
+                          <span style={{ color: 'var(--text-muted)' }}>
+                            稅額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.taxAmount)}</strong>
+                          </span>
+                        )}
                         <span style={{ color: 'var(--text-muted)' }}>
                           總額 <strong style={{ color: 'var(--text-body)' }}>{formatTaxNumber(grpSummary.total)}</strong>
                         </span>

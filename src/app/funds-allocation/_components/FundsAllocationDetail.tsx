@@ -5,6 +5,7 @@ import { type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import AttachmentUpload from '@/app/_components/AttachmentUpload'
 import { DetailBlock, DetailFieldLayout, DetailSummaryItem, GroupDetailTable, ReadOnlyField, detailBlockStyle, detailRowGridStyle } from '@/app/_components/RecordDetailView'
+import { visibleGroupSlots } from '@/lib/groupSlotVisibility'
 import { formatTaxNumber } from '@/lib/taxUtils'
 
 const blockStyle = detailBlockStyle
@@ -85,6 +86,12 @@ export default function FundsAllocationDetail({
     return <GroupDetailTable slots={slots} instances={instances} />
   }
 
+  // 群組欄位 showWhen 判斷用：觸發欄位（如「單據種類」）是頂層欄位，從 record 解析其值
+  function resolveTopValue(fieldId: string): string {
+    const controlSlot = schema!.flatMap(b => b.rows.flatMap(r => r.slots)).find(s => s?.fieldId === fieldId)
+    return controlSlot ? getSlotValue(controlSlot, record) : ''
+  }
+
   function renderGroupInstances(block: FormBlock) {
     const groupRows = getGroupRows(block)
     if (!groupRows.length) return null
@@ -94,10 +101,11 @@ export default function FundsAllocationDetail({
     if (!instances.length || (instances.length === 1 && !Object.keys(instances[0]).length)) return null
 
     const groupSlots = groupRows.flatMap(r => r.slots).filter(Boolean) as NonNullable<FormSlot>[]
-    return <GroupDetailTable slots={groupSlots} instances={instances} />
+    // showWhen 隱藏的欄位不顯示（如國內公司隱藏手續費/稅額選擇/稅額）
+    return <GroupDetailTable slots={visibleGroupSlots(groupSlots, resolveTopValue)} instances={instances} />
   }
 
-  function computeGroupSummary(block: FormBlock): { taxBase: number; handling: number; taxAmount: number; total: number } | null {
+  function computeGroupSummary(block: FormBlock): { taxBase: number; handling: number; taxAmount: number; total: number; showHandling: boolean; showTax: boolean } | null {
     const groupRows = getGroupRows(block)
     if (!groupRows.length) return null
 
@@ -110,14 +118,17 @@ export default function FundsAllocationDetail({
     if (!taxSelectSlot?.taxConfig) return null
 
     const { baseFieldId, taxAmountFieldId, totalFieldId } = taxSelectSlot.taxConfig
+    // showWhen 隱藏的欄位視為 0 不計入彙總（存檔時本來就存空值，這裡再過濾一層保險）
+    const visSlots = visibleGroupSlots(groupSlots, resolveTopValue)
     const baseSlot = groupSlots.find(s => s.fieldId === baseFieldId)
-    const taxAmtSlot = groupSlots.find(s => s.fieldId === taxAmountFieldId)
-    const handlingSlots = groupSlots.filter(s =>
+    const taxAmtSlot = visSlots.find(s => s.fieldId === taxAmountFieldId)
+    const isHandling = (s: NonNullable<FormSlot>) =>
       s.type === 'number' &&
       s.fieldId !== baseFieldId &&
       (!taxAmountFieldId || s.fieldId !== taxAmountFieldId) &&
       s.fieldId !== totalFieldId
-    )
+    const allHandlingSlots = groupSlots.filter(isHandling)
+    const handlingSlots = visSlots.filter(isHandling)
 
     let totalBase = 0, totalHandling = 0, totalTax = 0
     for (const inst of instances) {
@@ -126,7 +137,11 @@ export default function FundsAllocationDetail({
       totalTax += taxAmtSlot ? (parseFloat(inst[taxAmtSlot.label] ?? '0') || 0) : 0
     }
 
-    return { taxBase: totalBase, handling: totalHandling, taxAmount: totalTax, total: totalBase + totalHandling + totalTax }
+    return {
+      taxBase: totalBase, handling: totalHandling, taxAmount: totalTax, total: totalBase + totalHandling + totalTax,
+      showHandling: allHandlingSlots.length === 0 || handlingSlots.length > 0,
+      showTax: !taxAmountFieldId || !!taxAmtSlot,
+    }
   }
 
   const schemaBlocks = schema.filter(block => {
@@ -154,8 +169,8 @@ export default function FundsAllocationDetail({
             summary={groupSummary && (
               <>
                 <DetailSummaryItem label="費用" value={formatTaxNumber(groupSummary.taxBase)} />
-                <DetailSummaryItem label="手續費" value={formatTaxNumber(groupSummary.handling)} />
-                <DetailSummaryItem label="稅額" value={formatTaxNumber(groupSummary.taxAmount)} />
+                {groupSummary.showHandling && <DetailSummaryItem label="手續費" value={formatTaxNumber(groupSummary.handling)} />}
+                {groupSummary.showTax && <DetailSummaryItem label="稅額" value={formatTaxNumber(groupSummary.taxAmount)} />}
                 <DetailSummaryItem label="總額" value={formatTaxNumber(groupSummary.total)} />
               </>
             )}
