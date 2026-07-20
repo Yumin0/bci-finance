@@ -15,6 +15,7 @@ import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { DEFAULT_STATUS_LABEL_CONFIG, type StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
 import ReviewProgressBlock, { type ReviewStepDef } from '@/app/_components/ReviewProgressBlock'
+import ShareLinkButton from '@/app/_components/ShareLinkButton'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { DetailAttachmentField, DetailBlock, DetailFieldLayout, GroupDetailTable, ReadOnlyField, detailRowGridStyle } from '@/app/_components/RecordDetailView'
 import PaymentSummaryCard, { VoucherParentPayment, VOUCHER_PARENT_PAYMENT_COLUMNS } from '@/app/funds-voucher/_components/PaymentSummaryCard'
@@ -218,6 +219,11 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>
           暫付款沖銷憑單{record!.serial_number ? ` ${record!.serial_number}` : ''}
         </h1>
+        {!isDraft && (
+          <span style={{ marginLeft: 'auto' }}>
+            <ShareLinkButton path={`/funds-voucher/share/${record!.id}`} />
+          </span>
+        )}
         {isDraft && (
           <Button
             type="button"

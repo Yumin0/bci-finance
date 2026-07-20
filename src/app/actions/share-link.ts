@@ -115,3 +115,41 @@ export async function resolvePaymentShareTarget(paymentId: number, userId: numbe
   }
   return null
 }
+
+/** 暫付款沖銷憑單分享連結落點；null＝無檢視權限 */
+export async function resolveVoucherShareTarget(voucherId: number, userId: number): Promise<string | null> {
+  const { data: rec } = await supabase
+    .from('temp_vouchers')
+    .select('id, created_by, status, current_step, flow_template_id, funds_payment_id')
+    .eq('id', voucherId)
+    .single()
+  if (!rec || rec.status === 'draft') return null
+
+  // 沖銷憑單無自己的處/課別欄位，回溯兩層：temp_voucher → funds_payment → funds_allocation（與審核人解析同一約定）
+  let allocationId: number | null = null
+  if (rec.funds_payment_id) {
+    const { data: parentPayment } = await supabase
+      .from('funds_payment')
+      .select('funds_allocation_id')
+      .eq('id', rec.funds_payment_id)
+      .single()
+    allocationId = parentPayment?.funds_allocation_id ?? null
+  }
+  const orgContext = await getAllocationOrgContext(allocationId)
+
+  const reviewUrl = `/funds-voucher/review/check/${voucherId}`
+  if (await isCurrentStepReviewer(userId, rec.status, rec.current_step, rec.flow_template_id, orgContext.applyDivisionId, orgContext.applySectionId)) {
+    return reviewUrl
+  }
+  if (parseInt(String(rec.created_by), 10) === userId) {
+    return `/funds-voucher/my-voucher/${voucherId}`
+  }
+  const perms = await getUserReviewPermissions(userId)
+  if (hasAnyPermission(perms, ['fv-review-div', 'fv-review-group'])) {
+    return reviewUrl
+  }
+  if (await matchesAnyStep(userId, rec.flow_template_id, orgContext.applyDivisionId, orgContext.applySectionId)) {
+    return reviewUrl
+  }
+  return null
+}

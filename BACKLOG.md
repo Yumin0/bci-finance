@@ -98,9 +98,7 @@
 
 #### ~~[一鍵複製分享連結給主管審核]~~（優先序2 列22）✅ 已完成（2026-07-20，見「已完成」；資金分配＋付款憑單）
 
-#### [暫付款沖銷憑單分享連結]（2026-07-20 Yumin 拍板要做，接續列22）
-- **規格**：比照資金分配／付款憑單的分享連結——沖銷詳細頁（`my-voucher/[id]`，非草稿）加「複製分享連結」按鈕（重用 `_components/ShareLinkButton.tsx`），連結指中介轉址路由 `/funds-voucher/share/{id}`，依身份分流（循 `actions/share-link.ts` 既有模式）：①目前關卡審核人（含群組成員）→沖銷審核頁 ②申請人本人→自己的沖銷詳細頁 ③有查閱權限者（管理員／`fv-review-*` 權限／範本步驟審核人）→審核頁唯讀 ④皆非→「無檢視權限」提示頁（重用 `ShareNoAccess`）
-- **備註**：returnUrl 登入回跳機制已是全站共用（proxy），不用再做；審核人解析需回溯母付款憑單→申請單（`getAllocationOrgContext` 既有兩層回溯邏輯）
+#### ~~[暫付款沖銷憑單分享連結]~~（接續列22）✅ 已完成（2026-07-20，見「已完成」）
 
 #### ~~[付款憑單列表加「申請金額」欄]~~（優先序2 列24）✅ 已完成（2026-07-20，見「已完成」）
 
@@ -262,6 +260,12 @@
 
 ## 已完成
 
+**暫付款沖銷憑單分享連結**（Yumin，接續列22） ✅ 已完成（2026-07-20）
+分支：`feature/yumin-voucher-share-link`
+開始：2026-07-20
+說明：比照列22——沖銷詳細頁（`my-voucher/[id]`，非草稿）標題列加「複製分享連結」按鈕（重用 `_components/ShareLinkButton.tsx`），複製中介轉址路由 `/funds-voucher/share/{id}`，依身份分流（`actions/share-link.ts` 新增 `resolveVoucherShareTarget`，循既有模式）：①目前關卡審核人（含群組成員）→沖銷審核頁 ②申請人本人→自己的沖銷詳細頁 ③有查閱權限者（管理員／`fv-review-div`/`fv-review-group` 權限／範本任一步驟審核人）→審核頁（非本關唯讀） ④皆非→提示頁（重用 `ShareNoAccess`）；草稿單一律回提示頁。處/課別回溯兩層：temp_voucher → funds_payment → funds_allocation（`getAllocationOrgContext`）；returnUrl 登入回跳走既有全站 proxy 機制、無需改動。**無資料庫結構變更、無正式機待執行 SQL。**
+實測（Playwright，dev DB，2026-07-20）：未登入 → `/login?returnUrl=%2Ffunds-voucher%2Fshare%2F18` ✓；申請人本人（user29）→ `/funds-voucher/my-voucher/18` ✓；管理員（user1）與財務長（user3，有 fv-review-*）→ `/funds-voucher/review/check/18` ✓；一般職員（user6，無任何沖銷審核權限）→ 停在 share 頁顯示「檢視權限」提示 ✓；不存在的單 → 提示頁 ✓；沖銷詳細頁（user29 開 my-voucher/18）看得到「複製分享連結」按鈕 ✓。純讀取驗證、未寫入測試資料。
+
 **核准金額下修通知申請人**（Yumin，優先序2 列20） ✅ 已完成（2026-07-20）
 分支：`feature/yumin-downgrade-notify`
 開始：2026-07-20
@@ -271,7 +275,7 @@
 **一鍵複製分享連結給主管審核**（Yumin，優先序2 列22，Layla 回饋） ✅ 已完成（2026-07-20）
 分支：`feature/yumin-share-review-link`
 開始：2026-07-20
-說明：職員詳細頁（資金分配編輯/詳細頁 EditFundsForm＋付款憑單詳細頁 `my-payment/[id]`，非草稿）加「複製分享連結」按鈕（共用 `_components/ShareLinkButton.tsx`），複製的是**中介轉址路由** `/funds-allocation/share/{id}`／`/funds-payment/share/{id}`（Q22c 拍板），依身份分流（`actions/share-link.ts`）：①目前關卡審核人（含群組成員）→審核頁可操作 ②申請人本人→自己的單子頁 ③有查閱權限者（管理員／fa-review-*／fp-review-* 子 Tab 權限／範本任一步驟審核人）→審核頁唯讀 ④皆非→提示頁「你沒有這張單的檢視權限」＋回首頁（`_components/ShareNoAccess.tsx`）。**returnUrl 登入回跳**：proxy 攔未登入帶 `?returnUrl=`，Email 登入（hidden input）與 Google OAuth（短效 cookie `google_oauth_return`）登入後皆跳回原頁，`lib/returnUrl.ts` 的 `safeReturnUrl` 只收站內路徑擋 open redirect。範圍＝資金分配＋付款憑單；沖銷 2026-07-20 拍板也要做（見待開發 [暫付款沖銷憑單分享連結]）。**無資料庫結構變更、無正式機待執行 SQL。**
+說明：職員詳細頁（資金分配編輯/詳細頁 EditFundsForm＋付款憑單詳細頁 `my-payment/[id]`，非草稿）加「複製分享連結」按鈕（共用 `_components/ShareLinkButton.tsx`），複製的是**中介轉址路由** `/funds-allocation/share/{id}`／`/funds-payment/share/{id}`（Q22c 拍板），依身份分流（`actions/share-link.ts`）：①目前關卡審核人（含群組成員）→審核頁可操作 ②申請人本人→自己的單子頁 ③有查閱權限者（管理員／fa-review-*／fp-review-* 子 Tab 權限／範本任一步驟審核人）→審核頁唯讀 ④皆非→提示頁「你沒有這張單的檢視權限」＋回首頁（`_components/ShareNoAccess.tsx`）。**returnUrl 登入回跳**：proxy 攔未登入帶 `?returnUrl=`，Email 登入（hidden input）與 Google OAuth（短效 cookie `google_oauth_return`）登入後皆跳回原頁，`lib/returnUrl.ts` 的 `safeReturnUrl` 只收站內路徑擋 open redirect。範圍＝資金分配＋付款憑單；沖銷已於同日另案完成（見上方 [暫付款沖銷憑單分享連結]）。**無資料庫結構變更、無正式機待執行 SQL。**
 影響範圍確認（Playwright 實測 11 項全數通過＋補測查閱者情境，localhost:3000，2026-07-20）：
 - [x] 未登入開 share 連結 → `/login?returnUrl=` → Email 登入後自動回跳原 share 路由
 - [x] 目前關卡審核人 → 資金分配／付款憑單審核頁（可操作）
