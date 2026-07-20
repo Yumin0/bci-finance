@@ -219,11 +219,8 @@ export default function VoucherDetailPage({ params }: { params: Promise<{ id: st
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>
           暫付款沖銷憑單{record!.serial_number ? ` ${record!.serial_number}` : ''}
         </h1>
-        {!isDraft && (
-          <span style={{ marginLeft: 'auto' }}>
-            <ShareLinkButton path={`/funds-voucher/share/${record!.id}`} />
-          </span>
-        )}
+        {/* 一鍵複製分享連結（接續列22）：位置比照付款憑單詳細頁＝標題正右邊；草稿還沒送審沒有分享意義 */}
+        {!isDraft && <ShareLinkButton path={`/funds-voucher/share/${record!.id}`} />}
         {isDraft && (
           <Button
             type="button"

@@ -263,7 +263,7 @@
 **暫付款沖銷憑單分享連結**（Yumin，接續列22） ✅ 已完成（2026-07-20）
 分支：`feature/yumin-voucher-share-link`
 開始：2026-07-20
-說明：比照列22——沖銷詳細頁（`my-voucher/[id]`，非草稿）標題列加「複製分享連結」按鈕（重用 `_components/ShareLinkButton.tsx`），複製中介轉址路由 `/funds-voucher/share/{id}`，依身份分流（`actions/share-link.ts` 新增 `resolveVoucherShareTarget`，循既有模式）：①目前關卡審核人（含群組成員）→沖銷審核頁 ②申請人本人→自己的沖銷詳細頁 ③有查閱權限者（管理員／`fv-review-div`/`fv-review-group` 權限／範本任一步驟審核人）→審核頁（非本關唯讀） ④皆非→提示頁（重用 `ShareNoAccess`）；草稿單一律回提示頁。處/課別回溯兩層：temp_voucher → funds_payment → funds_allocation（`getAllocationOrgContext`）；returnUrl 登入回跳走既有全站 proxy 機制、無需改動。**無資料庫結構變更、無正式機待執行 SQL。**
+說明：比照列22——沖銷詳細頁（`my-voucher/[id]`，非草稿）標題正右邊加「複製分享連結」按鈕（位置比照付款憑單詳細頁；三頁位置差異 Yumin 拍板：兩個詳細頁統一標題正右邊、資金分配編輯頁維持底部按鈕列與「另存為我的範本」並排——該頁動作鈕本來就集中底部；重用 `_components/ShareLinkButton.tsx`），複製中介轉址路由 `/funds-voucher/share/{id}`，依身份分流（`actions/share-link.ts` 新增 `resolveVoucherShareTarget`，循既有模式）：①目前關卡審核人（含群組成員）→沖銷審核頁 ②申請人本人→自己的沖銷詳細頁 ③有查閱權限者（管理員／`fv-review-div`/`fv-review-group` 權限／範本任一步驟審核人）→審核頁（非本關唯讀） ④皆非→提示頁（重用 `ShareNoAccess`）；草稿單一律回提示頁。處/課別回溯兩層：temp_voucher → funds_payment → funds_allocation（`getAllocationOrgContext`）；returnUrl 登入回跳走既有全站 proxy 機制、無需改動。**無資料庫結構變更、無正式機待執行 SQL。**
 實測（Playwright，dev DB，2026-07-20）：未登入 → `/login?returnUrl=%2Ffunds-voucher%2Fshare%2F18` ✓；申請人本人（user29）→ `/funds-voucher/my-voucher/18` ✓；管理員（user1）與財務長（user3，有 fv-review-*）→ `/funds-voucher/review/check/18` ✓；一般職員（user6，無任何沖銷審核權限）→ 停在 share 頁顯示「檢視權限」提示 ✓；不存在的單 → 提示頁 ✓；沖銷詳細頁（user29 開 my-voucher/18）看得到「複製分享連結」按鈕 ✓。純讀取驗證、未寫入測試資料。
 
 **核准金額下修通知申請人**（Yumin，優先序2 列20） ✅ 已完成（2026-07-20）
