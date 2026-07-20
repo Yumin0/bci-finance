@@ -3,7 +3,7 @@
 import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import { getSession } from '@/lib/session'
 import { notifyReviewersForStep } from './notifications'
-import { getAllocationOrgContext } from './approval-flow'
+import { getAllocationOrgContext, checkCanReviewStep } from './approval-flow'
 
 // 注意不可用 maybeSingle()：若同時存在多個啟用中的暫付款範本，
 // maybeSingle 會回傳錯誤且被靜默忽略，導致 flow_template_id 存成 null、憑單無人可審
@@ -205,6 +205,93 @@ export async function submitTempVoucher(id: number): Promise<{ error: string | n
     })().catch(e => console.error('Notification error:', e))
   }
 
+  return { error: null }
+}
+
+// 審核人於審核頁直接修改沖銷憑單（比照付款憑單 updatePaymentAsReviewer）。
+// 金額欄（未稅金額/稅額/總額）與明細組數不可異動——沖銷金額＝各組總額加總，
+// 改金額等於改沖銷金額；沖銷單審核進度沒有核准金額欄，金額不同意一律退回由申請人改。
+// 前端已鎖唯讀、不可增刪組，這裡是直接呼叫 action 的最後防線；amount 一律不更新
+export async function updateTempVoucherAsReviewer(
+  id: number,
+  fields: Record<string, string>,
+  extraData: Record<string, string>
+): Promise<{ error: string | null }> {
+  const session = await getSession()
+  if (!session) return { error: '請先登入' }
+
+  const { data: voucher } = await supabase
+    .from('temp_vouchers')
+    .select('status, current_step, flow_template_id, funds_payment_id, extra_data')
+    .eq('id', id)
+    .single()
+  if (!voucher) return { error: '找不到此暫付款沖銷憑單' }
+  if (voucher.status !== 'pending' || voucher.current_step == null) {
+    return { error: '只有審核中的暫付款沖銷憑單可以由審核人修改' }
+  }
+
+  const MONEY_LABELS = ['未稅金額', '稅額', '總額']
+  const storedExtra = (voucher.extra_data ?? {}) as Record<string, string>
+  for (const key of Object.keys(extraData)) {
+    if (!key.startsWith('__group_') || !storedExtra[key]) continue
+    let oldArr: Record<string, string>[] = []
+    let newArr: Record<string, string>[] = []
+    try { oldArr = JSON.parse(storedExtra[key]) } catch { /* empty */ }
+    try { newArr = JSON.parse(extraData[key]) } catch { /* empty */ }
+    const moneyChanged =
+      oldArr.length !== newArr.length ||
+      oldArr.some((row, i) => MONEY_LABELS.some(l => (row[l] ?? '') !== (newArr[i]?.[l] ?? '')))
+    if (moneyChanged) {
+      return { error: '審核人不可直接修改付款明細的金額或增刪明細組。金額有問題時請按「不核准」退回，由申請人修改後重新送審。' }
+    }
+  }
+
+  const { data: stepDef } = await supabase
+    .from('approval_flow_steps')
+    .select('reviewer_type, role_type_id, org_unit_type, system_role_id, approval_group_id')
+    .eq('template_id', voucher.flow_template_id)
+    .eq('step_number', voucher.current_step)
+    .limit(1)
+    .maybeSingle()
+  if (!stepDef) return { error: '找不到目前的審核關卡設定' }
+
+  // 課長/處長（org_role）步驟的處/課別回溯兩層：temp_voucher → funds_payment → funds_allocation
+  let allocationId: number | null = null
+  if (voucher.funds_payment_id) {
+    const { data: payment } = await supabase
+      .from('funds_payment')
+      .select('funds_allocation_id')
+      .eq('id', voucher.funds_payment_id)
+      .single()
+    allocationId = payment?.funds_allocation_id ?? null
+  }
+  const orgContext = await getAllocationOrgContext(allocationId)
+  const canReview = await checkCanReviewStep({
+    userId: Number(session.userId),
+    stepDef: stepDef as {
+      reviewer_type: 'org_role' | 'system_role' | 'approval_group'
+      role_type_id: number | null
+      org_unit_type: string | null
+      system_role_id: number | null
+      approval_group_id: number | null
+    },
+    applyDivisionId: orgContext.applyDivisionId,
+    applySectionId: orgContext.applySectionId,
+  })
+  if (!canReview) return { error: '你不是目前關卡的審核人，無法修改此暫付款沖銷憑單' }
+
+  const { error } = await supabase
+    .from('temp_vouchers')
+    .update({
+      ...('date' in fields ? { date: fields['date'] || null } : {}),
+      ...('note' in fields ? { note: fields['note'] || null } : {}),
+      extra_data: Object.keys(extraData).length > 0 ? extraData : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('status', 'pending')
+
+  if (error) return { error: error.message }
   return { error: null }
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ApprovalRecord, FormBlock, FormSchemaRow, FormSlot, FundAttachment, StepDecision } from '@/lib/types'
 import { getAttachmentsByTempVoucherId, getVoucherInheritedAttachments } from '@/app/actions/attachments'
@@ -19,6 +19,8 @@ import ErrorDialog from '@/app/_components/ErrorDialog'
 import ReviewProgressBlock from '@/app/_components/ReviewProgressBlock'
 import PaymentSummaryCard, { VoucherParentPayment, VOUCHER_PARENT_PAYMENT_COLUMNS } from '@/app/funds-voucher/_components/PaymentSummaryCard'
 import VoucherReturnSummary from '@/app/funds-voucher/_components/VoucherReturnSummary'
+import VoucherEditForm from '@/app/funds-voucher/_components/VoucherEditForm'
+import ChangeLogModal from '@/app/funds-allocation/_components/ChangeLogModal'
 import { paidAmountOf, voucherAmountOf } from '@/lib/voucherReturnAmount'
 
 type StepDef = {
@@ -125,6 +127,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
   const [pastRecords, setPastRecords] = useState<ApprovalRecord[]>([])
   const [schema, setSchema] = useState<FormBlock[]>([])
   const [userId, setUserId] = useState<number | null>(null)
+  const [userName, setUserName] = useState<string>('')
   const [canReviewStep, setCanReviewStep] = useState(false)
   const [loading, setLoading] = useState(true)
   const [decision, setDecision] = useState<StepDecision>(null)
@@ -136,9 +139,12 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
   const [error, setError] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<FundAttachment[]>([])
   const [parentAttachments, setParentAttachments] = useState<(FundAttachment & { tag?: string })[]>([])
+  const [changeLogOpen, setChangeLogOpen] = useState(false)
+  // 審核人儲存變更後：await load() 重抓最新 record 再 bump key 重建表單，
+  // 修正「先重建表單吃到舊 record」的競速（比照資金分配／付款憑單審核頁）
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  useEffect(() => {
-    async function load() {
+  const load = useCallback(async () => {
       const { id } = await params
       const numId = Number(id)
 
@@ -150,6 +156,7 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
         getMySession(),
       ])
       setUserId(session.userId)
+      setUserName(session.name ?? '')
 
       if (recRes.error) { setError(recRes.error.message); setLoading(false); return }
 
@@ -214,11 +221,14 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
       }
 
       setLoading(false)
-    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params])
+
+  useEffect(() => {
     load()
     getFormSchemas().then(s => setSchema(s.temp_voucher))
     getPaymentCategoryOptions().then(setCategoryOptions)
-  }, [params])
+  }, [load])
 
   const steps = record?.approval_flow_templates?.approval_flow_steps?.slice().sort((a, b) => a.step_number - b.step_number) ?? []
   const currentStep = record?.current_step ?? null
@@ -264,10 +274,15 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
 
   return (
     <div className="flex flex-col gap-6">
+      <ChangeLogModal tempVoucherId={record.id} open={changeLogOpen} onClose={() => setChangeLogOpen(false)} />
+
       {/* 頁面標題 */}
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" onClick={() => router.back()}>← 返回</Button>
-        <h1 className="text-xl font-bold text-foreground">審核暫付款沖銷憑單{record.serial_number ? ` ${record.serial_number}` : ''}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => router.back()}>← 返回</Button>
+          <h1 className="text-xl font-bold text-foreground">審核暫付款沖銷憑單{record.serial_number ? ` ${record.serial_number}` : ''}</h1>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setChangeLogOpen(true)}>變更歷程</Button>
       </div>
 
       {/* 審核送出被擋改用全站共用中央彈窗 */}
@@ -278,7 +293,19 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
         <PaymentSummaryCard payment={record.funds_payment} voucherTotal={voucherTotal} />
       )}
 
-      {/* Schema 欄位區塊 */}
+      {/* 表單區：目前關卡審核人看可編輯版（金額鎖唯讀、附件可增刪、儲存記變更歷程），其他人看唯讀版 */}
+      {canReview && schema.length > 0 ? (
+        <VoucherEditForm
+          key={refreshKey}
+          record={record}
+          schema={schema}
+          userId={userId}
+          userName={userName}
+          parentAttachments={parentAttachments}
+          onSaveSuccess={async () => { await load(); setRefreshKey(k => k + 1) }}
+        />
+      ) : (
+      <>
       {schema.map(block => {
         // 群組區塊（付款明細多組）：有群組資料時以表格逐組顯示，非群組列照常
         const groupRowIds = new Set(getGroupRows(block).map(r => r.id))
@@ -318,6 +345,8 @@ export default function VoucherReviewCheckPage({ params }: { params: Promise<{ i
           </Card>
         )
       })}
+      </>
+      )}
 
       {/* 審核進度（比照筑今一列式排版，共用元件；沖銷群組步驟顯示付款分類、不顯示核准金額） */}
       <ReviewProgressBlock

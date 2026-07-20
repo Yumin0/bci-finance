@@ -32,11 +32,13 @@ function groupLogs(logs: EditLogEntry[]): Group[] {
 export default function ChangeLogModal({
   fundsAllocationId,
   fundsPaymentId,
+  tempVoucherId,
   open,
   onClose,
 }: {
   fundsAllocationId?: number
   fundsPaymentId?: number
+  tempVoucherId?: number
   open: boolean
   onClose: () => void
 }) {
@@ -46,11 +48,11 @@ export default function ChangeLogModal({
   useEffect(() => {
     if (!open) return
     setLoading(true)
-    getEditLogs({ fundsAllocationId, fundsPaymentId }).then(data => {
+    getEditLogs({ fundsAllocationId, fundsPaymentId, tempVoucherId }).then(data => {
       setLogs(data)
       setLoading(false)
     })
-  }, [open, fundsAllocationId, fundsPaymentId])
+  }, [open, fundsAllocationId, fundsPaymentId, tempVoucherId])
 
   if (!open) return null
 

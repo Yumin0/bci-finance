@@ -260,6 +260,18 @@
 
 ## 已完成
 
+**暫付款沖銷審核頁可編輯＋審核階段附件增刪**（Yumin，優化第二批第三節 a 第二批） ✅ 已完成（2026-07-20）
+分支：`feature/yumin-voucher-reviewer-edit`
+開始：2026-07-20
+說明：比照付款憑單（2026-07-19 第一批）把「審核人可在審核頁直接編輯」搬到暫付款沖銷憑單，補齊 7/15-16 追蹤表列11（沖銷審核編輯同步）與列12（夾帶檔案任何審核階段皆可）的最後缺口。新元件 `funds-voucher/_components/VoucherEditForm.tsx`（審核頁專用；沖銷無草稿編輯頁可抽，依建立頁排版＋PaymentEditForm 儲存/diff 模式新寫），目前關卡審核人（含群組成員）看到可編輯表單、其他人照舊唯讀。**金額欄（未稅金額/稅額/總額）鎖唯讀、不可增刪明細組、`amount` 一律不更新**（沿用 2026-07-19 Yumin 拍板：沖銷金額＝各組總額加總，且沖銷審核進度沒有核准金額欄，金額有問題一律「不核准」退回由申請人改）；**附件欄位在審核頁可增刪**（上游兩層附件照常唯讀對照）。「儲存變更」走新 server action `updateTempVoucherAsReviewer`（`actions/temp-voucher.ts`：驗 pending＋目前關卡審核人（處/課別回溯兩層 temp_voucher→funds_payment→funds_allocation）＋比對 incoming `__group_` 金額 label 值被改直接擋），每次儲存記欄位級變更歷程（`allocation_edit_logs.temp_voucher_id`——7/19 建表 SQL 已含此欄，dev/正式皆已就緒，**本次無資料庫結構變更、無正式機待執行 SQL**），審核頁右上加「變更歷程」按鈕（`ChangeLogModal` 加 `tempVoucherId` prop）；儲存後 `await load()` 再 bump `refreshKey` 即時刷新（同資金分配/付款憑單審核頁）。舊單無 `__group_` 資料時群組列照一般列渲染、不憑空生出金額列；`buildExtraData` 以既有 extra_data 為底合併，保留對不上表單欄位的舊 key。
+影響範圍確認：
+- [x] /funds-voucher/review/check/[id]（審核人可編輯表單＋附件增刪＋變更歷程按鈕＋儲存後即時刷新；非本關維持唯讀）
+- [x] /funds-voucher/my-voucher/add/[id]（未改動，建立頁行為不變）
+- [x] actions/temp-voucher.ts（updateTempVoucherAsReviewer：pending／審核人身分／金額防線）
+- [x] actions/edit-logs.ts（tempVoucherId 寫入實測通過，無需改動）
+- [x] ChangeLogModal（tempVoucherId prop，資金分配/付款憑單兩個既有使用點不受影響）
+實測（Playwright，dev DB #19 pending 第4關，2026-07-20）：群組成員（Yumin）開審核頁見可編輯表單＋儲存變更/變更歷程按鈕 ✓；群組表格 8 個 input 中 6 個金額欄唯讀、無新增/刪除組按鈕 ✓；改第1組摘要＋補傳附件→儲存→畫面即時刷新帶新值、附件仍在 ✓；DB `amount` 不變（100）、`extra_data` 更新、`allocation_edit_logs` 寫入 2 筆（欄位 diff＋新增附件）、`fund_attachments` 寫入 slot「上傳單據」✓；變更歷程 Modal 顯示「第 4 步審核中」紅綠 diff ✓；非群組成員（user4）同頁維持唯讀無儲存鈕 ✓；npm run build 通過；測試資料已全數還原（含誤傳頭像檢查：avatar_url 未被動到）。測試截圖：桌面「沖銷審核可編輯測試截圖」資料夾。
+
 **Q6 國內公司隱藏手續費/稅額選擇/稅額三欄**（Yumin，優先序1 Q6） ✅ 已完成（2026-07-20）
 分支：`feature/yumin-q6-domestic-company-hide-tax`
 開始：2026-07-20
