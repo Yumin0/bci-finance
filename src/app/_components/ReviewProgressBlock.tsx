@@ -114,12 +114,22 @@ export default function ReviewProgressBlock({
         const reviewerName = isDone && past!.reviewer_id ? reviewerNames?.[past!.reviewer_id] : undefined
 
         // 不核准 / 核准 兩顆 radio（比照筑今順序：不核准在前）
-        // 選中時上色（核准＝綠、不核准＝紅，沿用 QuickReviewButtons 色票），已完成關卡一眼看得出結果（2026-07-21 列32）
+        // 選中時整顆做成彩色藥丸（核准＝綠、不核准＝紅，沿用 QuickReviewButtons 色票），
+        // 不只是文字上色——要連圈選本身都看得出顏色，不用盯著看才分得出選哪個（2026-07-21 列32，依職員回饋加強）
         const radios = (['rejected', 'approved'] as const).map(val => {
           const isSelected = rowDecision === val
           const selectedColor = val === 'approved' ? '#50cd89' : '#f1416c'
+          const selectedBg = val === 'approved' ? 'rgba(80, 201, 137, 0.15)' : 'rgba(241, 65, 108, 0.12)'
           return (
-            <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: editable ? 'pointer' : 'default' }}>
+            <label
+              key={val}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, fontSize: 14,
+                cursor: editable ? 'pointer' : 'default',
+                padding: '3px 10px', borderRadius: 6,
+                background: isSelected ? selectedBg : undefined,
+              }}
+            >
               <input
                 type="radio"
                 name={`decision-${step.step_number}`}

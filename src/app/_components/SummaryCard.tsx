@@ -15,29 +15,28 @@ export default function SummaryCard({
       borderRadius: 10, background: 'var(--bg-card)', fontSize: 13,
     }}>
       <div style={{ fontWeight: 600, color: 'var(--text-title)', marginBottom: 10 }}>{title}</div>
-      {/* 欄位改表格對齊（2026-07-21 列33）：長短不一的標籤/值不再用 flex 自動換行，改成表格逐欄縱向對齊 */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {fields.map(([label]) => (
-                <th key={label} style={{ textAlign: 'left', padding: '0 20px 6px 0', whiteSpace: 'nowrap', fontWeight: 500, fontSize: 12, color: 'var(--text-muted)' }}>
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              {fields.map(([label, value]) => (
-                <td key={label} style={{ textAlign: 'left', padding: '0 20px 0 0', whiteSpace: 'nowrap', fontWeight: 500, fontSize: 13, color: 'var(--text-body)' }}>
-                  {value}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      {/* 欄位改表格對齊（2026-07-21 列33）：長短不一的標籤/值不再用 flex 自動換行，改成表格逐欄縱向對齊；
+          table-layout:fixed 讓欄位平分寬度，字太長就換下一行顯示，不用往右滑、也不會被截掉 */}
+      <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
+        <thead>
+          <tr>
+            {fields.map(([label]) => (
+              <th key={label} style={{ textAlign: 'left', padding: '0 20px 6px 0', fontWeight: 500, fontSize: 12, color: 'var(--text-muted)' }}>
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            {fields.map(([label, value]) => (
+              <td key={label} style={{ textAlign: 'left', padding: '0 20px 0 0', wordBreak: 'break-word', fontWeight: 500, fontSize: 13, color: 'var(--text-body)' }}>
+                {value}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
       <div style={{
         display: 'flex', gap: 24, rowGap: 8, flexWrap: 'wrap', marginTop: 10, paddingTop: 10,
         borderTop: '1px dashed var(--border-color)',
