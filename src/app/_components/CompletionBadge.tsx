@@ -18,10 +18,10 @@ export function RemainingBadge({ remaining }: { remaining: number }) {
   if (remaining <= 0) return null
   return (
     <span style={{
-      display: 'inline-block', marginLeft: 6, fontSize: 11, padding: '2px 8px', borderRadius: 4,
+      display: 'inline-block', fontSize: 11, padding: '2px 8px', borderRadius: 4,
       background: 'rgba(255, 159, 10, 0.15)', color: '#c2740a', fontWeight: 600, whiteSpace: 'nowrap',
     }}>
-      尚有剩餘
+      尚有餘額可轉付款單
     </span>
   )
 }

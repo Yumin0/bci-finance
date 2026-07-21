@@ -137,7 +137,20 @@ export default function ReviewProgressBlock({
                 checked={isSelected}
                 disabled={!editable}
                 onChange={() => editable && onDecisionChange?.(val)}
-                style={isSelected ? { accentColor: selectedColor } : undefined}
+                // 不用瀏覽器原生樣式＋accent-color（部分瀏覽器/系統會在圈選外緣多畫一圈深色邊框，看起來像黑圈）
+                // 直接關掉原生外觀、自己畫圓圈，選中即整顆填滿指定顏色，未選中維持素灰圈
+                style={{
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  width: 16,
+                  height: 16,
+                  margin: 0,
+                  borderRadius: '50%',
+                  border: `2px solid ${isSelected ? selectedColor : '#9ca3af'}`,
+                  background: isSelected ? selectedColor : 'transparent',
+                  cursor: editable ? 'pointer' : 'default',
+                  flexShrink: 0,
+                }}
               />
               <span style={isSelected ? { color: selectedColor, fontWeight: 600 } : undefined}>
                 {val === 'approved' ? '核准' : '不核准'}
