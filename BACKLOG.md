@@ -7,16 +7,6 @@
 
 ## 進行中
 
-**審核狀態顯示優化：核准顏色＋對照卡片表格化＋完成度標籤**（Yumin）
-分支：`feature/yumin-review-status-display`
-開始：2026-07-21
-說明：第三批職員回饋列32/33/35，需求文件見 `docs/第三批職員回饋_列31至37需求整理與決議_2026-07-21.md`（列34/36核心機制與列31待後續批次）
-影響範圍確認：
-- [ ] `ReviewProgressBlock` 核准/不核准選中上色（6處：3審核頁＋3申請人唯讀檢視）
-- [ ] `SummaryCard` 欄位改表格對齊（7處：付款憑單3頁＋暫付款沖銷4處）
-- [ ] 資金分配列表新增「尚有剩餘」完成度標籤
-- [ ] 付款憑單列表（預支類）新增「沖銷狀態」標籤
-
 **UI 一致性重構：導入 shadcn Card / Table 組件**（Riku）
 分支：`feature/riku-ui-consistency`
 開始：2026-06-04
@@ -269,6 +259,17 @@
 ---
 
 ## 已完成
+
+**審核狀態顯示優化：核准顏色＋對照卡片表格化＋完成度標籤**（Yumin，第三批職員回饋列32/33/35） ✅ 已完成（2026-07-21）
+分支：`feature/yumin-review-status-display`
+開始：2026-07-21
+說明：需求文件見 `docs/第三批職員回饋_列31至37需求整理與決議_2026-07-21.md`（列34/36核心機制與列31待後續批次）。列32：`ReviewProgressBlock` 核准/不核准選中時整顆做成彩色藥丸（背景+文字，核准綠/不核准紅），並關閉 radio 原生外觀自畫圓圈（避免部分瀏覽器 accent-color 外緣多畫一圈深色邊框、職員反映像黑圈）。列33：`SummaryCard` 欄位排版改 `table-layout: fixed` 表格對齊，字太長自動換行不用橫向滑動。列35：新增共用 `CompletionBadge.tsx`（`RemainingBadge`／`VoucherStatusBadge`／`BadgeStack`），資金分配列表加「尚有餘額可轉付款單」標籤、付款憑單列表（預支類）加「沖銷狀態」標籤（未建立/審核中/已完成，批次查詢 `temp_vouchers`），兩個標籤都疊在「狀態」欄裡（`BadgeStack` 用 flex column 直向排列，不另開一欄，避免擠壓其他欄位或視覺重疊）。staging 實測發現並修正：`RemainingBadge` 殘留舊 `marginLeft:6` 導致跟狀態標籤對不齊（已移除）。
+影響範圍確認：
+- [x] `ReviewProgressBlock` 核准/不核准選中上色（6處：3審核頁＋3申請人唯讀檢視）
+- [x] `SummaryCard` 欄位改表格對齊（7處：付款憑單3頁＋暫付款沖銷4處）
+- [x] 資金分配列表新增「尚有餘額可轉付款單」完成度標籤（my-funds/all/首頁）
+- [x] 付款憑單列表（預支類）新增「沖銷狀態」標籤（my-payment/all/首頁）
+無資料庫結構變更、無正式機待執行 SQL。
 
 **暫付款沖銷審核頁可編輯＋審核階段附件增刪**（Yumin，優化第二批第三節 a 第二批） ✅ 已完成（2026-07-20）
 分支：`feature/yumin-voucher-reviewer-edit`
