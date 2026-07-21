@@ -808,7 +808,7 @@ export async function getAllocationsForOrgRoleByWeek(userId: number, weekStart: 
   const reviewerInfo = await getReviewerInfo(userId)
   const { data } = await supabase
     .from('funds_allocation')
-    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT}))`)
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT})), funds_payment(status, amount, approved_amount)`)
     .gte('date', weekStart)
     .lte('date', weekEnd)
     .order('date', { ascending: false })
@@ -850,6 +850,7 @@ export async function getAllocationsForOrgRoleByWeek(userId: number, weekStart: 
         : undefined,
       total_steps: steps.length,
       is_pending_here: isPendingHere,
+      remainingAmount: calcRemainingAmount(r.approved_amount as number | null, (r.funds_payment as PaymentForRemaining[]) ?? []),
     }
   })
 }
@@ -863,7 +864,7 @@ export async function getAllocationsForApprovalGroupByWeek(userId: number | null
 
   const { data } = await supabase
     .from('funds_allocation')
-    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT}))`)
+    .select(`*, approval_flow_templates(name, approval_flow_steps(${STEP_SELECT})), funds_payment(status, amount, approved_amount)`)
     .gte('date', weekStart)
     .lte('date', weekEnd)
     .order('date', { ascending: false })
@@ -893,6 +894,7 @@ export async function getAllocationsForApprovalGroupByWeek(userId: number | null
         : undefined,
       total_steps: steps.length,
       is_pending_here: isPendingHere,
+      remainingAmount: calcRemainingAmount(r.approved_amount as number | null, (r.funds_payment as PaymentForRemaining[]) ?? []),
     }
   })
 }

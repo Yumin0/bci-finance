@@ -40,7 +40,7 @@ const REVIEW_COLUMNS: { key: ReviewColKey; label: string }[] = [
   { key: 'name', label: '項目' },
 ]
 const REVIEW_COL_KEYS = REVIEW_COLUMNS.map(c => c.key)
-// 預設顯示：處別/課別/剩餘金額 先收起來（剩餘金額目前為佔位「-」）
+// 預設顯示：處別/課別/剩餘金額 先收起來，減少往右滑才看得到核准鈕的情況
 const REVIEW_DEFAULT_COLS: ReviewColKey[] = [
   'status', 'serial', 'applicant', 'role', 'requestedAmount', 'approvedAmount', 'expense', 'name',
 ]
@@ -60,6 +60,7 @@ export type AllocationItem = FundsAllocation & {
   step_name: string | undefined
   total_steps?: number
   is_pending_here?: boolean
+  remainingAmount?: number
 }
 
 export type HistoryItem = ApprovalRecord & {
@@ -508,7 +509,7 @@ function AccountGroupedList({
                           {visibleCols.has('role') && <TableCell className="w-32">{r.apply_role ?? '-'}</TableCell>}
                           {visibleCols.has('requestedAmount') && <TableCell>{r.amount.toLocaleString()}</TableCell>}
                           {visibleCols.has('approvedAmount') && <TableCell>{r.approved_amount != null ? r.approved_amount.toLocaleString() : '-'}</TableCell>}
-                          {visibleCols.has('remainingAmount') && <TableCell>-</TableCell>}
+                          {visibleCols.has('remainingAmount') && <TableCell>{r.approved_amount != null ? (r.remainingAmount ?? 0).toLocaleString() : '-'}</TableCell>}
                           {visibleCols.has('expense') && <TableCell>{r.expense_item ?? '-'}</TableCell>}
                           {visibleCols.has('name') && <TableCell>{r.name}</TableCell>}
                           {showQuickActions && (

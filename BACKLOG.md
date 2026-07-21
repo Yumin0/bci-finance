@@ -126,8 +126,7 @@
 
 #### ~~[付款憑單區塊、列設定]~~ ✅ 已完成（Riku）
 
-#### [剩餘金額顯示（審核管理）]（Yumin）
-- **目標**：審核管理頁顯示剩餘可用金額，讓審核人一眼掌握預算狀況
+#### ~~[剩餘金額顯示（審核管理）]~~（Yumin）✅ 已完成（2026-07-21，見「已完成」）
 
 #### ~~[自定義狀態標籤名稱]~~ ✅ 已完成（2026-05-23）
 
@@ -259,6 +258,15 @@
 ---
 
 ## 已完成
+
+**剩餘金額顯示（審核管理）**（Yumin） ✅ 已完成（2026-07-21）
+分支：`feature/yumin-review-remaining-amount`
+開始：2026-07-21
+說明：審核管理頁（`/funds-allocation/review`）課、處長審核／諮詢議會／執行長／財務長四個 Tab 的「剩餘金額」欄位原本是寫死佔位符 `-`（UI 開關已做好、資料沒接上，程式註解也寫明是佔位），改為接上既有 `lib/fundsAllocationRemaining.ts` 的 `calcRemainingAmount`（核准金額－底下付款憑單佔用金額加總），與首頁/my-funds/all 三個列表已用的算法一致：`approved_amount` 為 null（尚未走過任何核准步驟）時仍顯示 `-`，有值就顯示真正剩餘。資料來源在 `actions/approval-flow.ts` 的 `getAllocationsForOrgRoleByWeek`／`getAllocationsForApprovalGroupByWeek` 補上 `funds_payment(status, amount, approved_amount)` join。範圍只做列表欄位（課處長／群組 Tab 的帳戶預算卡頭與審核操作頁本身的預算摘要，2026-07-21 討論後拆分為未來項目，未列入本次）。無資料庫結構變更、無正式機待執行 SQL。
+影響範圍確認：
+- [x] `actions/approval-flow.ts`（`getAllocationsForOrgRoleByWeek`／`getAllocationsForApprovalGroupByWeek`）
+- [x] `/funds-allocation/review`（`ReviewPageClient.tsx`，課處長／諮詢議會／執行長／財務長 Tab 共用同一個「剩餘金額」欄位渲染）
+實測（Playwright，dev DB，2026-07-21，登入 Yumin/user1）：課、處長審核 Tab 開啟「剩餘金額」欄 → 單號 20260722002 顯示核准 2,550／剩餘 350，與資料庫直接查詢（憑單佔用 500+500+550+500+100+50=2,200，2,550−2,200=350）核對一致；單號 20260722017 核准 5,000／剩餘 0（憑單佔用剛好 5,000）亦一致；`npx tsc --noEmit` 通過。
 
 **審核狀態顯示優化：核准顏色＋對照卡片表格化＋完成度標籤**（Yumin，第三批職員回饋列32/33/35） ✅ 已完成（2026-07-21）
 分支：`feature/yumin-review-status-display`
