@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { FundsPayment } from '@/lib/types'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import StatusBadge from '@/app/_components/StatusBadge'
-import { VoucherStatusBadge } from '@/app/_components/CompletionBadge'
+import { VoucherStatusBadge, BadgeStack } from '@/app/_components/CompletionBadge'
 import PageHeader from '@/app/_components/PageHeader'
 import WeekFilterBar, { useWeekFilter } from '@/app/_components/WeekFilterBar'
 import {
@@ -103,8 +103,10 @@ export default function MyPaymentTableView({
             {filtered.map((r) => (
               <TableRow key={r.id}>
                 <TableCell>
-                  <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
-                  {voucherStatuses?.[r.id] && <VoucherStatusBadge status={voucherStatuses[r.id]} />}
+                  <BadgeStack>
+                    <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
+                    {voucherStatuses?.[r.id] && <VoucherStatusBadge status={voucherStatuses[r.id]} />}
+                  </BadgeStack>
                 </TableCell>
                 <PaymentListCells r={r} payeeLabel={payeeLabel} />
               </TableRow>

@@ -4,6 +4,16 @@ import type { VoucherCompletionStatus } from '@/lib/paymentVoucherStatus'
 
 export type { VoucherCompletionStatus }
 
+// 狀態欄裡「主狀態 + 完成度標籤」的堆疊容器：明確用 flex column + gap 直向排列，
+// 不能只把兩個 inline-block 標籤直接相鄰塞在儲存格裡（欄寬不夠時會擠在一起甚至視覺重疊）
+export function BadgeStack({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+      {children}
+    </div>
+  )
+}
+
 export function RemainingBadge({ remaining }: { remaining: number }) {
   if (remaining <= 0) return null
   return (

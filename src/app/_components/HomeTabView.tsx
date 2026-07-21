@@ -7,7 +7,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import StatusBadge from '@/app/_components/StatusBadge'
-import { RemainingBadge, VoucherStatusBadge } from '@/app/_components/CompletionBadge'
+import { RemainingBadge, VoucherStatusBadge, BadgeStack } from '@/app/_components/CompletionBadge'
 import PageHeader from '@/app/_components/PageHeader'
 import ColumnPicker from '@/app/_components/ColumnPicker'
 import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
@@ -107,8 +107,10 @@ export default function HomeTabView({
               {fundsRecords.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>
-                    <StatusBadge module="funds_allocation" status={r.status} stepName={r.stepName} labelConfig={labelConfig} />
-                    {r.status === 'approved' && r.approved_amount != null && <RemainingBadge remaining={r.remainingAmount} />}
+                    <BadgeStack>
+                      <StatusBadge module="funds_allocation" status={r.status} stepName={r.stepName} labelConfig={labelConfig} />
+                      {r.status === 'approved' && r.approved_amount != null && <RemainingBadge remaining={r.remainingAmount} />}
+                    </BadgeStack>
                   </TableCell>
                   <TableCell>
                     <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className="text-sm text-primary underline underline-offset-4">
@@ -153,8 +155,10 @@ export default function HomeTabView({
               {paymentRecords.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>
-                    <StatusBadge module="payment_voucher" status={r.status} stepName={r.stepName} labelConfig={labelConfig} />
-                    {voucherStatuses?.[r.id] && <VoucherStatusBadge status={voucherStatuses[r.id]} />}
+                    <BadgeStack>
+                      <StatusBadge module="payment_voucher" status={r.status} stepName={r.stepName} labelConfig={labelConfig} />
+                      {voucherStatuses?.[r.id] && <VoucherStatusBadge status={voucherStatuses[r.id]} />}
+                    </BadgeStack>
                   </TableCell>
                   <PaymentListCells r={r} payeeLabel={payeeLabel} />
                 </TableRow>
