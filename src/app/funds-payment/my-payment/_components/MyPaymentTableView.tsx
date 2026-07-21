@@ -13,6 +13,7 @@ import {
   PaymentListCells,
   PAYMENT_LIST_COLUMNS_AFTER_STATUS,
 } from '@/app/funds-payment/_components/PaymentListCells'
+import type { VoucherCompletionStatus } from '@/lib/paymentVoucherStatus'
 
 type PaymentRow = FundsPayment & {
   approval_flow_templates: {
@@ -49,10 +50,12 @@ export default function MyPaymentTableView({
   records,
   labelConfig,
   payeeLabel,
+  voucherStatuses,
 }: {
   records: PaymentRow[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
+  voucherStatuses?: Record<number, VoucherCompletionStatus>
 }) {
   const [query, setQuery] = useState('')
   const weekFilter = useWeekFilter()
@@ -101,7 +104,7 @@ export default function MyPaymentTableView({
                 <TableCell>
                   <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
                 </TableCell>
-                <PaymentListCells r={r} payeeLabel={payeeLabel} />
+                <PaymentListCells r={r} payeeLabel={payeeLabel} voucherStatus={voucherStatuses?.[r.id]} />
               </TableRow>
             ))}
           </TableBody>

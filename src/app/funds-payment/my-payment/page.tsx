@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session'
 import { FundsPayment, FormSlot } from '@/lib/types'
 import { getStatusLabelConfig } from '@/app/actions/status-labels'
 import { getFormSchemas } from '@/app/actions/form-schema'
+import { getVoucherCompletionStatuses } from '@/lib/paymentVoucherStatus'
 import MyPaymentTableView from './_components/MyPaymentTableView'
 
 export default async function MyPaymentPage() {
@@ -35,10 +36,12 @@ export default async function MyPaymentPage() {
     approval_records: Array<{ step_name: string; decision: string }>
   })[]) ?? []
 
+  const voucherStatuses = await getVoucherCompletionStatuses(records)
+
   return (
     <>
       {error && <p style={{ color: '#dc2626' }}>載入失敗：{error.message}</p>}
-      <MyPaymentTableView records={records} labelConfig={labelConfig} payeeLabel={payeeLabel} />
+      <MyPaymentTableView records={records} labelConfig={labelConfig} payeeLabel={payeeLabel} voucherStatuses={voucherStatuses} />
     </>
   )
 }

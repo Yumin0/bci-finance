@@ -7,6 +7,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import StatusBadge from '@/app/_components/StatusBadge'
+import { RemainingBadge } from '@/app/_components/CompletionBadge'
 import PageHeader from '@/app/_components/PageHeader'
 import ColumnPicker from '@/app/_components/ColumnPicker'
 import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
@@ -16,6 +17,7 @@ import {
   PAYMENT_LIST_COLUMNS_AFTER_STATUS,
 } from '@/app/funds-payment/_components/PaymentListCells'
 import type { StatusLabelConfig } from '@/lib/status-label-config'
+import type { VoucherCompletionStatus } from '@/lib/paymentVoucherStatus'
 
 const LS_KEY = 'bci-funds-home-columns-v2'
 
@@ -41,12 +43,14 @@ export default function HomeTabView({
   voucherRecords,
   labelConfig,
   payeeLabel,
+  voucherStatuses,
 }: {
   fundsRecords: FundsAllocationRow[]
   paymentRecords: WithStep<FundsPayment>[]
   voucherRecords: WithStep<TempVoucherRow>[]
   labelConfig: StatusLabelConfig
   payeeLabel: string | null
+  voucherStatuses?: Record<number, VoucherCompletionStatus>
 }) {
   const [tab, setTab] = useState<Tab>('funds')
   const { visibleCols, toggleCol } = useColumnVisibility(LS_KEY, FUNDS_ALLOCATION_COLUMNS.map(c => c.key))
@@ -102,7 +106,10 @@ export default function HomeTabView({
               )}
               {fundsRecords.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell><StatusBadge module="funds_allocation" status={r.status} stepName={r.stepName} labelConfig={labelConfig} /></TableCell>
+                  <TableCell>
+                    <StatusBadge module="funds_allocation" status={r.status} stepName={r.stepName} labelConfig={labelConfig} />
+                    {r.status === 'approved' && r.approved_amount != null && <RemainingBadge remaining={r.remainingAmount} />}
+                  </TableCell>
                   <TableCell>
                     <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className="text-sm text-primary underline underline-offset-4">
                       {r.status === 'draft' ? '繼續編輯' : (r.serial_number ?? '-')}
@@ -146,7 +153,7 @@ export default function HomeTabView({
               {paymentRecords.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell><StatusBadge module="payment_voucher" status={r.status} stepName={r.stepName} labelConfig={labelConfig} /></TableCell>
-                  <PaymentListCells r={r} payeeLabel={payeeLabel} />
+                  <PaymentListCells r={r} payeeLabel={payeeLabel} voucherStatus={voucherStatuses?.[r.id]} />
                 </TableRow>
               ))}
             </TableBody>

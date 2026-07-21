@@ -114,19 +114,27 @@ export default function ReviewProgressBlock({
         const reviewerName = isDone && past!.reviewer_id ? reviewerNames?.[past!.reviewer_id] : undefined
 
         // 不核准 / 核准 兩顆 radio（比照筑今順序：不核准在前）
-        const radios = (['rejected', 'approved'] as const).map(val => (
-          <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: editable ? 'pointer' : 'default' }}>
-            <input
-              type="radio"
-              name={`decision-${step.step_number}`}
-              value={val}
-              checked={rowDecision === val}
-              disabled={!editable}
-              onChange={() => editable && onDecisionChange?.(val)}
-            />
-            {val === 'approved' ? '核准' : '不核准'}
-          </label>
-        ))
+        // 選中時上色（核准＝綠、不核准＝紅，沿用 QuickReviewButtons 色票），已完成關卡一眼看得出結果（2026-07-21 列32）
+        const radios = (['rejected', 'approved'] as const).map(val => {
+          const isSelected = rowDecision === val
+          const selectedColor = val === 'approved' ? '#50cd89' : '#f1416c'
+          return (
+            <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: editable ? 'pointer' : 'default' }}>
+              <input
+                type="radio"
+                name={`decision-${step.step_number}`}
+                value={val}
+                checked={isSelected}
+                disabled={!editable}
+                onChange={() => editable && onDecisionChange?.(val)}
+                style={isSelected ? { accentColor: selectedColor } : undefined}
+              />
+              <span style={isSelected ? { color: selectedColor, fontWeight: 600 } : undefined}>
+                {val === 'approved' ? '核准' : '不核准'}
+              </span>
+            </label>
+          )
+        })
 
         return (
           <div

@@ -15,12 +15,28 @@ export default function SummaryCard({
       borderRadius: 10, background: 'var(--bg-card)', fontSize: 13,
     }}>
       <div style={{ fontWeight: 600, color: 'var(--text-title)', marginBottom: 10 }}>{title}</div>
-      <div style={{ display: 'flex', gap: 24, rowGap: 8, flexWrap: 'wrap' }}>
-        {fields.map(([label, value]) => (
-          <span key={label} style={{ color: 'var(--text-muted)' }}>
-            {label} <strong style={{ color: 'var(--text-body)', fontWeight: 500 }}>{value}</strong>
-          </span>
-        ))}
+      {/* 欄位改表格對齊（2026-07-21 列33）：長短不一的標籤/值不再用 flex 自動換行，改成表格逐欄縱向對齊 */}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              {fields.map(([label]) => (
+                <th key={label} style={{ textAlign: 'left', padding: '0 20px 6px 0', whiteSpace: 'nowrap', fontWeight: 500, fontSize: 12, color: 'var(--text-muted)' }}>
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {fields.map(([label, value]) => (
+                <td key={label} style={{ textAlign: 'left', padding: '0 20px 0 0', whiteSpace: 'nowrap', fontWeight: 500, fontSize: 13, color: 'var(--text-body)' }}>
+                  {value}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
       </div>
       <div style={{
         display: 'flex', gap: 24, rowGap: 8, flexWrap: 'wrap', marginTop: 10, paddingTop: 10,

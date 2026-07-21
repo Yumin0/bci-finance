@@ -12,6 +12,7 @@ import {
   PaymentListCells,
   PAYMENT_LIST_COLUMNS_AFTER_STATUS,
 } from '@/app/funds-payment/_components/PaymentListCells'
+import type { VoucherCompletionStatus } from '@/lib/paymentVoucherStatus'
 import ExportCsvButton from './ExportCsvButton'
 
 type PaymentRow = FundsPayment & {
@@ -50,11 +51,13 @@ export default function AllPaymentTableView({
   labelConfig,
   canExport,
   payeeLabel,
+  voucherStatuses,
 }: {
   records: PaymentRow[]
   labelConfig: StatusLabelConfig
   canExport: boolean
   payeeLabel: string | null
+  voucherStatuses?: Record<number, VoucherCompletionStatus>
 }) {
   const [query, setQuery] = useState('')
 
@@ -106,7 +109,7 @@ export default function AllPaymentTableView({
                 <TableCell>
                   <StatusBadge module="payment_voucher" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
                 </TableCell>
-                <PaymentListCells r={r} payeeLabel={payeeLabel} />
+                <PaymentListCells r={r} payeeLabel={payeeLabel} voucherStatus={voucherStatuses?.[r.id]} />
               </TableRow>
             ))}
           </TableBody>

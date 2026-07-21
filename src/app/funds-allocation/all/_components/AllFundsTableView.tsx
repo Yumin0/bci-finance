@@ -10,6 +10,7 @@ import { FundsAllocation } from '@/lib/types'
 import { StatusLabelConfig } from '@/lib/status-label-config'
 import { FUNDS_ALLOCATION_COLUMNS } from '@/lib/fundsAllocationColumns'
 import StatusBadge from '@/app/_components/StatusBadge'
+import { RemainingBadge } from '@/app/_components/CompletionBadge'
 import PageHeader from '@/app/_components/PageHeader'
 import ColumnPicker from '@/app/_components/ColumnPicker'
 import { useColumnVisibility } from '@/app/_components/useColumnVisibility'
@@ -112,6 +113,7 @@ export default function AllFundsTableView({
               <TableRow key={r.id}>
                 <TableCell>
                   <StatusBadge module="funds_allocation" status={r.status} stepName={getStepName(r)} labelConfig={labelConfig} />
+                  {r.status === 'approved' && r.approved_amount != null && <RemainingBadge remaining={r.remainingAmount} />}
                 </TableCell>
                 <TableCell>
                   <Link href={`/funds-allocation/my-funds/edit/${r.id}`} className="text-sm text-primary underline underline-offset-4">

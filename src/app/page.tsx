@@ -5,6 +5,7 @@ import { getFormSchemas } from '@/app/actions/form-schema'
 import { FundsAllocation, FundsPayment, FormSlot } from '@/lib/types'
 import { resolveApplicantNames } from '@/lib/resolveApplicantNames'
 import { calcRemainingAmount, type PaymentForRemaining } from '@/lib/fundsAllocationRemaining'
+import { getVoucherCompletionStatuses } from '@/lib/paymentVoucherStatus'
 import HomeTabView from './_components/HomeTabView'
 
 const FUNDS_JOIN_SELECT = `*, approval_flow_templates(approval_flow_steps(step_name, step_number)), approval_records!funds_allocation_id(step_name, decision), funds_payment(status, amount, approved_amount)`
@@ -83,6 +84,7 @@ export default async function Home() {
     resolveApplicantNames(addStep(paymentResult.data) as (FundsPayment & { stepName: string | null })[]),
   ])
   const voucherRecords = addStep(voucherResult.data)
+  const voucherStatuses = await getVoucherCompletionStatuses(paymentRecords)
 
   return (
     <HomeTabView
@@ -91,6 +93,7 @@ export default async function Home() {
       voucherRecords={voucherRecords}
       labelConfig={labelConfig}
       payeeLabel={payeeLabel}
+      voucherStatuses={voucherStatuses}
     />
   )
 }
